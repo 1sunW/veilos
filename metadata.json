@@ -1,0 +1,8 @@
+{
+  "name": "VeilOS",
+  "description": "A sleek, feature-packed Web Operating System with multi-window management, proxy web browser with Chrome extensions via Sapphire, tab cloaking, blob & about:blank cloaking, search engine selection, shield protection, games, movies, and desktop app ecosystem.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

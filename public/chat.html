@@ -1,0 +1,2525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Onyx Chat</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel Standalone for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Firebase Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <!-- Google Fonts: Plus Jakarta Sans & Space Grotesk -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+
+  <style>
+    *, ::before, ::after {
+      font-family: 'Plus Jakarta Sans', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #000000;
+      color: #e2e8f0;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3f3f46;
+    }
+    .dot-owner { color: #f43f5e; }
+    .dot-developer { color: #3b82f6; }
+    .dot-admin { color: #d946ef; }
+    .dot-moderator { color: #c084fc; }
+    .dot-plus { color: #ec4899; }
+    .dot-beta { color: #14b8a6; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // Firebase Configuration & Initialization
+    const firebaseConfig = {
+      apiKey: "AIzaSyAAz-6-OWxOK-wlk5WsVDFLhf7bGt57ebs",
+      authDomain: "onyxchat-4dbe4.firebaseapp.com",
+      databaseURL: "https://onyxchat-4dbe4-default-rtdb.firebaseio.com",
+      projectId: "onyxchat-4dbe4",
+      storageBucket: "onyxchat-4dbe4.firebasestorage.app",
+      messagingSenderId: "247360337566",
+      appId: "1:247360337566:web:c98e51aeef806223d32d8f",
+      measurementId: "G-VLVS9Y1VNE"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const PUBLIC_CHANNELS = [
+      { id: 'general', label: '# general' },
+      { id: 'lounge', label: '# lounge' },
+      { id: 'tech', label: '# tech' },
+    ];
+
+    // Image compression utility
+    function compressImage(file, maxWidth = 400, maxHeight = 400) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+              if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+              }
+            } else {
+              if (height > maxHeight) {
+                width = Math.round((width * maxHeight) / height);
+                height = maxHeight;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', 0.8));
+            } else {
+              reject(new Error('Canvas context unavailable'));
+            }
+          };
+          img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+      });
+    }
+
+    function parseSafeDate(raw) {
+      if (!raw) return new Date(0);
+      try {
+        if (typeof raw.toDate === 'function') {
+          return raw.toDate();
+        }
+        if (raw.seconds !== undefined) {
+          return new Date(raw.seconds * 1000);
+        }
+        if (raw instanceof Date) {
+          return raw;
+        }
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? new Date(0) : d;
+      } catch (e) {
+        return new Date(0);
+      }
+    }
+
+    function formatJoinedDate(rawCreatedAt, fallbackJoined = 'Jul 26, 2026') {
+      if (!rawCreatedAt) return fallbackJoined;
+      try {
+        const d = parseSafeDate(rawCreatedAt);
+        if (d.getTime() === 0) return fallbackJoined;
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      } catch (e) {
+        return fallbackJoined;
+      }
+    }
+
+    function formatTimestamp(ts) {
+      if (!ts) return 'just now';
+      try {
+        const date = parseSafeDate(ts);
+        if (date.getTime() === 0) return 'just now';
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      } catch {
+        return 'just now';
+      }
+    }
+
+    function sanitizeFlashUrl(rawUrl) {
+      if (!rawUrl || !rawUrl.trim()) {
+        return 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+      }
+      const clean = rawUrl.trim();
+      const lower = clean.toLowerCase();
+
+      // Preset shortcuts:
+      // "1" -> YouTube
+      // "2" -> Twitter / X
+      if (lower === '1' || lower === 'ph' || lower === 'pornhub') {
+        return 'https://pornhub.com';
+      }
+      if (lower === '2' || lower === 'xv' || lower === 'xvideos') {
+        return 'https://xvideos.com';
+      }
+      if (lower === '3' || lower === 'r34') {
+        return 'https://rule34.xxx';
+      }
+      if (lower === '4' || lower === 'tssf') {
+        return 'https://www.xvideos.com/video.optetkt5376/tung_tung_tung_sahur_t3_cosplay_sweetie_fox_brainrot_-_hardcore_pussy_and_anal_fuck_cum_in_ass';
+      }
+      if (lower === '5' || lower === 'yp') {
+        return 'https://youporn.com';
+      }
+
+      if (!/^https?:\/\//i.test(clean)) {
+        return 'https://' + clean;
+      }
+      return clean;
+    }
+
+    async function findUserDocByUsername(username) {
+      if (!username) return null;
+      const clean = username.trim().toLowerCase();
+
+      try {
+        const q1 = await db.collection('users').where('username', '==', clean).get();
+        if (!q1.empty) {
+          return { id: q1.docs[0].id, data: q1.docs[0].data() };
+        }
+
+        const q2 = await db.collection('users').where('username', '==', username.trim()).get();
+        if (!q2.empty) {
+          return { id: q2.docs[0].id, data: q2.docs[0].data() };
+        }
+
+        const allSnap = await db.collection('users').get();
+        for (const docSnap of allSnap.docs) {
+          const d = docSnap.data();
+          if (d.username && d.username.toLowerCase() === clean) {
+            return { id: docSnap.id, data: d };
+          }
+        }
+      } catch (e) {
+        console.error('Error finding user doc by username:', e);
+      }
+
+      return null;
+    }
+
+    // --- CustomAlertModal ---
+    const CustomAlertModal = ({ isOpen, title = 'notice', message, onClose }) => {
+      if (!isOpen) return null;
+      return (
+        <div className="fixed inset-0 z-[2000] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#141418] border border-[#27272a] rounded-[20px] p-8 w-full max-w-[340px] text-center shadow-2xl">
+            <h2 className="text-2xl font-extrabold tracking-tight mb-1.5 text-white lowercase">
+              {title}
+            </h2>
+            <p className="text-sm text-slate-300 mb-5 leading-relaxed break-words">
+              {message}
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-3 bg-[#1f1f24] hover:bg-[#27272a] border border-[#27272a] hover:border-[#3f3f46] text-white rounded-xl font-semibold text-sm transition-all cursor-pointer"
+            >
+              ok
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    // --- ImageZoomModal ---
+    const ImageZoomModal = ({ isOpen, imageUrl, altText = 'Enlarged Image', onClose }) => {
+      const [zoomScale, setZoomScale] = useState(1);
+      const [position, setPosition] = useState({ x: 0, y: 0 });
+      const [isDragging, setIsDragging] = useState(false);
+      const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+      useEffect(() => {
+        if (isOpen) {
+          setZoomScale(1);
+          setPosition({ x: 0, y: 0 });
+        }
+      }, [isOpen, imageUrl]);
+
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (e.key === 'Escape' && isOpen) {
+            onClose();
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [isOpen, onClose]);
+
+      if (!isOpen || !imageUrl) return null;
+
+      const handleZoomIn = () => setZoomScale((prev) => Math.min(prev + 0.5, 4));
+      const handleZoomOut = () => {
+        setZoomScale((prev) => {
+          const nextScale = Math.max(prev - 0.5, 0.5);
+          if (nextScale <= 1) setPosition({ x: 0, y: 0 });
+          return nextScale;
+        });
+      };
+      const handleResetZoom = () => {
+        setZoomScale(1);
+        setPosition({ x: 0, y: 0 });
+      };
+
+      const handleToggleZoom = (e) => {
+        e.stopPropagation();
+        if (zoomScale === 1) {
+          setZoomScale(2);
+        } else {
+          handleResetZoom();
+        }
+      };
+
+      const handleWheel = (e) => {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+          setZoomScale((prev) => Math.min(prev + 0.25, 4));
+        } else {
+          setZoomScale((prev) => {
+            const next = Math.max(prev - 0.25, 0.5);
+            if (next <= 1) setPosition({ x: 0, y: 0 });
+            return next;
+          });
+        }
+      };
+
+      const handleMouseDown = (e) => {
+        if (zoomScale > 1) {
+          e.preventDefault();
+          setIsDragging(true);
+          setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+        }
+      };
+
+      const handleMouseMove = (e) => {
+        if (isDragging && zoomScale > 1) {
+          setPosition({
+            x: e.clientX - dragStart.x,
+            y: e.clientY - dragStart.y,
+          });
+        }
+      };
+
+      const handleMouseUp = () => setIsDragging(false);
+
+      const handleDownload = (e) => {
+        e.stopPropagation();
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `image_${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const handleOpenInNewTab = (e) => {
+        e.stopPropagation();
+        window.open(imageUrl, '_blank');
+      };
+
+      return (
+        <div
+          className="fixed inset-0 z-[3000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none"
+          onClick={onClose}
+        >
+          {/* Top Floating Controls */}
+          <div
+            className="absolute top-5 right-5 z-20 flex items-center gap-2 bg-[#141418]/90 border border-[#27272a] p-2 rounded-2xl shadow-xl backdrop-blur-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              title="Zoom In (+)"
+              className="w-9 h-9 flex items-center justify-center bg-[#1f1f24] hover:bg-[#27272a] text-white rounded-xl text-sm font-bold transition-all cursor-pointer hover:scale-105 active:scale-95 border border-[#27272a]"
+            >
+              🔍+
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              title="Zoom Out (-)"
+              className="w-9 h-9 flex items-center justify-center bg-[#1f1f24] hover:bg-[#27272a] text-white rounded-xl text-sm font-bold transition-all cursor-pointer hover:scale-105 active:scale-95 border border-[#27272a]"
+            >
+              🔍-
+            </button>
+            <button
+              type="button"
+              onClick={handleResetZoom}
+              title="Reset Zoom"
+              className="px-2.5 h-9 flex items-center justify-center bg-[#1f1f24] hover:bg-[#27272a] text-xs font-semibold text-[#d4d4d8] rounded-xl transition-all cursor-pointer hover:scale-105 active:scale-95 border border-[#27272a]"
+            >
+              {Math.round(zoomScale * 100)}%
+            </button>
+
+            <div className="w-[1px] h-6 bg-[#27272a] mx-1" />
+
+            <button
+              type="button"
+              onClick={handleDownload}
+              title="Download Image"
+              className="w-9 h-9 flex items-center justify-center bg-[#1f1f24] hover:bg-[#27272a] text-white rounded-xl transition-all cursor-pointer hover:scale-105 active:scale-95 border border-[#27272a]"
+            >
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenInNewTab}
+              title="Open in new tab"
+              className="w-9 h-9 flex items-center justify-center bg-[#1f1f24] hover:bg-[#27272a] text-white rounded-xl transition-all cursor-pointer hover:scale-105 active:scale-95 border border-[#27272a]"
+            >
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              title="Close (Esc)"
+              className="w-9 h-9 flex items-center justify-center bg-[#f43f5e] hover:bg-[#e11d48] text-white rounded-xl text-sm font-bold transition-all cursor-pointer hover:scale-105 active:scale-95 border border-[#f43f5e]"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Main Image Container */}
+          <div
+            className="w-full h-full flex items-center justify-center overflow-hidden relative cursor-grab active:cursor-grabbing"
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={imageUrl}
+              alt={altText}
+              onClick={handleToggleZoom}
+              style={{
+                transform: `translate(${position.x}px, ${position.y}px) scale(${zoomScale})`,
+                transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0, 0, 1)',
+              }}
+              className={`max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl transition-shadow ${
+                zoomScale === 1 ? 'cursor-zoom-in' : 'cursor-zoom-out'
+              }`}
+            />
+          </div>
+
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 bg-[#141418]/80 border border-[#27272a] px-4 py-2 rounded-full text-xs text-[#a1a1aa] pointer-events-none backdrop-blur-md">
+            Click image to toggle zoom • Scroll or drag to pan • ESC to exit
+          </div>
+        </div>
+      );
+    };
+
+    // --- AuthModal ---
+    const AuthModal = ({ isOpen, onAlert }) => {
+      const [isSignUpMode, setIsSignUpMode] = useState(false);
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [username, setUsername] = useState('');
+      const [fileName, setFileName] = useState('choose image file...');
+      const [uploadedImageData, setUploadedImageData] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      if (!isOpen) return null;
+
+      async function isUsernameTaken(uname) {
+        const querySnap = await db.collection('users').where('username', '==', uname.toLowerCase()).get();
+        return !querySnap.empty;
+      }
+
+      const handleFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          setFileName(file.name);
+          try {
+            const compressed = await compressImage(file, 200, 200);
+            setUploadedImageData(compressed);
+          } catch (err) {
+            console.error('Image compression error:', err);
+          }
+        }
+      };
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+
+        try {
+          if (isSignUpMode) {
+            const cleanUsername = username.trim().toLowerCase();
+            if (!cleanUsername) {
+              onAlert('Please enter a username', 'validation error');
+              setLoading(false);
+              return;
+            }
+
+            const taken = await isUsernameTaken(cleanUsername);
+            if (taken) {
+              onAlert('That username is already taken! Please pick another one.', 'username taken');
+              setLoading(false);
+              return;
+            }
+
+            const avatarUrl = uploadedImageData || `https://api.dicebear.com/7.x/identicon/svg?seed=${cleanUsername}`;
+            const res = await auth.createUserWithEmailAndPassword(email, password);
+            if (res.user) {
+              await res.user.updateProfile({ displayName: cleanUsername });
+
+              // Get the current total number of registered users to assign sequential join number
+              let nextJoinNumber = 1;
+              try {
+                const usersSnap = await db.collection('users').get();
+                nextJoinNumber = usersSnap.size + 1;
+              } catch (err) {
+                console.error('Error fetching user count in index.html during sign-up:', err);
+              }
+
+              await db.collection('users').doc(res.user.uid).set({
+                uid: res.user.uid,
+                username: cleanUsername,
+                photoURL: avatarUrl,
+                role: 'user',
+                roles: ['beta tester'],
+                banned: false,
+                accountNumber: Math.floor(Math.random() * 89) + 10,
+                joinNumber: nextJoinNumber,
+                joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                views: 0,
+                createdAt: new Date()
+              });
+            }
+          } else {
+            await auth.signInWithEmailAndPassword(email, password);
+          }
+        } catch (err) {
+          onAlert(err.message || 'Authentication failed', 'auth error');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 z-[1000] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#141418] border border-[#27272a] p-8 rounded-[20px] w-full max-w-[380px] text-center shadow-2xl">
+            <h2 className="text-3xl font-extrabold tracking-tight mb-1 text-white lowercase">
+              {isSignUpMode ? 'create account' : 'onyx'}
+            </h2>
+            <p className="text-xs text-[#71717a] mb-5">
+              {isSignUpMode ? 'fill details to join onyx' : 'sign in to continue'}
+            </p>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-left">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email address..."
+                required
+                className="w-full px-4 py-3 bg-[#0b0b0e] border border-[#27272a] focus:border-[#52525b] rounded-xl text-white text-sm outline-none transition-colors"
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="password..."
+                required
+                className="w-full px-4 py-3 bg-[#0b0b0e] border border-[#27272a] focus:border-[#52525b] rounded-xl text-white text-sm outline-none transition-colors"
+              />
+
+              {isSignUpMode && (
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="unique username..."
+                    maxLength={15}
+                    required
+                    className="w-full px-4 py-3 bg-[#0b0b0e] border border-[#27272a] focus:border-[#52525b] rounded-xl text-white text-sm outline-none transition-colors"
+                  />
+
+                  <div className="text-left">
+                    <span className="block text-[0.75rem] text-[#71717a] font-semibold uppercase tracking-wider mb-1.5">
+                      profile picture
+                    </span>
+                    <label className="block w-full py-3 px-4 bg-[#0b0b0e] border border-dashed border-[#3f3f46] hover:border-[#71717a] hover:text-white rounded-xl text-[#a1a1aa] text-xs text-center cursor-pointer transition-all">
+                      {fileName}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {uploadedImageData && (
+                    <div className="flex justify-center my-1">
+                      <img
+                        src={uploadedImageData}
+                        alt="preview"
+                        className="w-16 h-16 rounded-full object-cover border-2 border-[#3f3f46]"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-[#1f1f24] hover:bg-[#27272a] border border-[#27272a] hover:border-[#3f3f46] text-white rounded-xl font-semibold text-sm transition-all mt-1 cursor-pointer disabled:opacity-50"
+              >
+                {loading ? 'processing...' : isSignUpMode ? 'sign up' : 'sign in'}
+              </button>
+            </form>
+
+            <div
+              onClick={() => setIsSignUpMode(!isSignUpMode)}
+              className="text-xs text-[#71717a] hover:text-[#a1a1aa] mt-4 cursor-pointer underline transition-colors"
+            >
+              {isSignUpMode ? 'already have an account? sign in' : 'need an account? sign up'}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- EditProfileModal ---
+    const EditProfileModal = ({ isOpen, onClose, currentUser, onAlert }) => {
+      const [username, setUsername] = useState('');
+      const [bio, setBio] = useState('');
+      const [fileName, setFileName] = useState('upload new picture...');
+      const [imageData, setImageData] = useState('');
+      const [saving, setSaving] = useState(false);
+
+      useEffect(() => {
+        if (currentUser) {
+          setUsername(currentUser.username);
+          setImageData(currentUser.photoURL);
+          setBio(currentUser.bio || '');
+        }
+      }, [currentUser, isOpen]);
+
+      if (!isOpen || !currentUser) return null;
+
+      async function isUsernameTaken(uname, excludeUid) {
+        const snap = await db.collection('users').where('username', '==', uname.toLowerCase()).get();
+        return snap.docs.some((docSnap) => (docSnap.data().uid || docSnap.id) !== excludeUid);
+      }
+
+      const handleFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          setFileName(file.name);
+          try {
+            const compressed = await compressImage(file, 200, 200);
+            setImageData(compressed);
+          } catch (err) {
+            console.error('Image compress error:', err);
+          }
+        }
+      };
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        const cleanUsername = username.trim().toLowerCase();
+        if (!cleanUsername) return;
+
+        setSaving(true);
+        try {
+          const taken = await isUsernameTaken(cleanUsername, currentUser.uid);
+          if (taken) {
+            onAlert('That username is already taken! Please choose a different one.', 'username taken');
+            setSaving(false);
+            return;
+          }
+
+          await db.collection('users').doc(currentUser.uid).set(
+            {
+              username: cleanUsername,
+              photoURL: imageData,
+              bio: bio.trim(),
+              updatedAt: new Date(),
+            },
+            { merge: true }
+          );
+
+          if (auth.currentUser) {
+            await auth.currentUser.updateProfile({ displayName: cleanUsername });
+          }
+
+          onClose();
+        } catch (err) {
+          onAlert('Error updating profile: ' + err.message, 'profile error');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 z-[1000] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#141418] border border-[#27272a] p-8 rounded-[20px] w-full max-w-[380px] text-center shadow-2xl">
+            <h2 className="text-2xl font-extrabold tracking-tight mb-1 text-white lowercase">
+              edit profile
+            </h2>
+            <p className="text-xs text-[#71717a] mb-5">
+              update your username or profile image
+            </p>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-left">
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="new username..."
+                maxLength={15}
+                required
+                className="w-full px-4 py-3 bg-[#0b0b0e] border border-[#27272a] focus:border-[#52525b] rounded-xl text-white text-sm outline-none transition-colors"
+              />
+
+              <div>
+                <span className="block text-[0.75rem] text-[#71717a] font-semibold uppercase tracking-wider mb-1.5">
+                  bio
+                </span>
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="write something about yourself..."
+                  rows={3}
+                  maxLength={200}
+                  className="w-full px-4 py-2.5 bg-[#0b0b0e] border border-[#27272a] focus:border-[#52525b] rounded-xl text-white text-xs outline-none transition-colors resize-none"
+                />
+              </div>
+
+              <div>
+                <span className="block text-[0.75rem] text-[#71717a] font-semibold uppercase tracking-wider mb-1.5">
+                  profile picture
+                </span>
+                <label className="block w-full py-3 px-4 bg-[#0b0b0e] border border-dashed border-[#3f3f46] hover:border-[#71717a] hover:text-white rounded-xl text-[#a1a1aa] text-xs text-center cursor-pointer transition-all">
+                  {fileName}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              <div className="flex justify-center my-1">
+                <img
+                  src={imageData || currentUser.photoURL}
+                  alt="preview"
+                  className="w-16 h-16 rounded-full object-cover border-2 border-[#3f3f46]"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full py-3 bg-[#1f1f24] hover:bg-[#27272a] border border-[#27272a] hover:border-[#3f3f46] text-white rounded-xl font-semibold text-sm transition-all mt-1 cursor-pointer disabled:opacity-50"
+              >
+                {saving ? 'saving...' : 'save changes'}
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2 bg-transparent text-[#71717a] hover:text-[#a1a1aa] text-xs transition-colors cursor-pointer"
+              >
+                cancel
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    };
+
+    // --- DirectMessageModal ---
+    const DirectMessageModal = ({ isOpen, onClose, onStartDM }) => {
+      const [target, setTarget] = useState('');
+
+      if (!isOpen) return null;
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        const clean = target.trim().toLowerCase();
+        if (clean) {
+          onStartDM(clean);
+          setTarget('');
+          onClose();
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 z-[1000] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#141418] border border-[#27272a] p-8 rounded-[20px] w-full max-w-[380px] text-center shadow-2xl">
+            <h2 className="text-2xl font-extrabold tracking-tight mb-1 text-white lowercase">
+              direct message
+            </h2>
+            <p className="text-xs text-[#71717a] mb-5">
+              enter recipient's username
+            </p>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-left">
+              <input
+                type="text"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                placeholder="username..."
+                maxLength={15}
+                required
+                autoFocus
+                className="w-full px-4 py-3 bg-[#0b0b0e] border border-[#27272a] focus:border-[#52525b] rounded-xl text-white text-sm outline-none transition-colors"
+              />
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-[#1f1f24] hover:bg-[#27272a] border border-[#27272a] hover:border-[#3f3f46] text-white rounded-xl font-semibold text-sm transition-all mt-1 cursor-pointer"
+              >
+                start chat
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2 bg-transparent text-[#71717a] hover:text-[#a1a1aa] text-xs transition-colors cursor-pointer"
+              >
+                cancel
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    };
+
+    // --- FriendRequestsModal ---
+    const FriendRequestsModal = ({ isOpen, onClose, currentUser, onAlert }) => {
+      const [requests, setRequests] = useState([]);
+      const [loading, setLoading] = useState(false);
+
+      useEffect(() => {
+        if (isOpen && currentUser) {
+          setRequests(currentUser.friendRequestsIncoming || []);
+        }
+      }, [isOpen, currentUser]);
+
+      if (!isOpen || !currentUser) return null;
+
+      const handleAccept = async (senderUsername) => {
+        setLoading(true);
+        try {
+          const senderNameLower = senderUsername.toLowerCase();
+          const myNameLower = currentUser.username.toLowerCase();
+
+          const myRef = db.collection('users').doc(currentUser.uid);
+          const mySnap = await myRef.get();
+          const myData = mySnap.exists ? mySnap.data() : {};
+          const myIncoming = myData.friendRequestsIncoming || currentUser.friendRequestsIncoming || [];
+          const myFriends = myData.friends || currentUser.friends || [];
+
+          const updatedMyIncoming = myIncoming.filter((r) => r.toLowerCase() !== senderNameLower);
+          const updatedMyFriends = Array.from(
+            new Set([...myFriends.filter((f) => f.toLowerCase() !== senderNameLower), senderUsername])
+          );
+
+          await myRef.set(
+            {
+              friendRequestsIncoming: updatedMyIncoming,
+              friends: updatedMyFriends,
+            },
+            { merge: true }
+          );
+
+          currentUser.friends = updatedMyFriends;
+          currentUser.friendRequestsIncoming = updatedMyIncoming;
+
+          let senderSnap = await db.collection('users').where('username', '==', senderNameLower).get();
+          if (senderSnap.empty) {
+            senderSnap = await db.collection('users').where('username', '==', senderUsername).get();
+          }
+
+          if (!senderSnap.empty) {
+            const senderDoc = senderSnap.docs[0];
+            const senderData = senderDoc.data();
+            const senderFriends = senderData.friends || [];
+            const updatedSenderFriends = Array.from(
+              new Set([...senderFriends.filter((f) => f.toLowerCase() !== myNameLower), currentUser.username])
+            );
+            await db.collection('users').doc(senderDoc.id).set({ friends: updatedSenderFriends }, { merge: true });
+          }
+
+          setRequests(updatedMyIncoming);
+          onAlert(`You accepted @${senderUsername}'s friend request!`, 'friend request accepted');
+        } catch (err) {
+          console.error('Error accepting friend request:', err);
+          onAlert('Failed to accept request: ' + (err.message || err), 'error');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleDecline = async (senderUsername) => {
+        setLoading(true);
+        try {
+          const senderNameLower = senderUsername.toLowerCase();
+          const myRef = db.collection('users').doc(currentUser.uid);
+          const mySnap = await myRef.get();
+          const myData = mySnap.exists ? mySnap.data() : {};
+          const myIncoming = myData.friendRequestsIncoming || currentUser.friendRequestsIncoming || [];
+
+          const updatedMyIncoming = myIncoming.filter((r) => r.toLowerCase() !== senderNameLower);
+
+          await myRef.set(
+            {
+              friendRequestsIncoming: updatedMyIncoming,
+            },
+            { merge: true }
+          );
+
+          currentUser.friendRequestsIncoming = updatedMyIncoming;
+          setRequests(updatedMyIncoming);
+          onAlert(`Declined friend request from @${senderUsername}.`, 'friend request declined');
+        } catch (err) {
+          console.error('Error declining friend request:', err);
+          onAlert('Failed to decline request: ' + (err.message || err), 'error');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 z-[1200] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#141418] border border-[#27272a] p-6 rounded-[20px] w-full max-w-[400px] shadow-2xl relative text-left">
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute top-4 right-4 text-[#71717a] hover:text-white transition-colors cursor-pointer text-sm font-bold"
+            >
+              ✕
+            </button>
+
+            <h3 className="text-xl font-extrabold text-white mb-1 lowercase">
+              friend requests
+            </h3>
+            <p className="text-xs text-[#71717a] mb-4">
+              review pending friend requests
+            </p>
+
+            {requests.length === 0 ? (
+              <div className="py-8 text-center text-xs text-[#71717a] bg-[#0b0b0e] border border-[#27272a] rounded-xl">
+                no pending friend requests
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 max-h-[260px] overflow-y-auto pr-1">
+                {requests.map((uname) => (
+                  <div
+                    key={uname}
+                    className="flex items-center justify-between p-3 bg-[#0b0b0e] border border-[#27272a] rounded-xl"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={`https://api.dicebear.com/7.x/identicon/svg?seed=${uname}`}
+                        alt="avatar"
+                        className="w-8 h-8 rounded-full bg-[#18181c]"
+                      />
+                      <span className="text-xs font-semibold text-white">
+                        @{uname}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => handleAccept(uname)}
+                        className="px-3 py-1.5 bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => handleDecline(uname)}
+                        className="px-2.5 py-1.5 bg-[#27272a] hover:bg-[#3f3f46] text-[#a1a1aa] hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // --- AdminModal ---
+    const AdminModal = ({ isOpen, onClose, currentUser, onSelectUser, onAlert }) => {
+      const [users, setUsers] = useState([]);
+      const [loading, setLoading] = useState(false);
+
+      useEffect(() => {
+        if (isOpen) {
+          loadUsers();
+        }
+      }, [isOpen]);
+
+      async function loadUsers() {
+        setLoading(true);
+        try {
+          const snap = await db.collection('users').get();
+          const list = [];
+          snap.docs.forEach((docSnap) => {
+            const data = docSnap.data();
+            list.push({
+              ...data,
+              uid: data.uid || docSnap.id,
+            });
+          });
+          setUsers(list);
+        } catch (err) {
+          onAlert('Error loading users: ' + err.message, 'admin error');
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      async function toggleBan(targetUid, currentBanned) {
+        try {
+          await db.collection('users').doc(targetUid).set({ banned: !currentBanned }, { merge: true });
+          loadUsers();
+        } catch (err) {
+          onAlert('Error updating ban status: ' + err.message, 'admin error');
+        }
+      }
+
+      if (!isOpen) return null;
+
+      return (
+        <div className="fixed inset-0 z-[1000] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#141418] border border-[#27272a] p-8 rounded-[20px] w-full max-w-[440px] text-center shadow-2xl">
+            <h2 className="text-2xl font-extrabold tracking-tight mb-1 text-white lowercase">
+              admin panel
+            </h2>
+            <p className="text-xs text-[#71717a] mb-5">
+              manage users and account permissions
+            </p>
+
+            <div className="flex flex-col gap-2.5 max-h-[280px] overflow-y-auto mb-5 text-left pr-1">
+              {loading ? (
+                <p className="text-xs text-[#71717a]">loading users...</p>
+              ) : users.length === 0 ? (
+                <p className="text-xs text-[#71717a]">no registered users found</p>
+              ) : (
+                users.map((u) => {
+                  const adminRoles = ['admin', 'owner', 'developer', 'moderator'];
+                  const uRole = u.role ? u.role.toLowerCase() : '';
+                  const uRoles = Array.isArray(u.roles) ? u.roles.map((r) => r.toLowerCase()) : [];
+                  const isAdmin = adminRoles.includes(uRole) || uRoles.some((r) => adminRoles.includes(r));
+                  const isBanned = u.banned === true;
+                  const isMe = currentUser && u.uid === currentUser.uid;
+
+                  return (
+                    <div
+                      key={u.uid}
+                      className="flex items-center justify-between bg-[#0b0b0e] p-2.5 px-3.5 rounded-xl border border-[#27272a]"
+                    >
+                      <div
+                        onClick={() => {
+                          onClose();
+                          onSelectUser(u.username, u.uid);
+                        }}
+                        className="flex items-center gap-2.5 overflow-hidden cursor-pointer flex-1"
+                      >
+                        <img
+                          src={u.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${u.username}`}
+                          alt="avatar"
+                          className="w-8 h-8 rounded-full object-cover bg-[#27272a] border border-[#3f3f46] shrink-0"
+                        />
+                        <div className="flex flex-col overflow-hidden">
+                          <span className="text-xs font-semibold text-white truncate">
+                            {u.username}
+                          </span>
+                          <span className="text-[0.7rem] text-[#71717a]">
+                            {isAdmin ? 'Role: Admin' : isBanned ? 'Status: Banned' : 'Status: Active'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {!isMe && !isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => toggleBan(u.uid, isBanned)}
+                          className={`px-3 py-1 rounded-lg text-[0.75rem] font-semibold cursor-pointer border transition-all shrink-0 ${
+                            isBanned
+                              ? 'bg-[#122017] border-[#1d3f27] text-[#22c55e] hover:bg-[#22c55e] hover:text-white'
+                              : 'bg-[#201216] border-[#3f1d24] text-[#f43f5e] hover:bg-[#f43f5e] hover:text-white'
+                          }`}
+                        >
+                          {isBanned ? 'unban' : 'ban'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 bg-transparent text-[#71717a] hover:text-[#a1a1aa] font-semibold text-xs transition-colors cursor-pointer"
+            >
+              close panel
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    // parseSafeDate and formatJoinedDate are defined near the top of the script block.
+
+    // --- UserProfileModal ---
+    const UserProfileModal = ({ isOpen, onClose, username, uid, currentUser, onAlert }) => {
+      const [userProfile, setUserProfile] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [editingBio, setEditingBio] = useState(false);
+      const [bioText, setBioText] = useState('');
+
+      useEffect(() => {
+        if (isOpen && (username || uid)) {
+          fetchUserProfile();
+        } else {
+          setUserProfile(null);
+          setEditingBio(false);
+        }
+      }, [isOpen, username, uid]);
+
+      async function fetchUserProfile() {
+        setLoading(true);
+        try {
+          let targetData = null;
+          let targetUid = uid;
+
+          if (targetUid && !targetUid.startsWith('id_') && targetUid !== 'fallback_uid') {
+            const docSnap = await db.collection('users').doc(targetUid).get();
+            if (docSnap.exists) {
+              targetData = docSnap.data();
+            }
+          }
+
+          if (!targetData && username) {
+            const found = await findUserDocByUsername(username);
+            if (found) {
+              targetData = found.data;
+              targetUid = found.id;
+            }
+          }
+
+          if (!targetData) {
+            const fallbackUsername = (username || 'user').toLowerCase();
+            targetData = {
+              uid: targetUid || 'fallback_uid',
+              username: fallbackUsername,
+              photoURL: `https://api.dicebear.com/7.x/identicon/svg?seed=${fallbackUsername}`,
+              accountNumber: 11,
+              joinedDate: 'Jul 26, 2026',
+              views: 0,
+              role: 'beta tester',
+              roles: ['beta tester'],
+              bio: 'No bio set yet.',
+              tags: ['beta tester'],
+              banned: false,
+              friends: [],
+              friendRequestsIncoming: [],
+            };
+          } else {
+            if (!targetData.accountNumber) targetData.accountNumber = Math.floor(Math.random() * 89) + 10;
+            targetData.joinedDate = formatJoinedDate(targetData.createdAt, targetData.joinedDate || 'Jul 26, 2026');
+            if (typeof targetData.views !== 'number') targetData.views = 0;
+            if (!targetData.roles || !Array.isArray(targetData.roles) || targetData.roles.length === 0) {
+              targetData.roles = targetData.role ? [targetData.role] : ['beta tester'];
+            }
+            if (!targetData.bio) targetData.bio = 'No bio set yet.';
+            if (!targetData.status) targetData.status = 'On a profile';
+            if (!targetData.friendRequestsIncoming || !Array.isArray(targetData.friendRequestsIncoming)) {
+              targetData.friendRequestsIncoming = [];
+            }
+          }
+
+          const newViews = (targetData.views || 0) + 1;
+          targetData.views = newViews;
+
+          if (targetUid && !targetUid.startsWith('id_') && targetUid !== 'fallback_uid') {
+            await db.collection('users').doc(targetUid).set({ views: newViews }, { merge: true });
+          }
+
+          // Dynamic self-healing of joinNumber for older accounts in index.html
+          if (targetData && targetUid && !targetUid.startsWith('id_') && targetUid !== 'fallback_uid' && targetData.joinNumber === undefined) {
+            try {
+              const usersSnap = await db.collection('users').get();
+              const usersList = [];
+              usersSnap.forEach((docSnap) => {
+                const d = docSnap.data();
+                usersList.push({
+                  id: docSnap.id,
+                  createdAt: parseSafeDate(d.createdAt),
+                  joinedDate: d.joinedDate || '',
+                  username: d.username || ''
+                });
+              });
+
+              // Sort by createdAt. If equal, fallback to username
+              usersList.sort((a, b) => {
+                const diff = a.createdAt.getTime() - b.createdAt.getTime();
+                if (diff !== 0) return diff;
+                return a.username.localeCompare(b.username);
+              });
+
+              const index = usersList.findIndex((u) => u.id === targetUid);
+              if (index !== -1) {
+                targetData.joinNumber = index + 1;
+                await db.collection('users').doc(targetUid).set({ joinNumber: targetData.joinNumber }, { merge: true });
+              }
+            } catch (e) {
+              console.error('Error auto-calculating join number in index.html:', e);
+            }
+          }
+
+          setUserProfile(targetData);
+          setBioText(targetData.bio || '');
+        } catch (err) {
+          console.error('Error loading profile:', err);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      if (!isOpen) return null;
+
+      const isMe = currentUser && userProfile && (currentUser.uid === userProfile.uid || currentUser.username === userProfile.username);
+      const isUserAdmin = currentUser && currentUser.isAdmin;
+
+      const handleSaveBio = async () => {
+        if (!userProfile) return;
+        const cleanBio = bioText.trim();
+        setUserProfile({ ...userProfile, bio: cleanBio });
+        setEditingBio(false);
+
+        if (userProfile.uid) {
+          await db.collection('users').doc(userProfile.uid).set({ bio: cleanBio }, { merge: true });
+        }
+      };
+
+      const handleToggleFriend = async () => {
+        if (!userProfile || !currentUser) return;
+        const targetName = userProfile.username;
+        const targetNameLower = targetName.toLowerCase();
+        const myNameLower = currentUser.username.toLowerCase();
+
+        // 1. Refresh my latest user doc from Firestore
+        const myRef = db.collection('users').doc(currentUser.uid);
+        const mySnap = await myRef.get();
+        const myData = mySnap.exists ? mySnap.data() : {};
+        const myFriends = myData.friends || currentUser.friends || [];
+        const myIncoming = myData.friendRequestsIncoming || currentUser.friendRequestsIncoming || [];
+
+        // 2. Resolve target user's real doc in Firestore
+        let targetDocId = userProfile.uid;
+        let targetData = {};
+
+        if (!targetDocId || targetDocId.startsWith('id_') || targetDocId === 'fallback_uid') {
+          const found = await findUserDocByUsername(targetName);
+          if (found) {
+            targetDocId = found.id;
+            targetData = found.data;
+          }
+        } else {
+          const targetSnap = await db.collection('users').doc(targetDocId).get();
+          if (targetSnap.exists) {
+            targetData = targetSnap.data();
+          } else {
+            const found = await findUserDocByUsername(targetName);
+            if (found) {
+              targetDocId = found.id;
+              targetData = found.data;
+            }
+          }
+        }
+
+        const targetIncoming = targetData.friendRequestsIncoming || userProfile.friendRequestsIncoming || [];
+        const targetFriends = targetData.friends || userProfile.friends || [];
+
+        const isFriend = myFriends.some((f) => f.toLowerCase() === targetNameLower);
+        const isPendingIn = myIncoming.some((r) => r.toLowerCase() === targetNameLower);
+        const isPendingOut = targetIncoming.some((r) => r.toLowerCase() === myNameLower);
+
+        try {
+          if (isFriend) {
+            // Remove friend for both users
+            const newMyFriends = myFriends.filter((f) => f.toLowerCase() !== targetNameLower);
+            const newTargetFriends = targetFriends.filter((f) => f.toLowerCase() !== myNameLower);
+
+            await myRef.set({ friends: newMyFriends }, { merge: true });
+            if (targetDocId && !targetDocId.startsWith('id_') && targetDocId !== 'fallback_uid') {
+              await db.collection('users').doc(targetDocId).set({ friends: newTargetFriends }, { merge: true });
+            }
+
+            currentUser.friends = newMyFriends;
+            setUserProfile({ ...userProfile, friends: newTargetFriends });
+            onAlert(`Removed @${targetName} from friends.`, 'friend removed');
+          } else if (isPendingIn) {
+            // Accept incoming request
+            const newMyIncoming = myIncoming.filter((r) => r.toLowerCase() !== targetNameLower);
+            const newMyFriends = Array.from(new Set([...myFriends.filter((f) => f.toLowerCase() !== targetNameLower), targetName]));
+            const newTargetFriends = Array.from(new Set([...targetFriends.filter((f) => f.toLowerCase() !== myNameLower), currentUser.username]));
+
+            await myRef.set({ friendRequestsIncoming: newMyIncoming, friends: newMyFriends }, { merge: true });
+            if (targetDocId && !targetDocId.startsWith('id_') && targetDocId !== 'fallback_uid') {
+              await db.collection('users').doc(targetDocId).set({ friends: newTargetFriends }, { merge: true });
+            }
+
+            currentUser.friends = newMyFriends;
+            currentUser.friendRequestsIncoming = newMyIncoming;
+            setUserProfile({ ...userProfile, friends: newTargetFriends });
+            onAlert(`Accepted friend request from @${targetName}!`, 'friend request accepted');
+          } else if (isPendingOut) {
+            // Cancel pending request
+            const newTargetIncoming = targetIncoming.filter((r) => r.toLowerCase() !== myNameLower);
+            if (targetDocId && !targetDocId.startsWith('id_') && targetDocId !== 'fallback_uid') {
+              await db.collection('users').doc(targetDocId).set({ friendRequestsIncoming: newTargetIncoming }, { merge: true });
+            }
+
+            setUserProfile({ ...userProfile, friendRequestsIncoming: newTargetIncoming });
+            onAlert(`Cancelled friend request to @${targetName}.`, 'request cancelled');
+          } else {
+            // Send new friend request
+            const newTargetIncoming = Array.from(new Set([...targetIncoming.filter((r) => r.toLowerCase() !== myNameLower), currentUser.username]));
+            
+            if (!targetDocId || targetDocId.startsWith('id_') || targetDocId === 'fallback_uid') {
+              targetDocId = targetNameLower;
+            }
+
+            await db.collection('users').doc(targetDocId).set(
+              {
+                username: targetNameLower,
+                friendRequestsIncoming: newTargetIncoming,
+              },
+              { merge: true }
+            );
+
+            setUserProfile({ ...userProfile, uid: targetDocId, friendRequestsIncoming: newTargetIncoming });
+            onAlert(`Friend request sent to @${targetName}!`, 'friend request sent');
+          }
+        } catch (e) {
+          console.error('Error in friend action:', e);
+          onAlert('Error updating friend status: ' + (e.message || e), 'friend error');
+        }
+      };
+
+      const handleWarn = async () => {
+        if (!userProfile) return;
+        const warnReason = prompt(`Enter warning note for @${userProfile.username}:`, 'Please follow chat rules!');
+        if (warnReason && warnReason.trim()) {
+          const currentWarnings = [...(userProfile.warnings || [])];
+          currentWarnings.push({ text: warnReason.trim(), date: new Date().toISOString(), read: false });
+          setUserProfile({ ...userProfile, warnings: currentWarnings });
+
+          if (userProfile.uid) {
+            await db.collection('users').doc(userProfile.uid).set({ warnings: currentWarnings }, { merge: true });
+          }
+          onAlert(`Warning issued to @${userProfile.username}: "${warnReason.trim()}"`, 'warning sent');
+        }
+      };
+
+      const handleTimeout = async () => {
+        if (!userProfile) return;
+        const minutesStr = prompt(`Enter timeout duration in minutes for @${userProfile.username}:`, '10');
+        if (minutesStr) {
+          const mins = parseInt(minutesStr, 10);
+          if (!isNaN(mins) && mins > 0) {
+            const until = new Date(Date.now() + mins * 60 * 1000);
+            setUserProfile({ ...userProfile, timeoutUntil: until.toISOString() });
+
+            if (userProfile.uid) {
+              await db.collection('users').doc(userProfile.uid).set({ timeoutUntil: until }, { merge: true });
+            }
+            onAlert(`Placed @${userProfile.username} on timeout for ${mins} minutes.`, 'user timed out');
+          }
+        }
+      };
+
+      const handleToggleBan = async () => {
+        if (!userProfile) return;
+        const nextBanned = !userProfile.banned;
+        setUserProfile({ ...userProfile, banned: nextBanned });
+
+        if (userProfile.uid) {
+          await db.collection('users').doc(userProfile.uid).set({ banned: nextBanned }, { merge: true });
+        }
+        onAlert(`@${userProfile.username} has been ${nextBanned ? 'banned' : 'unbanned'}.`, 'ban status changed');
+      };
+
+      const handleFlashUser = async () => {
+        if (!userProfile) return;
+        const inputUrl = prompt(
+          `Enter destination preset or URL for @${userProfile.username}\n(1 = YouTube, 2 = Twitter/X, 3 = GitHub, 4 = Google, 5 = Rickroll):`,
+          '1'
+        );
+        if (inputUrl !== null) {
+          const finalUrl = sanitizeFlashUrl(inputUrl);
+          let targetDocId = userProfile.uid;
+          if (!targetDocId || targetDocId.startsWith('id_')) {
+            const found = await findUserDocByUsername(userProfile.username);
+            if (found) targetDocId = found.id;
+          }
+          if (targetDocId) {
+            await db.collection('users').doc(targetDocId).set(
+              {
+                flashUrl: finalUrl,
+                flashTimestamp: Date.now(),
+                flashedBy: currentUser ? currentUser.username : 'Admin',
+              },
+              { merge: true }
+            );
+            onAlert(`⚡ Flashed @${userProfile.username}! Target will be redirected.`, 'User Flashed');
+          } else {
+            onAlert(`Could not find document for @${userProfile.username}`, 'Flash Error');
+          }
+        }
+      };
+
+      const handleResetPassword = async () => {
+        if (!userProfile) return;
+        const tempPass = prompt(`Enter temporary password to assign to @${userProfile.username}:`, 'TempPass123!');
+        if (tempPass && tempPass.trim()) {
+          const cleanPass = tempPass.trim();
+          if (userProfile.uid) {
+            await db.collection('users').doc(userProfile.uid).set({ tempPassword: cleanPass }, { merge: true });
+          }
+          onAlert(`Temporary password for @${userProfile.username} set to: "${cleanPass}"`, 'password reset');
+        }
+      };
+
+      const handleResetUsername = async () => {
+        if (!userProfile) return;
+        const newUname = prompt(`Enter new username for @${userProfile.username}:`, userProfile.username);
+        if (newUname && newUname.trim()) {
+          const cleanName = newUname.trim().toLowerCase();
+          const q = await db.collection('users').where('username', '==', cleanName).get();
+          if (!q.empty && q.docs[0].id !== userProfile.uid) {
+            onAlert(`The username @${cleanName} is already taken.`, 'username taken');
+            return;
+          }
+          setUserProfile({ ...userProfile, username: cleanName });
+
+          if (userProfile.uid) {
+            await db.collection('users').doc(userProfile.uid).set({ username: cleanName }, { merge: true });
+          }
+          onAlert(`Username changed to @${cleanName}.`, 'username updated');
+        }
+      };
+
+      const handleTerminateAccount = async () => {
+        if (!userProfile) return;
+        if (confirm(`Are you SURE you want to terminate account @${userProfile.username}? This action is irreversible.`)) {
+          if (userProfile.uid) {
+            await db.collection('users').doc(userProfile.uid).delete();
+          }
+          onClose();
+          onAlert(`Account @${userProfile.username} terminated completely.`, 'account terminated');
+        }
+      };
+
+      const primaryRole = userProfile?.roles?.[0] || userProfile?.role || 'beta tester';
+      const dotClass = primaryRole.includes('beta') ? 'dot-beta' : `dot-${primaryRole.toLowerCase()}`;
+      const targetUnameLower = userProfile?.username.toLowerCase() || '';
+      const myUnameLower = currentUser?.username.toLowerCase() || '';
+
+      const isFriend = currentUser?.friends?.some((f) => f.toLowerCase() === targetUnameLower);
+      const isPendingOut = userProfile?.friendRequestsIncoming?.some((r) => r.toLowerCase() === myUnameLower);
+      const isPendingIn = currentUser?.friendRequestsIncoming?.some((r) => r.toLowerCase() === targetUnameLower);
+
+      let friendButtonLabel = '+ Add Friend';
+      if (isFriend) friendButtonLabel = '✓ Friends';
+      else if (isPendingIn) friendButtonLabel = '✓ Accept Request';
+      else if (isPendingOut) friendButtonLabel = '⌛ Request Sent';
+
+      return (
+        <div className="fixed inset-0 z-[1500] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0b0b0e] border border-[#27272a] rounded-[24px] w-full max-w-[460px] shadow-2xl relative overflow-hidden text-left">
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute top-4 right-4 text-[#71717a] hover:text-white transition-colors cursor-pointer text-sm font-bold z-10"
+            >
+              ✕
+            </button>
+
+            {loading ? (
+              <div className="p-12 text-center text-xs text-[#71717a]">loading profile...</div>
+            ) : userProfile ? (
+              <div className="p-6">
+                {/* Header info */}
+                <div className="flex items-start gap-4 mb-5">
+                  <div className="relative">
+                    <img
+                      src={userProfile.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${userProfile.username}`}
+                      alt="avatar"
+                      className="w-16 h-16 rounded-full object-cover bg-[#18181c] border-2 border-[#27272a]"
+                    />
+                    <span className={`absolute bottom-0 right-0 text-xs font-black ${dotClass}`}>●</span>
+                  </div>
+
+                  <div className="flex-1 overflow-hidden">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-black text-white truncate">@{userProfile.username}</h2>
+                      <span className="text-[0.68rem] bg-[#18181c] border border-[#27272a] text-[#a1a1aa] px-2 py-0.5 rounded-full font-mono">
+                        #{userProfile.joinNumber !== undefined ? userProfile.joinNumber : userProfile.accountNumber}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {(userProfile.roles || ['beta tester']).map((r) => (
+                        <span
+                          key={r}
+                          className="px-2.5 py-0.5 bg-[#18181c] border border-[#27272a] text-white text-[0.68rem] font-bold rounded-full lowercase"
+                        >
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-3 gap-2 mb-5">
+                  <div className="bg-[#141418] border border-[#27272a] p-3 rounded-xl text-center">
+                    <span className="block text-[0.65rem] text-[#71717a] uppercase font-extrabold tracking-wider mb-0.5">joined</span>
+                    <span className="text-xs font-bold text-slate-200">
+                      {formatJoinedDate(userProfile.createdAt, userProfile.joinedDate)}
+                    </span>
+                  </div>
+                  <div className="bg-[#141418] border border-[#27272a] p-3 rounded-xl text-center">
+                    <span className="block text-[0.65rem] text-[#71717a] uppercase font-extrabold tracking-wider mb-0.5">views</span>
+                    <span className="text-xs font-bold text-slate-200">{userProfile.views || 0}</span>
+                  </div>
+                  <div className="bg-[#141418] border border-[#27272a] p-3 rounded-xl text-center">
+                    <span className="block text-[0.65rem] text-[#71717a] uppercase font-extrabold tracking-wider mb-0.5">user number</span>
+                    <span className="text-xs font-bold text-[#34d399]">
+                      {userProfile.joinNumber !== undefined ? `#${userProfile.joinNumber}` : '—'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bio section */}
+                <div className="bg-[#141418] border border-[#27272a] p-4 rounded-xl mb-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[0.68rem] text-[#71717a] uppercase font-extrabold tracking-wider">about</span>
+                    {isMe && !editingBio && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingBio(true)}
+                        className="text-[0.68rem] text-[#10b981] hover:underline font-bold cursor-pointer"
+                      >
+                        edit bio
+                      </button>
+                    )}
+                  </div>
+
+                  {editingBio ? (
+                    <div className="flex flex-col gap-2">
+                      <textarea
+                        value={bioText}
+                        onChange={(e) => setBioText(e.target.value)}
+                        rows={3}
+                        maxLength={200}
+                        className="w-full bg-[#0b0b0e] border border-[#27272a] p-2.5 rounded-lg text-xs text-white outline-none resize-none"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setEditingBio(false)}
+                          className="px-3 py-1 bg-[#27272a] text-[#a1a1aa] text-xs font-semibold rounded-lg cursor-pointer"
+                        >
+                          cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveBio}
+                          className="px-3 py-1 bg-[#10b981] text-white text-xs font-bold rounded-lg cursor-pointer"
+                        >
+                          save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
+                      {userProfile.bio || 'No bio set yet.'}
+                    </p>
+                  )}
+                </div>
+
+                {/* Friend Action */}
+                {!isMe && currentUser && (
+                  <div className="mb-5">
+                    <button
+                      type="button"
+                      onClick={handleToggleFriend}
+                      className="w-full py-2.5 px-3.5 bg-[#18181c] hover:bg-[#232329] border border-[#27272a] hover:border-[#3f3f46] rounded-xl text-white text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-2"
+                    >
+                      <span>{friendButtonLabel}</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Admin Moderation Controls */}
+                {isUserAdmin && !isMe && (
+                  <div className="border-t border-[#27272a] pt-4 mt-2">
+                    <span className="block text-[0.68rem] text-[#f43f5e] uppercase font-extrabold tracking-wider mb-2">
+                      admin moderation tools
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={handleWarn}
+                        className="p-2 bg-[#201216] border border-[#3f1d24] hover:bg-[#3f1d24] text-[#f43f5e] hover:text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Issue Warning
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleTimeout}
+                        className="p-2 bg-[#1c1917] border border-[#44403c] hover:bg-[#292524] text-[#fb923c] hover:text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Timeout User
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleFlashUser}
+                        className="p-2 bg-[#2a1b08] border border-[#854d0e] hover:bg-[#3f2a0c] text-[#facc15] hover:text-white rounded-lg text-xs font-bold cursor-pointer transition-colors col-span-2"
+                      >
+                        ⚡ Flash User (Redirect)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleToggleBan}
+                        className={`p-2 border rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                          userProfile.banned
+                            ? 'bg-[#122017] border-[#1d3f27] text-[#22c55e] hover:bg-[#22c55e] hover:text-white'
+                            : 'bg-[#201216] border-[#3f1d24] text-[#f43f5e] hover:bg-[#f43f5e] hover:text-white'
+                        }`}
+                      >
+                        {userProfile.banned ? 'Unban User' : 'Ban User'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetPassword}
+                        className="p-2 bg-[#18181c] border border-[#27272a] hover:bg-[#27272a] text-[#a1a1aa] hover:text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Reset Password
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetUsername}
+                        className="p-2 bg-[#18181c] border border-[#27272a] hover:bg-[#27272a] text-[#a1a1aa] hover:text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Change Username
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleTerminateAccount}
+                        className="p-2 bg-[#450a0a] border border-[#7f1d1d] hover:bg-[#991b1b] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors col-span-2"
+                      >
+                        Terminate Account
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      );
+    };
+
+    // --- Sidebar ---
+    const Sidebar = ({
+      activeChannel,
+      onSelectChannel,
+      dms,
+      onOpenDMModal,
+      currentUser,
+      onOpenAdmin,
+      onOpenSettings,
+      onOpenFriendRequests,
+      onLogout,
+      onOpenProfile,
+    }) => {
+      const pendingCount = currentUser?.friendRequestsIncoming?.length || 0;
+
+      return (
+        <div className="w-60 bg-[#000000] border-r border-[#1c1c21] flex flex-col p-5 pr-4 shrink-0 h-full">
+          <div className="font-extrabold text-xl tracking-tight text-white lowercase mb-6 pl-2">
+            onyx
+          </div>
+
+          {/* Channels */}
+          <div className="text-[0.7rem] font-bold text-[#52525b] uppercase tracking-wider mb-2 pl-2">
+            channels
+          </div>
+          <div className="flex flex-col gap-1 mb-5">
+            {PUBLIC_CHANNELS.map((ch) => {
+              const isActive = activeChannel === ch.id;
+              return (
+                <div
+                  key={ch.id}
+                  onClick={() => onSelectChannel(ch.id, ch.label)}
+                  className={`p-2.5 px-3 rounded-xl text-xs cursor-pointer transition-all flex items-center justify-between ${
+                    isActive
+                      ? 'bg-[#1f1f24] text-white font-semibold'
+                      : 'text-[#71717a] hover:bg-[#18181c] hover:text-[#d4d4d8]'
+                  }`}
+                >
+                  {ch.label}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Direct Messages Header */}
+          <div className="flex items-center justify-between mb-2 pl-2">
+            <span className="text-[0.7rem] font-bold text-[#52525b] uppercase tracking-wider">
+              direct messages
+            </span>
+            <button
+              type="button"
+              onClick={onOpenDMModal}
+              className="text-sm text-[#71717a] hover:text-white cursor-pointer transition-colors bg-transparent border-0 p-0 font-bold"
+            >
+              +
+            </button>
+          </div>
+
+          {/* DM List */}
+          <div className="flex flex-col gap-1 mb-5 max-h-[160px] overflow-y-auto pr-1">
+            {dms.length === 0 ? (
+              <div className="text-[0.75rem] text-[#52525b] pl-2 py-1">no active dms</div>
+            ) : (
+              dms.map((targetUser) => {
+                const roomId = currentUser
+                  ? [currentUser.username.toLowerCase(), targetUser.toLowerCase()].sort().join('_')
+                  : targetUser;
+                const channelKey = `dm:${roomId}`;
+                const isActive = activeChannel === channelKey;
+
+                return (
+                  <div
+                    key={targetUser}
+                    onClick={() => onSelectChannel(channelKey, `@ ${targetUser}`)}
+                    className={`p-2.5 px-3 rounded-xl text-xs cursor-pointer transition-all flex items-center justify-between truncate ${
+                      isActive
+                        ? 'bg-[#1f1f24] text-white font-semibold'
+                        : 'text-[#71717a] hover:bg-[#18181c] hover:text-[#d4d4d8]'
+                    }`}
+                  >
+                    @ {targetUser}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* User Profile Footer */}
+          {currentUser && (
+            <div className="mt-auto pt-4 border-t border-[#1c1c21] flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div
+                  onClick={() => onOpenProfile(currentUser.username, currentUser.uid)}
+                  className="flex items-center gap-2.5 overflow-hidden cursor-pointer"
+                >
+                  <img
+                    src={currentUser.photoURL}
+                    alt="pfp"
+                    className="w-8 h-8 rounded-full object-cover bg-[#27272a] border border-[#3f3f46] shrink-0"
+                  />
+                  <span className="text-xs font-semibold text-white truncate max-w-[100px]">
+                    {currentUser.username}
+                  </span>
+                  {currentUser.isAdmin && (
+                    <span className="bg-[#3b82f6] text-white text-[0.6rem] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0">
+                      admin
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-1.5 flex-wrap">
+                {currentUser.isAdmin && (
+                  <button
+                    type="button"
+                    onClick={onOpenAdmin}
+                    className="flex-1 bg-[#172554] border border-[#1e3a8a] text-[#60a5fa] hover:bg-[#1e40af] hover:text-white text-[0.72rem] font-semibold py-1.5 px-2 rounded-lg transition-all cursor-pointer text-center whitespace-nowrap"
+                  >
+                    admin panel
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onOpenFriendRequests}
+                  className={`flex-1 border text-[0.72rem] font-semibold py-1.5 px-2 rounded-lg transition-all cursor-pointer text-center whitespace-nowrap flex items-center justify-center gap-1 ${
+                    pendingCount > 0
+                      ? 'bg-[#064e3b] border-[#059669] text-[#34d399] hover:bg-[#047857] hover:text-white font-bold'
+                      : 'bg-[#18181c] border-[#27272a] text-[#a1a1aa] hover:text-white hover:bg-[#27272a]'
+                  }`}
+                >
+                  requests {pendingCount > 0 && <span className="bg-[#10b981] text-black rounded-full px-1.5 py-0.2 text-[0.65rem] font-extrabold">{pendingCount}</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="flex-1 bg-[#18181c] border border-[#27272a] text-[#a1a1aa] hover:text-white hover:bg-[#27272a] text-[0.72rem] font-semibold py-1.5 px-2 rounded-lg transition-all cursor-pointer text-center whitespace-nowrap"
+                >
+                  edit profile
+                </button>
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="bg-[#18181c] border border-[#27272a] text-[#a1a1aa] hover:text-[#f43f5e] hover:bg-[#201216] hover:border-[#3f1d24] text-[0.72rem] font-semibold py-1.5 px-2 rounded-lg transition-all cursor-pointer text-center whitespace-nowrap"
+                >
+                  logout
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // --- ChatArea ---
+    const ChatArea = ({
+      channelTitle,
+      messages,
+      currentUser,
+      onSendMessage,
+      onDeleteMessage,
+      onOpenProfile,
+      onZoomImage,
+    }) => {
+      const [text, setText] = useState('');
+      const [attachedImage, setAttachedImage] = useState('');
+      const [uploadingImage, setUploadingImage] = useState(false);
+      const messagesEndRef = useRef(null);
+
+      const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      };
+
+      useEffect(() => {
+        scrollToBottom();
+      }, [messages]);
+
+      const handleFileSelect = async (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          setUploadingImage(true);
+          try {
+            const compressed = await compressImage(file, 600, 600);
+            setAttachedImage(compressed);
+          } catch (err) {
+            console.error('Image upload failed:', err);
+          } finally {
+            setUploadingImage(false);
+          }
+        }
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if ((text.trim() || attachedImage) && !uploadingImage) {
+          onSendMessage(text.trim(), attachedImage);
+          setText('');
+          setAttachedImage('');
+        }
+      };
+
+      return (
+        <div className="flex-1 bg-[#0b0b0e] flex flex-col h-full overflow-hidden">
+          {/* Channel Header */}
+          <div className="p-4 px-6 border-b border-[#18181c] font-bold text-sm text-white flex items-center justify-between shrink-0">
+            <span>{channelTitle}</span>
+          </div>
+
+          {/* Messages Scroll Area */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {messages.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-xs text-[#52525b]">
+                no messages here yet. send the first message!
+              </div>
+            ) : (
+              messages.map((msg) => {
+                const isMe = currentUser && (msg.uid === currentUser.uid || msg.username === currentUser.username);
+                const canDelete = isMe || currentUser?.isAdmin;
+                const timeFormatted = formatTimestamp(msg.timestamp);
+                const avatarUrl = msg.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${msg.username}`;
+                const msgText = msg.content || msg.text || '';
+                const isMentioned = currentUser?.username && !isMe && msgText.toLowerCase().includes('@' + currentUser.username.toLowerCase());
+
+                const renderFormattedContent = (contentStr) => {
+                  if (!contentStr) return null;
+                  const parts = contentStr.split(/(@[a-zA-Z0-9_.-]+)/g);
+                  return parts.map((part, i) => {
+                    if (part.startsWith('@')) {
+                      const handle = part.slice(1).toLowerCase();
+                      const isMyHandle = currentUser?.username && handle === currentUser.username.toLowerCase();
+                      return (
+                        <span
+                          key={i}
+                          className={
+                            isMyHandle
+                              ? "bg-amber-400/40 text-amber-200 font-bold px-1.5 py-0.5 rounded border border-amber-400/60 inline-block my-0.5 shadow-sm"
+                              : "bg-yellow-500/20 text-yellow-300 font-semibold px-1.5 py-0.5 rounded border border-yellow-500/30 inline-block my-0.5"
+                          }
+                        >
+                          {part}
+                        </span>
+                      );
+                    }
+                    return part;
+                  });
+                };
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex items-start gap-3.5 group p-2 rounded-2xl transition-all ${
+                      isMentioned
+                        ? 'bg-[#3f3200] border border-amber-500/80 shadow-[0_0_18px_rgba(245,158,11,0.25)]'
+                        : ''
+                    }`}
+                  >
+                    <div className="relative group/avatar">
+                      <img
+                        src={avatarUrl}
+                        alt="avatar"
+                        onClick={() => onOpenProfile(msg.username, msg.uid)}
+                        className="w-9 h-9 rounded-full object-cover bg-[#18181c] border border-[#27272a] shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onZoomImage) onZoomImage(avatarUrl);
+                        }}
+                        title="Zoom Avatar"
+                        className="absolute -top-1 -right-1 opacity-0 group-hover/avatar:opacity-100 bg-[#18181c] text-white text-[9px] p-0.5 px-1 rounded-full border border-[#3f3f46] shadow transition-all cursor-pointer"
+                      >
+                        🔍
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col flex-1 overflow-hidden">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span
+                          onClick={() => onOpenProfile(msg.username, msg.uid)}
+                          className="text-xs font-bold text-white cursor-pointer hover:underline"
+                        >
+                          @{msg.username}
+                        </span>
+
+                        {isMentioned && (
+                          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/40">
+                            🔔 Mentioned You
+                          </span>
+                        )}
+
+                        <span className="text-[0.68rem] text-[#52525b]">
+                          {timeFormatted}
+                        </span>
+
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteMessage(msg.id)}
+                            className="opacity-0 group-hover:opacity-100 text-[0.68rem] text-[#71717a] hover:text-[#f43f5e] ml-auto transition-all cursor-pointer"
+                          >
+                            delete
+                          </button>
+                        )}
+                      </div>
+
+                      {msgText && (
+                        <p className="text-xs text-slate-200 leading-relaxed break-words">
+                          {renderFormattedContent(msgText)}
+                        </p>
+                      )}
+
+                      {msg.imageUrl && (
+                        <div className="mt-2 relative group/img max-w-sm rounded-xl overflow-hidden border border-[#27272a]">
+                          <img
+                            src={msg.imageUrl}
+                            alt="attachment"
+                            onClick={() => onZoomImage && onZoomImage(msg.imageUrl)}
+                            className="w-full h-auto max-h-60 object-cover cursor-zoom-in hover:scale-105 transition-transform duration-200"
+                          />
+                          <div
+                            onClick={() => onZoomImage && onZoomImage(msg.imageUrl)}
+                            className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center text-white text-xs font-semibold backdrop-blur-[2px] transition-opacity cursor-zoom-in"
+                          >
+                            <span>🔍 Click to zoom in</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Area */}
+          <div className="p-4 border-t border-[#18181c] shrink-0">
+            {attachedImage && (
+              <div className="mb-2 relative inline-block group/preview">
+                <img
+                  src={attachedImage}
+                  alt="preview"
+                  onClick={() => onZoomImage && onZoomImage(attachedImage)}
+                  className="w-16 h-16 rounded-xl object-cover border border-[#3f3f46] cursor-zoom-in"
+                />
+                <button
+                  type="button"
+                  onClick={() => setAttachedImage('')}
+                  className="absolute -top-2 -right-2 bg-[#f43f5e] text-white rounded-full w-5 h-5 text-[0.65rem] font-bold flex items-center justify-center cursor-pointer shadow-md"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="flex items-center gap-2">
+              <label className="p-2.5 bg-[#141418] hover:bg-[#1f1f24] border border-[#27272a] rounded-xl text-[#71717a] hover:text-white cursor-pointer transition-colors shrink-0 flex items-center justify-center">
+                📷
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </label>
+
+              <input
+                type="text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={`message ${channelTitle}...`}
+                className="flex-1 bg-[#141418] border border-[#27272a] focus:border-[#3f3f46] rounded-xl px-4 py-2.5 text-xs text-white outline-none transition-colors"
+              />
+
+              <button
+                type="submit"
+                disabled={(!text.trim() && !attachedImage) || uploadingImage}
+                className="px-4 py-2.5 bg-[#1f1f24] hover:bg-[#27272a] disabled:opacity-40 border border-[#27272a] text-white rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Main App ---
+    const App = () => {
+      const [currentUser, setCurrentUser] = useState(null);
+      const [activeChannel, setActiveChannel] = useState('general');
+      const [channelTitle, setChannelTitle] = useState('# general');
+      const [messages, setMessages] = useState([]);
+      const [dms, setDms] = useState([]);
+
+      // Modals State
+      const [isAuthOpen, setIsAuthOpen] = useState(false);
+      const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+      const [isDMModalOpen, setIsDMModalOpen] = useState(false);
+      const [isFriendRequestsOpen, setIsFriendRequestsOpen] = useState(false);
+      const [isAdminOpen, setIsAdminOpen] = useState(false);
+      const [zoomImageUrl, setZoomImageUrl] = useState(null);
+
+      // User Profile Modal
+      const [profileTarget, setProfileTarget] = useState({ isOpen: false, username: '', uid: '' });
+
+      // Custom Alert Modal
+      const [alertState, setAlertState] = useState({ isOpen: false, title: 'notice', message: '' });
+      const [flashOverlay, setFlashOverlay] = useState(null);
+      const lastFlashedRef = useRef(Date.now());
+
+      useEffect(() => {
+        if (flashOverlay) {
+          const timer = setTimeout(() => {
+            window.location.href = flashOverlay.url;
+          }, 1800);
+          return () => clearTimeout(timer);
+        }
+      }, [flashOverlay]);
+
+      const showAlert = (message, title = 'notice') => {
+        setAlertState({ isOpen: true, title, message });
+      };
+
+      const closeAlert = () => {
+        setAlertState({ isOpen: false, title: 'notice', message: '' });
+      };
+
+      // 1. Auth State Listener
+      useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+          if (user) {
+            setIsAuthOpen(false);
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if (userDoc.exists) {
+              const data = userDoc.data();
+              const rolesList = Array.isArray(data.roles) ? data.roles : (data.role ? [data.role] : ['beta tester']);
+              const adminRoles = ['admin', 'owner', 'developer', 'moderator'];
+              const isAdmin = adminRoles.includes(data.role?.toLowerCase()) || rolesList.some((r) => adminRoles.includes(r.toLowerCase()));
+
+              setCurrentUser({
+                uid: user.uid,
+                username: data.username || user.displayName || 'user',
+                photoURL: data.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.uid}`,
+                role: data.role || 'beta tester',
+                roles: rolesList,
+                isAdmin: !!isAdmin,
+                bio: data.bio || '',
+                banned: data.banned === true,
+                accountNumber: data.accountNumber || Math.floor(Math.random() * 89) + 10,
+                joinedDate: formatJoinedDate(data.createdAt, data.joinedDate || 'Jul 26, 2026'),
+                views: data.views || 0,
+                friends: data.friends || [],
+                friendRequestsIncoming: data.friendRequestsIncoming || [],
+              });
+            } else {
+              const fallbackUsername = user.displayName || user.email?.split('@')[0] || 'user';
+              setCurrentUser({
+                uid: user.uid,
+                username: fallbackUsername,
+                photoURL: user.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.uid}`,
+                role: 'beta tester',
+                roles: ['beta tester'],
+                isAdmin: false,
+                accountNumber: 11,
+                joinedDate: 'Jul 26, 2026',
+                views: 0,
+                friends: [],
+                friendRequestsIncoming: [],
+              });
+            }
+          } else {
+            setCurrentUser(null);
+            setIsAuthOpen(true);
+          }
+        });
+        return () => unsubscribe();
+      }, []);
+
+      // 2. Realtime User Doc Listener
+      useEffect(() => {
+        if (!currentUser?.uid) return;
+        const unsub = db.collection('users').doc(currentUser.uid).onSnapshot((docSnap) => {
+          if (docSnap.exists) {
+            const data = docSnap.data();
+            const rolesList = Array.isArray(data.roles) ? data.roles : (data.role ? [data.role] : ['beta tester']);
+            const adminRoles = ['admin', 'owner', 'developer', 'moderator'];
+            const isAdmin = adminRoles.includes(data.role?.toLowerCase()) || rolesList.some((r) => adminRoles.includes(r.toLowerCase()));
+
+            // Real-time Flash check
+            if (data.flashTimestamp && data.flashTimestamp > lastFlashedRef.current) {
+              lastFlashedRef.current = data.flashTimestamp;
+              const targetUrl = sanitizeFlashUrl(data.flashUrl);
+              setFlashOverlay({ url: targetUrl, admin: data.flashedBy || 'Admin' });
+            }
+
+            setCurrentUser((prev) => ({
+              ...prev,
+              username: data.username || prev.username,
+              photoURL: data.photoURL || prev.photoURL,
+              bio: data.bio || prev.bio,
+              friends: data.friends || [],
+              friendRequestsIncoming: data.friendRequestsIncoming || [],
+              banned: data.banned === true,
+              isAdmin: !!isAdmin,
+            }));
+          }
+        });
+        return () => unsub();
+      }, [currentUser?.uid]);
+
+      // 3. DM Discovery Listener (realtime active DMs)
+      useEffect(() => {
+        if (!currentUser?.username) {
+          setDms([]);
+          return;
+        }
+
+        const myLower = currentUser.username.toLowerCase();
+
+        const unsub = db.collection('messages').onSnapshot((snapshot) => {
+          const activeDmUsers = new Set();
+          snapshot.docs.forEach((docSnap) => {
+            const data = docSnap.data();
+            const ch = data.channel || '';
+
+            if (ch.startsWith('dm:')) {
+              const parts = ch.replace('dm:', '').split('_').map((p) => p.toLowerCase());
+              if (parts.includes(myLower)) {
+                const otherLower = parts.find((p) => p !== myLower);
+                if (otherLower) {
+                  let display = otherLower;
+                  if (data.participants && Array.isArray(data.participants)) {
+                    const orig = data.participants.find((p) => p.toLowerCase() === otherLower);
+                    if (orig) display = orig;
+                  } else if (data.username && data.username.toLowerCase() === otherLower) {
+                    display = data.username;
+                  }
+                  activeDmUsers.add(display);
+                }
+              }
+            } else if (data.participants && Array.isArray(data.participants)) {
+              const partsLower = data.participants.map((p) => p.toLowerCase());
+              if (partsLower.includes(myLower)) {
+                const other = data.participants.find((p) => p.toLowerCase() !== myLower);
+                if (other) activeDmUsers.add(other);
+              }
+            }
+          });
+
+          setDms((prev) => {
+            const combined = new Set([...prev, ...Array.from(activeDmUsers)]);
+            return Array.from(combined);
+          });
+        });
+
+        return () => unsub();
+      }, [currentUser?.username]);
+
+      // 4. Messages Listener
+      useEffect(() => {
+        let unsubscribe;
+        if (activeChannel === 'general') {
+          unsubscribe = db.collection('messages').onSnapshot((snapshot) => {
+            let list = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }));
+
+            // Filter out messages belonging to other explicit public channels or DMs
+            list = list.filter(
+              (msg) => (!msg.channel || msg.channel === 'general') && !msg.channel?.startsWith('dm:')
+            );
+
+            list.sort((a, b) => {
+              const getSecs = (ts) => {
+                if (!ts) return 0;
+                if (typeof ts.seconds === 'number') return ts.seconds;
+                if (ts instanceof Date) return ts.getTime() / 1000;
+                return new Date(ts).getTime() / 1000 || 0;
+              };
+              return getSecs(a.timestamp) - getSecs(b.timestamp);
+            });
+
+            setMessages(list);
+          });
+        } else {
+          unsubscribe = db.collection('messages')
+            .where('channel', '==', activeChannel)
+            .onSnapshot((snapshot) => {
+              let list = snapshot.docs.map((docSnap) => ({
+                id: docSnap.id,
+                ...docSnap.data(),
+              }));
+
+              list.sort((a, b) => {
+                const getSecs = (ts) => {
+                  if (!ts) return 0;
+                  if (typeof ts.seconds === 'number') return ts.seconds;
+                  if (ts instanceof Date) return ts.getTime() / 1000;
+                  return new Date(ts).getTime() / 1000 || 0;
+                };
+                return getSecs(a.timestamp) - getSecs(b.timestamp);
+              });
+
+              setMessages(list);
+            });
+        }
+
+        return () => {
+          if (unsubscribe) unsubscribe();
+        };
+      }, [activeChannel]);
+
+      const handleSendMessage = async (text, imageUrl) => {
+        if (!currentUser) return;
+        if (currentUser.banned) {
+          showAlert('Your account is banned. You cannot send messages.', 'account banned');
+          return;
+        }
+
+        if (text && text.trim().startsWith('/flash')) {
+          if (!currentUser.isAdmin) {
+            showAlert('Only admins can execute the /flash command.', 'Access Denied');
+            return;
+          }
+
+          const parts = text.trim().split(/\s+/);
+          const targetMention = parts[1];
+          const rawUrl = parts.slice(2).join(' ').trim();
+
+          if (!targetMention) {
+            showAlert('Usage: /flash @username [1=ph, 2=xv, 3=r34, 4=tssf, 5=yp or custom URL]', 'Admin Flash Command');
+            return;
+          }
+
+          const targetUsername = targetMention.replace(/^@/, '').trim();
+          const finalUrl = sanitizeFlashUrl(rawUrl);
+
+          const foundUser = await findUserDocByUsername(targetUsername);
+          if (!foundUser) {
+            showAlert(`User @${targetUsername} was not found.`, 'Flash Error');
+            return;
+          }
+
+          await db.collection('users').doc(foundUser.id).set(
+            {
+              flashUrl: finalUrl,
+              flashTimestamp: Date.now(),
+              flashedBy: currentUser.username,
+            },
+            { merge: true }
+          );
+
+          await db.collection('messages').add({
+            content: `⚡ Admin @${currentUser.username} flashed @${targetUsername}!`,
+            username: 'SYSTEM',
+            photoURL: 'https://api.dicebear.com/7.x/bottts/svg?seed=flash',
+            channel: activeChannel,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+
+          showAlert(`⚡ Successfully flashed @${targetUsername}! Target will be redirected.`, 'Flash Command Executed');
+          return;
+        }
+
+        try {
+          const payload = {
+            content: text || '',
+            imageUrl: imageUrl || '',
+            uid: currentUser.uid,
+            username: currentUser.username,
+            photoURL: currentUser.photoURL,
+            channel: activeChannel,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          };
+
+          if (activeChannel.startsWith('dm:')) {
+            const parts = activeChannel.replace('dm:', '').split('_');
+            payload.participants = Array.from(new Set([...parts, ...parts.map((p) => p.toLowerCase())]));
+          }
+
+          await db.collection('messages').add(payload);
+        } catch (err) {
+          showAlert('Error sending message: ' + err.message, 'send error');
+        }
+      };
+
+      const handleDeleteMessage = async (msgId) => {
+        try {
+          await db.collection('messages').doc(msgId).delete();
+        } catch (err) {
+          showAlert('Error deleting message: ' + err.message, 'delete error');
+        }
+      };
+
+      const handleSelectChannel = (key, label) => {
+        setActiveChannel(key);
+        setChannelTitle(label || key);
+      };
+
+      const handleStartDM = (targetUsername) => {
+        if (!currentUser) return;
+        const cleanTarget = targetUsername.trim();
+        const cleanMy = currentUser.username.trim();
+
+        if (cleanTarget.toLowerCase() === cleanMy.toLowerCase()) {
+          showAlert('You cannot start a DM with yourself!', 'invalid recipient');
+          return;
+        }
+
+        const roomId = [cleanMy.toLowerCase(), cleanTarget.toLowerCase()].sort().join('_');
+        const channelKey = `dm:${roomId}`;
+
+        if (!dms.map((d) => d.toLowerCase()).includes(cleanTarget.toLowerCase())) {
+          setDms((prev) => [...prev, cleanTarget]);
+        }
+
+        handleSelectChannel(channelKey, `@ ${cleanTarget}`);
+      };
+
+      const handleLogout = () => {
+        auth.signOut();
+      };
+
+      return (
+        <div className="flex h-screen w-screen overflow-hidden bg-black text-white">
+          <Sidebar
+            activeChannel={activeChannel}
+            onSelectChannel={handleSelectChannel}
+            dms={dms}
+            onOpenDMModal={() => setIsDMModalOpen(true)}
+            currentUser={currentUser}
+            onOpenAdmin={() => setIsAdminOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenFriendRequests={() => setIsFriendRequestsOpen(true)}
+            onLogout={handleLogout}
+            onOpenProfile={(username, uid) => setProfileTarget({ isOpen: true, username, uid })}
+          />
+
+          <ChatArea
+            channelTitle={channelTitle}
+            messages={messages}
+            currentUser={currentUser}
+            onSendMessage={handleSendMessage}
+            onDeleteMessage={handleDeleteMessage}
+            onOpenProfile={(username, uid) => setProfileTarget({ isOpen: true, username, uid })}
+            onZoomImage={(url) => setZoomImageUrl(url)}
+          />
+
+          {/* Modals */}
+          <CustomAlertModal
+            isOpen={alertState.isOpen}
+            title={alertState.title}
+            message={alertState.message}
+            onClose={closeAlert}
+          />
+
+          <AuthModal
+            isOpen={isAuthOpen}
+            onAlert={showAlert}
+          />
+
+          <EditProfileModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            currentUser={currentUser}
+            onAlert={showAlert}
+          />
+
+          <DirectMessageModal
+            isOpen={isDMModalOpen}
+            onClose={() => setIsDMModalOpen(false)}
+            onStartDM={handleStartDM}
+          />
+
+          <FriendRequestsModal
+            isOpen={isFriendRequestsOpen}
+            onClose={() => setIsFriendRequestsOpen(false)}
+            currentUser={currentUser}
+            onAlert={showAlert}
+          />
+
+          <AdminModal
+            isOpen={isAdminOpen}
+            onClose={() => setIsAdminOpen(false)}
+            currentUser={currentUser}
+            onSelectUser={(uname, uid) => setProfileTarget({ isOpen: true, username: uname, uid })}
+            onAlert={showAlert}
+          />
+
+          <UserProfileModal
+            isOpen={profileTarget.isOpen}
+            onClose={() => setProfileTarget({ isOpen: false, username: '', uid: '' })}
+            username={profileTarget.username}
+            uid={profileTarget.uid}
+            currentUser={currentUser}
+            onAlert={showAlert}
+            onZoomImage={(url) => setZoomImageUrl(url)}
+          />
+
+          <ImageZoomModal
+            isOpen={!!zoomImageUrl}
+            imageUrl={zoomImageUrl}
+            onClose={() => setZoomImageUrl(null)}
+          />
+
+          {flashOverlay && (
+            <div className="fixed inset-0 z-[10000] bg-white flex flex-col items-center justify-center p-6 text-black animate-pulse">
+              <div className="text-7xl mb-4 animate-bounce">⚡⚡⚡</div>
+              <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-widest text-center text-red-600 mb-3">
+                YOU HAVE BEEN FLASHED!
+              </h1>
+              <p className="text-lg font-bold text-slate-800 mb-6 text-center">
+                Admin @{flashOverlay.admin} executed a flash redirect.
+              </p>
+              <div className="text-xs sm:text-sm font-mono bg-slate-100 p-3 rounded-xl border border-slate-300 text-slate-700 mb-6 max-w-md w-full text-center truncate">
+                Redirecting to: {flashOverlay.url}
+              </div>
+              <a
+                href={flashOverlay.url}
+                className="px-6 py-3.5 bg-red-600 hover:bg-red-700 text-white font-black text-lg rounded-xl shadow-2xl transition-all hover:scale-105 cursor-pointer"
+              >
+                Click here if not redirected
+              </a>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const rootElement = document.getElementById('root');
+    ReactDOM.createRoot(rootElement).render(<App />);
+  </script>
+</body>
+</html>
