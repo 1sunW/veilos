@@ -96,8 +96,6 @@ if (dataTsPath) {
 			},
 		});
 		writeFileSync(join(outDir, "data.js"), transpiled.outputText, "utf8");
-		writeFileSync(join(outDir, "data.ts"), transpiled.outputText, "utf8");
-		writeFileSync(join(outDir, "data.tsx"), transpiled.outputText, "utf8");
 		console.log(`  ✓ Compiled ${dataTsPath} -> public/data.js, public/data.ts, and public/data.tsx`);
 	} catch (err) {
 		console.error("  ! Failed to transpile data source file:", err.message);
