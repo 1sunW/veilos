@@ -1646,11 +1646,6 @@ window.addEventListener("load", async () => {
 		const panelToggles = document.createElement("div");
 		panelToggles.className = "flex items-center gap-1 shrink-0 pb-1";
 
-		const bookmarksToggleBtn = document.createElement("button");
-		bookmarksToggleBtn.title = "Bookmarks (onyx://bookmarks)";
-		bookmarksToggleBtn.className = "w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center cursor-pointer bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white";
-		bookmarksToggleBtn.innerHTML = '<i class="fa-solid fa-bookmark text-amber-400"></i>';
-
 		const historyToggleBtn = document.createElement("button");
 		historyToggleBtn.title = "History (onyx://history)";
 		historyToggleBtn.className = "w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center cursor-pointer bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white";
@@ -1661,7 +1656,6 @@ window.addEventListener("load", async () => {
 		extensionsToggleBtn.className = "w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center cursor-pointer bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white";
 		extensionsToggleBtn.innerHTML = '<i class="fa-solid fa-puzzle-piece text-emerald-400"></i>';
 
-		panelToggles.appendChild(bookmarksToggleBtn);
 		panelToggles.appendChild(historyToggleBtn);
 		panelToggles.appendChild(extensionsToggleBtn);
 		tabStrip.appendChild(tabsListContainer);
@@ -3260,13 +3254,9 @@ window.addEventListener("load", async () => {
 		const updateTopRightButtonsState = () => {
 			const activeTab = getActiveTab();
 			const activeUrl = (activeTab?.url || "").toLowerCase();
-			const isBookmarks = activeUrl.startsWith("veil://bookmarks") || activeUrl.startsWith("onyx://bookmarks");
 			const isHistory = activeUrl.startsWith("veil://history") || activeUrl.startsWith("onyx://history");
 			const isExtensions = activeUrl.startsWith("veil://extensions") || activeUrl.startsWith("onyx://extensions");
 
-			bookmarksToggleBtn.className = `w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center cursor-pointer ${
-				isBookmarks ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm' : 'bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white border border-transparent'
-			}`;
 			historyToggleBtn.className = `w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center cursor-pointer ${
 				isHistory ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm' : 'bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white border border-transparent'
 			}`;
@@ -4073,10 +4063,6 @@ window.addEventListener("load", async () => {
 			if (active) {
 				toggleBookmark(active.title, active.url);
 			}
-		};
-
-		bookmarksToggleBtn.onclick = () => {
-			handleNav("onyx://bookmarks");
 		};
 
 		historyToggleBtn.onclick = () => {
