@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Onyx AI - Powered by GLM 5.3 & Emis API</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+
+  <!-- Markdown-it and Highlight.js for code rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <style>
+    *, ::before, ::after {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    code, pre, .font-mono {
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+    body {
+      background-color: #09090d;
+      color: #e2e8f0;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3f3f46;
+    }
+    .prose-dark {
+      color: #e2e8f0;
+      line-height: 1.65;
+      font-size: 0.925rem;
+    }
+    .prose-dark p {
+      margin-bottom: 0.75rem;
+    }
+    .prose-dark p:last-child {
+      margin-bottom: 0;
+    }
+    .prose-dark pre {
+      background: #0e0e13;
+      border: 1px solid #27272a;
+      border-radius: 0.75rem;
+      padding: 1rem;
+      margin: 0.75rem 0;
+      overflow-x: auto;
+      position: relative;
+    }
+    .prose-dark code:not(pre code) {
+      background: #1f1f26;
+      border: 1px solid #2e2e38;
+      color: #38bdf8;
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.375rem;
+      font-size: 0.85em;
+    }
+    .prose-dark ul, .prose-dark ol {
+      padding-left: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .prose-dark ul { list-style-type: disc; }
+    .prose-dark ol { list-style-type: decimal; }
+    .prose-dark li { margin-bottom: 0.25rem; }
+    .prose-dark h1, .prose-dark h2, .prose-dark h3, .prose-dark h4 {
+      color: #ffffff;
+      font-weight: 700;
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .prose-dark h1 { font-size: 1.35rem; }
+    .prose-dark h2 { font-size: 1.15rem; }
+    .prose-dark h3 { font-size: 1.05rem; }
+    .prose-dark blockquote {
+      border-left: 3px solid #6366f1;
+      padding-left: 0.75rem;
+      color: #94a3b8;
+      font-style: italic;
+      margin: 0.75rem 0;
+    }
+    .prose-dark table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.75rem 0;
+    }
+    .prose-dark th, .prose-dark td {
+      border: 1px solid #27272a;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+    }
+    .prose-dark th {
+      background: #18181f;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen w-screen bg-[#09090d] text-slate-100 select-none">
+
+  <!-- TOP HEADER / CONTROLS -->
+  <header class="h-14 bg-[#101017] border-b border-white/10 px-4 flex items-center justify-between shrink-0 shadow-md">
+    <!-- Brand / Title -->
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+        <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+      </div>
+      <div class="flex flex-col">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-sm text-white tracking-tight">Onyx AI</span>
+          <button id="openModelModalBtn" class="flex items-center gap-1 text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer group">
+            <span id="headerModelBadge">GLM 5.3</span>
+            <i class="fa-solid fa-chevron-down text-[9px] group-hover:translate-y-0.5 transition-transform"></i>
+          </button>
+        </div>
+        <span class="text-[10px] text-neutral-400">Emis OpenAI-Compatible API (<span id="totalModelCount">80+</span> models available)</span>
+      </div>
+    </div>
+
+    <!-- Center / Right Controls -->
+    <div class="flex items-center gap-2">
+      <!-- Quick Dropdown Model Select -->
+      <div class="relative hidden md:block">
+        <select id="modelSelect" class="bg-[#181822] hover:bg-[#20202c] border border-white/10 hover:border-white/20 text-xs font-semibold text-white px-3 py-1.5 rounded-xl outline-none transition-all cursor-pointer max-w-[220px] truncate">
+          <!-- Populated dynamically with all models -->
+          <option value="glm-5.3" selected>GLM 5.3 (Default)</option>
+        </select>
+      </div>
+
+      <!-- Persona Dropdown -->
+      <select id="personaSelect" class="hidden sm:block bg-[#181822] hover:bg-[#20202c] border border-white/10 text-xs font-medium text-neutral-300 px-3 py-1.5 rounded-xl outline-none transition-all cursor-pointer">
+        <option value="general">✨ General Assistant</option>
+        <option value="code">💻 Code Wizard</option>
+        <option value="research">🔬 Deep Researcher</option>
+        <option value="creative">🎨 Creative Writer</option>
+      </select>
+
+      <!-- Browse All Models Modal Trigger Button -->
+      <button id="browseModelsBtn" title="Browse All 80+ Models Catalog" class="px-2.5 py-1.5 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 text-indigo-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer">
+        <i class="fa-solid fa-cubes-stacked text-indigo-400"></i>
+        <span class="hidden sm:inline">All Models</span>
+      </button>
+
+      <div class="h-5 w-px bg-white/10 mx-1"></div>
+
+      <!-- Clear Chat Button -->
+      <button id="clearChatBtn" title="Clear Conversation" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white border border-white/5 flex items-center justify-center text-xs transition-colors cursor-pointer">
+        <i class="fa-solid fa-trash-can"></i>
+      </button>
+
+      <!-- Export Button -->
+      <button id="exportChatBtn" title="Export Chat Markdown" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white border border-white/5 flex items-center justify-center text-xs transition-colors cursor-pointer">
+        <i class="fa-solid fa-download"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- CHAT MESSAGES SCROLL CONTAINER -->
+  <main id="chatContainer" class="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-5 max-w-4xl w-full mx-auto select-text">
+    
+    <!-- WELCOME HERO STATE -->
+    <div id="heroWelcome" class="flex flex-col items-center justify-center my-auto py-8 text-center select-none">
+      <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white text-3xl shadow-2xl shadow-indigo-500/30 mb-4 animate-bounce">
+        <i class="fa-solid fa-brain"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-2">How can I assist you today?</h2>
+      <p class="text-xs text-neutral-400 max-w-md mb-6">
+        Connected to <span class="font-mono text-indigo-300">https://emis.zxs-is-very.cool/v1</span> • Active model: <span id="welcomeModelBadge" class="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md font-mono">GLM 5.3</span>
+      </p>
+
+      <!-- Quick Prompt Suggestions Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl text-left">
+        <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Explain how proxy protocols like Scramjet and Wisp work together in modern web browsers.">
+          <div class="flex items-center gap-2 text-xs font-bold text-white mb-1">
+            <span class="text-indigo-400">🌐</span>
+            <span>Explain Scramjet & Wisp</span>
+          </div>
+          <p class="text-[11px] text-neutral-400 group-hover:text-neutral-300">Deep dive into service worker rewriting & WebSocket transports.</p>
+        </button>
+
+        <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Write a complete Python script using the openai library to query GLM-5.3 with streaming completions.">
+          <div class="flex items-center gap-2 text-xs font-bold text-white mb-1">
+            <span class="text-emerald-400">🐍</span>
+            <span>Python OpenAI Script</span>
+          </div>
+          <p class="text-[11px] text-neutral-400 group-hover:text-neutral-300">Complete example querying /v1/chat/completions with GLM-5.3.</p>
+        </button>
+
+        <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Compare the reasoning capabilities of GLM 5.3, GPT-5.6 Luna, and Claude Sonnet 5.">
+          <div class="flex items-center gap-2 text-xs font-bold text-white mb-1">
+            <span class="text-purple-400">🧠</span>
+            <span>Reasoning Models Comparison</span>
+          </div>
+          <p class="text-[11px] text-neutral-400 group-hover:text-neutral-300">Analyze benchmarks, context limits, and coding strength.</p>
+        </button>
+
+        <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Create a high-performance modern web application architecture for VeilOS.">
+          <div class="flex items-center gap-2 text-xs font-bold text-white mb-1">
+            <span class="text-amber-400">💡</span>
+            <span>WebOS Architecture</span>
+          </div>
+          <p class="text-[11px] text-neutral-400 group-hover:text-neutral-300">Brainstorm innovative desktop concepts and widgets.</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages will be appended here dynamically -->
+    <div id="messagesList" class="flex flex-col gap-4"></div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="hidden flex items-start gap-3 mt-2">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shrink-0 text-xs shadow-md">
+        <i class="fa-solid fa-brain animate-pulse"></i>
+      </div>
+      <div class="bg-[#14141d] border border-white/10 rounded-2xl p-4 flex items-center gap-2 text-xs text-neutral-300 shadow-md">
+        <span class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+        <span class="font-medium"><span id="generatingModelName">GLM 5.3</span> is generating response...</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- INPUT AREA -->
+  <footer class="p-4 bg-[#101017] border-t border-white/10 shrink-0">
+    <div class="max-w-4xl mx-auto flex flex-col gap-2">
+      <form id="chatForm" class="flex items-end gap-2 bg-[#161622] border border-white/10 focus-within:border-indigo-500/60 rounded-2xl p-2 transition-all shadow-xl">
+        <textarea
+          id="messageInput"
+          rows="1"
+          placeholder="Ask Onyx AI anything... (Shift+Enter for newline)"
+          class="flex-1 bg-transparent border-0 outline-none text-sm text-white placeholder-neutral-500 px-3 py-1.5 resize-none max-h-36 overflow-y-auto font-sans"
+        ></textarea>
+
+        <button
+          type="submit"
+          id="sendBtn"
+          class="w-9 h-9 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-md transition-transform hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none shrink-0"
+        >
+          <i class="fa-solid fa-arrow-up"></i>
+        </button>
+      </form>
+
+      <div class="flex items-center justify-between text-[11px] text-neutral-400 px-2">
+        <div class="flex items-center gap-2">
+          <span>Active Model: <b id="activeModelLabel" class="text-white font-mono cursor-pointer hover:underline" onclick="openModelCatalog()">glm-5.3</b></span>
+          <span>•</span>
+          <span>Base URL: <code class="text-indigo-400">https://emis.zxs-is-very.cool/v1</code></span>
+        </div>
+        <div>
+          <span>Press <b>Enter</b> to send, <b>Shift + Enter</b> for new line</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- FULL MODEL CATALOG MODAL / DIALOG -->
+  <div id="modelModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="bg-[#111119] border border-white/15 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-fade">
+      
+      <!-- Modal Header -->
+      <div class="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-[#151520]">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 flex items-center justify-center text-base">
+            <i class="fa-solid fa-cubes-stacked"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-white">Select AI Model</h3>
+            <p class="text-xs text-neutral-400">Choose from <span id="modalCatalogCount">80+</span> models available in the Emis LLM catalog</p>
+          </div>
+        </div>
+
+        <button id="closeModelModalBtn" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white flex items-center justify-center text-sm transition-colors cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Search and Filter Bar -->
+      <div class="p-4 border-b border-white/10 flex flex-col sm:flex-row gap-3 bg-[#13131c]">
+        <!-- Search Input -->
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400"></i>
+          <input
+            id="modelSearchInput"
+            type="text"
+            placeholder="Search model ID, label, provider (e.g. gpt, claude, glm, reasoning, vision, flux)..."
+            class="w-full bg-[#1b1b26] border border-white/10 focus:border-indigo-500/60 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-neutral-500 outline-none"
+          />
+        </div>
+
+        <!-- Filter Tags -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs shrink-0">
+          <button class="filter-btn px-2.5 py-1.5 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer shrink-0" data-filter="all">All</button>
+          <button class="filter-btn px-2.5 py-1.5 rounded-xl bg-[#1b1b26] hover:bg-[#252533] text-neutral-300 font-semibold cursor-pointer shrink-0" data-filter="reasoning">🧠 Reasoning</button>
+          <button class="filter-btn px-2.5 py-1.5 rounded-xl bg-[#1b1b26] hover:bg-[#252533] text-neutral-300 font-semibold cursor-pointer shrink-0" data-filter="vision">👁️ Vision</button>
+          <button class="filter-btn px-2.5 py-1.5 rounded-xl bg-[#1b1b26] hover:bg-[#252533] text-neutral-300 font-semibold cursor-pointer shrink-0" data-filter="tools">🛠️ Tools</button>
+          <button class="filter-btn px-2.5 py-1.5 rounded-xl bg-[#1b1b26] hover:bg-[#252533] text-neutral-300 font-semibold cursor-pointer shrink-0" data-filter="media">🎨 Media/Image</button>
+        </div>
+      </div>
+
+      <!-- Models List Grid -->
+      <div id="modalModelGrid" class="flex-1 overflow-y-auto p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 bg-[#0d0d14]">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3.5 border-t border-white/10 bg-[#151520] flex items-center justify-between text-xs text-neutral-400">
+        <div>
+          <span>Showing <b id="displayedModelCount" class="text-white font-mono">0</b> models</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span>Current: <span id="modalCurrentModel" class="font-mono text-indigo-300 font-bold">glm-5.3</span></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Initialize Markdown Parser with Highlight.js
+    const md = window.markdownit({
+      html: false,
+      linkify: true,
+      typographer: true,
+      highlight: function (str, lang) {
+        if (lang && hljs.getLanguage(lang)) {
+          try {
+            return '<pre class="hljs"><code>' +
+                   hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                   '</code></pre>';
+          } catch (__) {}
+        }
+        return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+      }
+    });
+
+    const PERSONA_PROMPTS = {
+      general: "You are Onyx AI, an intelligent, fast, and helpful assistant built into VeilOS. You assist with coding, web navigation, research, creative writing, and problem solving. Provide accurate, clear markdown formatted responses.",
+      code: "You are an elite software engineer and coding assistant. Provide clean, secure, production-ready code with concise explanations, types, error handling, and best practices.",
+      research: "You are an academic researcher and fact-based analyst. Break down complex topics into clear executive summaries, detailed analysis, and key takeaways with rigorous clarity.",
+      creative: "You are a creative writer and storytelling companion. Write engaging, vivid, expressive, and compelling prose."
+    };
+
+    let allModels = [];
+    let currentModelId = "glm-5.3";
+    let activeFilter = "all";
+    let chatHistory = [];
+    let isGenerating = false;
+
+    // DOM Elements
+    const chatContainer = document.getElementById("chatContainer");
+    const heroWelcome = document.getElementById("heroWelcome");
+    const messagesList = document.getElementById("messagesList");
+    const messageInput = document.getElementById("messageInput");
+    const chatForm = document.getElementById("chatForm");
+    const sendBtn = document.getElementById("sendBtn");
+    const loadingIndicator = document.getElementById("loadingIndicator");
+    const modelSelect = document.getElementById("modelSelect");
+    const personaSelect = document.getElementById("personaSelect");
+    const headerModelBadge = document.getElementById("headerModelBadge");
+    const welcomeModelBadge = document.getElementById("welcomeModelBadge");
+    const activeModelLabel = document.getElementById("activeModelLabel");
+    const generatingModelName = document.getElementById("generatingModelName");
+    const totalModelCount = document.getElementById("totalModelCount");
+    const clearChatBtn = document.getElementById("clearChatBtn");
+    const exportChatBtn = document.getElementById("exportChatBtn");
+
+    // Modal DOM Elements
+    const modelModal = document.getElementById("modelModal");
+    const openModelModalBtn = document.getElementById("openModelModalBtn");
+    const browseModelsBtn = document.getElementById("browseModelsBtn");
+    const closeModelModalBtn = document.getElementById("closeModelModalBtn");
+    const modelSearchInput = document.getElementById("modelSearchInput");
+    const modalModelGrid = document.getElementById("modalModelGrid");
+    const modalCatalogCount = document.getElementById("modalCatalogCount");
+    const displayedModelCount = document.getElementById("displayedModelCount");
+    const modalCurrentModel = document.getElementById("modalCurrentModel");
+
+    // Provider Badge Styling Map
+    const PROVIDER_COLORS = {
+      openai: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+      anthropic: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+      zai: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+      deepseek: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+      qwen: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+      google: "bg-red-500/20 text-red-300 border-red-500/30",
+      meta: "bg-sky-500/20 text-sky-300 border-sky-500/30",
+      cohere: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+      mistral: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+      groq: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+      moonshotai: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+      minimax: "bg-teal-500/20 text-teal-300 border-teal-500/30",
+      nvidia: "bg-green-500/20 text-green-300 border-green-500/30",
+      blackforest: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+      media: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+      leonardo: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30",
+      xai: "bg-zinc-500/20 text-zinc-300 border-zinc-500/30",
+      xiaomi: "bg-amber-500/20 text-amber-300 border-amber-500/30"
+    };
+
+    // Fetch and populate models
+    async function loadModels() {
+      try {
+        const res = await fetch("/api/llm/models");
+        if (res.ok) {
+          const json = await res.json();
+          if (json && Array.isArray(json.data) && json.data.length > 0) {
+            allModels = json.data;
+            totalModelCount.textContent = allModels.length;
+            modalCatalogCount.textContent = allModels.length;
+
+            // Populate Top Bar Select dropdown
+            modelSelect.innerHTML = "";
+            allModels.forEach(m => {
+              const opt = document.createElement("option");
+              opt.value = m.id;
+              const provider = m.owned_by ? `[${m.owned_by.toUpperCase()}] ` : "";
+              opt.textContent = `${provider}${m.label || m.id}`;
+              if (m.id === currentModelId) {
+                opt.selected = true;
+              }
+              modelSelect.appendChild(opt);
+            });
+
+            updateModelLabels();
+            renderModalModels();
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load dynamic models:", e);
+      }
+    }
+    loadModels();
+
+    function selectModel(modelId) {
+      currentModelId = modelId;
+      modelSelect.value = modelId;
+      updateModelLabels();
+      closeModelCatalog();
+    }
+
+    function updateModelLabels() {
+      const selectedModelObj = allModels.find(m => m.id === currentModelId);
+      const displayName = selectedModelObj ? (selectedModelObj.label || selectedModelObj.id) : currentModelId;
+      
+      headerModelBadge.textContent = displayName;
+      if (welcomeModelBadge) welcomeModelBadge.textContent = displayName;
+      activeModelLabel.textContent = currentModelId;
+      generatingModelName.textContent = displayName;
+      modalCurrentModel.textContent = `${displayName} (${currentModelId})`;
+    }
+
+    modelSelect.addEventListener("change", () => {
+      currentModelId = modelSelect.value;
+      updateModelLabels();
+    });
+
+    // Model Catalog Modal Controls
+    function openModelCatalog() {
+      modelModal.classList.remove("hidden");
+      modelSearchInput.value = "";
+      modelSearchInput.focus();
+      renderModalModels();
+    }
+    window.openModelCatalog = openModelCatalog;
+
+    function closeModelCatalog() {
+      modelModal.classList.add("hidden");
+    }
+
+    openModelModalBtn.addEventListener("click", openModelCatalog);
+    browseModelsBtn.addEventListener("click", openModelCatalog);
+    closeModelModalBtn.addEventListener("click", closeModelCatalog);
+
+    modelModal.addEventListener("click", (e) => {
+      if (e.target === modelModal) closeModelCatalog();
+    });
+
+    // Filter Buttons
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach(b => {
+          b.className = "filter-btn px-2.5 py-1.5 rounded-xl bg-[#1b1b26] hover:bg-[#252533] text-neutral-300 font-semibold cursor-pointer shrink-0";
+        });
+        btn.className = "filter-btn px-2.5 py-1.5 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer shrink-0";
+        activeFilter = btn.getAttribute("data-filter");
+        renderModalModels();
+      });
+    });
+
+    modelSearchInput.addEventListener("input", () => {
+      renderModalModels();
+    });
+
+    function renderModalModels() {
+      const query = modelSearchInput.value.toLowerCase().trim();
+      let filtered = allModels.filter(m => {
+        const matchesQuery = !query || 
+          m.id.toLowerCase().includes(query) || 
+          (m.label && m.label.toLowerCase().includes(query)) ||
+          (m.owned_by && m.owned_by.toLowerCase().includes(query));
+
+        if (!matchesQuery) return false;
+
+        if (activeFilter === "reasoning") return m.reasoning === true;
+        if (activeFilter === "vision") return m.vision === true;
+        if (activeFilter === "tools") return m.tools === true;
+        if (activeFilter === "media") return m.image === true || m.audio === true || m.video === true || m.edit === true;
+        return true;
+      });
+
+      displayedModelCount.textContent = filtered.length;
+      modalModelGrid.innerHTML = "";
+
+      if (filtered.length === 0) {
+        modalModelGrid.innerHTML = `
+          <div class="col-span-full py-12 text-center text-neutral-400">
+            <i class="fa-solid fa-filter-circle-xmark text-3xl mb-2 text-neutral-600"></i>
+            <p class="text-sm font-semibold">No models match your search "${query}"</p>
+            <p class="text-xs text-neutral-500 mt-1">Try searching for "gpt", "claude", "glm", "qwen", or "reasoning".</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(m => {
+        const isSelected = m.id === currentModelId;
+        const providerColor = PROVIDER_COLORS[m.owned_by] || "bg-neutral-800 text-neutral-300 border-neutral-700";
+
+        const card = document.createElement("div");
+        card.className = `p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 group relative ${
+          isSelected 
+            ? "bg-indigo-950/70 border-indigo-500 shadow-lg shadow-indigo-500/20" 
+            : "bg-[#161622] hover:bg-[#1f1f2e] border-white/10 hover:border-white/20"
+        }`;
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <span class="text-[10px] uppercase font-bold font-mono px-2 py-0.5 rounded-md border ${providerColor}">
+                ${m.owned_by || "model"}
+              </span>
+              ${isSelected ? '<span class="text-[10px] font-bold text-indigo-400 flex items-center gap-1"><i class="fa-solid fa-check"></i> Active</span>' : ''}
+            </div>
+
+            <h4 class="font-bold text-sm text-white group-hover:text-indigo-300 transition-colors">
+              ${m.label || m.id}
+            </h4>
+            <span class="text-[11px] font-mono text-neutral-400 truncate block mt-0.5">${m.id}</span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-1 pt-2 border-t border-white/5 text-[10px]">
+            ${m.reasoning ? '<span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">🧠 Reasoning</span>' : ''}
+            ${m.vision ? '<span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">👁️ Vision</span>' : ''}
+            ${m.tools ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">🛠️ Tools</span>' : ''}
+            ${m.image ? '<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">🎨 Image</span>' : ''}
+            ${m.audio ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">🎵 Audio</span>' : ''}
+            ${m.video ? '<span class="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">🎬 Video</span>' : ''}
+          </div>
+        `;
+
+        card.addEventListener("click", () => {
+          selectModel(m.id);
+        });
+
+        modalModelGrid.appendChild(card);
+      });
+    }
+
+    // Auto-expand textarea
+    messageInput.addEventListener("input", () => {
+      messageInput.style.height = "auto";
+      messageInput.style.height = Math.min(messageInput.scrollHeight, 140) + "px";
+    });
+
+    messageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        chatForm.requestSubmit();
+      }
+    });
+
+    // Quick starter prompt cards
+    document.querySelectorAll(".prompt-card").forEach(card => {
+      card.addEventListener("click", () => {
+        const prompt = card.getAttribute("data-prompt");
+        if (prompt) {
+          messageInput.value = prompt;
+          chatForm.requestSubmit();
+        }
+      });
+    });
+
+    // Add Copy Buttons to code blocks
+    function enhanceCodeBlocks(container) {
+      container.querySelectorAll("pre").forEach(pre => {
+        if (pre.querySelector(".copy-code-btn")) return;
+
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "copy-code-btn absolute top-2 right-2 px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/10 rounded-md text-[10px] font-mono text-neutral-300 transition-colors flex items-center gap-1 cursor-pointer";
+        copyBtn.innerHTML = `<i class="fa-regular fa-copy"></i><span>Copy</span>`;
+        copyBtn.onclick = (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector("code") ? pre.querySelector("code").innerText : pre.innerText;
+          navigator.clipboard.writeText(code).then(() => {
+            copyBtn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i><span class="text-emerald-400">Copied!</span>`;
+            setTimeout(() => {
+              copyBtn.innerHTML = `<i class="fa-regular fa-copy"></i><span>Copy</span>`;
+            }, 2000);
+          });
+        };
+        pre.style.position = "relative";
+        pre.appendChild(copyBtn);
+      });
+    }
+
+    // Append Message to UI
+    function appendMessage(role, content, modelName) {
+      if (heroWelcome) heroWelcome.classList.add("hidden");
+
+      const msgDiv = document.createElement("div");
+      msgDiv.className = `flex items-start gap-3 animate-fade ${role === "user" ? "justify-end" : "justify-start"}`;
+
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      if (role === "user") {
+        msgDiv.innerHTML = `
+          <div class="flex flex-col items-end max-w-[85%] sm:max-w-[75%]">
+            <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm shadow-md whitespace-pre-wrap leading-relaxed">
+              ${md.utils.escapeHtml(content)}
+            </div>
+            <span class="text-[10px] text-neutral-500 font-mono mt-1 mr-1">${timeStr}</span>
+          </div>
+          <div class="w-8 h-8 rounded-xl bg-indigo-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-md">
+            You
+          </div>
+        `;
+      } else {
+        const renderedHtml = md.render(content);
+        msgDiv.innerHTML = `
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shrink-0 text-xs shadow-md">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </div>
+          <div class="flex flex-col max-w-[88%] sm:max-w-[80%]">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-bold text-white">Onyx AI</span>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">${modelName || currentModelId}</span>
+              <span class="text-[10px] text-neutral-500 font-mono">${timeStr}</span>
+            </div>
+            <div class="prose-dark bg-[#14141d] border border-white/10 rounded-2xl rounded-tl-sm p-4 text-sm shadow-md overflow-hidden">
+              ${renderedHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      messagesList.appendChild(msgDiv);
+      enhanceCodeBlocks(msgDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Handle Form Submit
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = messageInput.value.trim();
+      if (!text || isGenerating) return;
+
+      const selectedModel = currentModelId || "glm-5.3";
+      const selectedPersona = personaSelect.value || "general";
+      const systemInstruction = PERSONA_PROMPTS[selectedPersona] || PERSONA_PROMPTS.general;
+
+      messageInput.value = "";
+      messageInput.style.height = "auto";
+
+      // Append user message
+      appendMessage("user", text);
+      chatHistory.push({ role: "user", content: text });
+
+      // Show loading
+      isGenerating = true;
+      sendBtn.disabled = true;
+      loadingIndicator.classList.remove("hidden");
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+
+      try {
+        const response = await fetch("/api/llm/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: selectedModel,
+            messages: chatHistory,
+            systemInstruction: systemInstruction,
+          }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const replyText = data.text || (data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : "No response generated.");
+        const usedModel = data.model || selectedModel;
+
+        appendMessage("assistant", replyText, usedModel);
+        chatHistory.push({ role: "assistant", content: replyText });
+      } catch (err) {
+        console.error("Chat generation failed:", err);
+        appendMessage("assistant", `⚠️ **Error generating response:** ${err.message}\n\nPlease verify that the backend is running and the Emis API is reachable.`, selectedModel);
+      } finally {
+        isGenerating = false;
+        sendBtn.disabled = false;
+        loadingIndicator.classList.add("hidden");
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    });
+
+    // Clear Chat
+    clearChatBtn.addEventListener("click", () => {
+      if (chatHistory.length === 0) return;
+      if (confirm("Clear current conversation history?")) {
+        chatHistory = [];
+        messagesList.innerHTML = "";
+        heroWelcome.classList.remove("hidden");
+      }
+    });
+
+    // Export Chat to Markdown
+    exportChatBtn.addEventListener("click", () => {
+      if (chatHistory.length === 0) {
+        alert("No messages to export yet.");
+        return;
+      }
+      let mdContent = `# Onyx AI Chat Export (${currentModelId})\n*Exported on ${new Date().toLocaleString()}*\n\n---\n\n`;
+      chatHistory.forEach(msg => {
+        mdContent += `### ${msg.role === 'user' ? '👤 User' : '🤖 Onyx AI'}\n\n${msg.content}\n\n---\n\n`;
+      });
+
+      const blob = new Blob([mdContent], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `onyx_ai_chat_${Date.now()}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>

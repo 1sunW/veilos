@@ -223,42 +223,433 @@ fastify.get("/~/sx/*", async (request, reply) => {
 	return reply.status(404).send("Extension resource handled via Service Worker.");
 });
 
-// AI API Endpoints using Server-Side Gemini API
+// Emis LLM OpenAI-Compatible API Configuration
+const EMIS_BASE_URL = (process.env.EMIS_BASE_URL || "https://emis.zxs-is-very.cool/v1").replace(/\/$/, "");
+const EMIS_API_KEY = process.env.EMIS_API_KEY || "emis-9ca396c75f997364920555ebfafcfe5a9e6c3ee6";
+const DEFAULT_LLM_MODEL = "glm-5.3";
+
+// Complete catalog of all supported models with capabilities and providers
+const ALL_EMIS_MODELS = [
+	{"id":"gpt-5.6-luna","object":"model","owned_by":"openai","label":"GPT-5.6 Luna","reasoning":true,"tools":true,"vision":true},
+	{"id":"claude-sonnet-5","object":"model","owned_by":"anthropic","label":"Claude Sonnet 5","reasoning":true,"tools":true,"vision":true},
+	{"id":"gpt-5.6-sol","object":"model","owned_by":"openai","label":"GPT-5.6 Sol","reasoning":true,"tools":true,"vision":true},
+	{"id":"claude-opus-4-8","object":"model","owned_by":"anthropic","label":"Claude Opus 4.8","reasoning":true,"tools":true,"vision":true},
+	{"id":"claude-opus-5","object":"model","owned_by":"anthropic","label":"Claude Opus 5","reasoning":true,"tools":true,"vision":true},
+	{"id":"claude-fable-5","object":"model","owned_by":"anthropic","label":"Claude Fable 5","reasoning":false,"tools":true,"vision":true},
+	{"id":"gpt-6-astra","object":"model","owned_by":"openai","label":"GPT-6 Astra","reasoning":false,"tools":true,"vision":true},
+	{"id":"claude-fable-5-1","object":"model","owned_by":"anthropic","label":"Claude Fable 5.1","reasoning":false,"tools":true,"vision":true},
+	{"id":"glm-5.2","object":"model","owned_by":"zai","label":"GLM 5.2","reasoning":true,"tools":true,"vision":false},
+	{"id":"glm-5.3","object":"model","owned_by":"zai","label":"GLM 5.3","reasoning":true,"tools":true,"vision":false},
+	{"id":"glm-5.3-flash","object":"model","owned_by":"zai","label":"GLM 5.3 Flash","reasoning":true,"tools":true,"vision":false},
+	{"id":"deepseek-v4-pro","object":"model","owned_by":"deepseek","label":"Deepseek V4 Pro","reasoning":true,"tools":true,"vision":false},
+	{"id":"deepseek-v4-flash","object":"model","owned_by":"deepseek","label":"Deepseek V4 Flash","reasoning":true,"tools":true,"vision":false},
+	{"id":"qwen3.8-max","object":"model","owned_by":"qwen","label":"Qwen3.8 Max","reasoning":false,"tools":true,"vision":false},
+	{"id":"command-a","object":"model","owned_by":"cohere","label":"Command A","reasoning":false,"vision":false,"tools":false},
+	{"id":"command-a-plus","object":"model","owned_by":"cohere","label":"Command A Plus","reasoning":false,"vision":false,"tools":false},
+	{"id":"command-a-reasoning","object":"model","owned_by":"cohere","label":"Command A Reasoning","reasoning":true,"vision":false,"tools":false},
+	{"id":"command-a-vision","object":"model","owned_by":"cohere","label":"Command A Vision","reasoning":false,"vision":true,"tools":false},
+	{"id":"command-r-plus","object":"model","owned_by":"cohere","label":"Command R+","reasoning":false,"vision":false,"tools":false},
+	{"id":"command-r","object":"model","owned_by":"cohere","label":"Command R","reasoning":false,"vision":false,"tools":false},
+	{"id":"command-r7b","object":"model","owned_by":"cohere","label":"Command R7B","reasoning":false,"vision":false,"tools":false},
+	{"id":"aya-expanse-32b","object":"model","owned_by":"cohere","label":"Aya Expanse 32B","reasoning":false,"vision":false,"tools":false},
+	{"id":"aya-vision-32b","object":"model","owned_by":"cohere","label":"Aya Vision 32B","reasoning":false,"vision":true,"tools":false},
+	{"id":"north-mini-code","object":"model","owned_by":"cohere","label":"North Mini Code","reasoning":false,"vision":false,"tools":false},
+	{"id":"deepseek-v4-flash-0731-turbo","object":"model","owned_by":"deepseek","label":"DeepSeek V4 Flash (0731)","tools":true},
+	{"id":"compound-mini","object":"model","owned_by":"groq","label":"Compound Mini","premium":false,"tools":true,"vision":false,"reasoning":false},
+	{"id":"gpt-oss-120b","object":"model","owned_by":"groq","label":"GPT-OSS 120B","premium":false,"tools":true,"vision":false,"reasoning":false},
+	{"id":"gpt-oss-20b","object":"model","owned_by":"groq","label":"GPT-OSS 20B","premium":false,"tools":true,"vision":false,"reasoning":false},
+	{"id":"compound","object":"model","owned_by":"groq","label":"Compound","premium":false,"tools":true,"vision":false,"reasoning":false},
+	{"id":"qwen-3.6-27b","object":"model","owned_by":"qwen","label":"Qwen 3.6 27B","premium":false,"tools":true,"vision":false,"reasoning":false},
+	{"id":"allam-2-7b","object":"model","owned_by":"huggingface","label":"Allam 2 7B","premium":false,"tools":true,"vision":false,"reasoning":false},
+	{"id":"qwen3-235b","object":"model","owned_by":"qwen","label":"Qwen3 235B","premium":false,"reasoning":true},
+	{"id":"gpt-5-nano","object":"model","owned_by":"openai","label":"GPT-5 Nano","premium":false,"reasoning":false},
+	{"id":"gpt-4.1-nano","object":"model","owned_by":"openai","label":"GPT-4.1 Nano","premium":false,"reasoning":false},
+	{"id":"gpt-4o-mini","object":"model","owned_by":"openai","label":"GPT-4o Mini","premium":false,"reasoning":false},
+	{"id":"gemma-4","object":"model","owned_by":"google","label":"Gemma 4","premium":false,"reasoning":false},
+	{"id":"gemini-2.5-flash-lite","object":"model","owned_by":"google","label":"Gemini 2.5 Flash Lite","premium":false,"reasoning":false},
+	{"id":"llama-3.3-70b-instruct","object":"model","owned_by":"meta","label":"Llama 3.3 70B","premium":false,"reasoning":false},
+	{"id":"llama-3.1-8b-instant","object":"model","owned_by":"meta","label":"Llama 3.1 8B","premium":false,"reasoning":false},
+	{"id":"standard","object":"model","owned_by":"deepai","label":"Standard","premium":false,"reasoning":false},
+	{"id":"online","object":"model","owned_by":"deepai","label":"Online (web search)","premium":false,"reasoning":false},
+	{"id":"unfiltered_x","object":"model","owned_by":"huggingface","label":"Unfiltered X","premium":false,"reasoning":false},
+	{"id":"minimax-text-01","object":"model","owned_by":"minimax","label":"MiniMax Text 01","premium":false,"reasoning":false},
+	{"id":"vibethinker-3b","object":"model","owned_by":"huggingface","label":"VibeThinker 3B","premium":false,"reasoning":true},
+	{"id":"kimi-k3-base","object":"model","owned_by":"moonshotai","label":"Kimi K3 (GitHub)","premium":false,"tools":true,"vision":true,"reasoning":true},
+	{"id":"kimi-k3","object":"model","owned_by":"moonshotai","label":"Kimi K3","premium":false,"tools":true,"vision":true,"reasoning":true},
+	{"id":"gpt-5-mini","object":"model","owned_by":"openai","label":"GPT-5 mini","premium":false,"tools":true,"vision":true,"reasoning":true},
+	{"id":"claude-haiku-4.5","object":"model","owned_by":"anthropic","label":"Claude Haiku 4.5","premium":false,"tools":true,"vision":true,"reasoning":false},
+	{"id":"gpt-4.1","object":"model","owned_by":"openai","label":"GPT-4.1","premium":false,"tools":true,"vision":true,"reasoning":false},
+	{"id":"gpt-4o","object":"model","owned_by":"openai","label":"GPT-4o","premium":false,"tools":true,"vision":true,"reasoning":false},
+	{"id":"nova","object":"model","owned_by":"amazon","label":"Nova 2 Lite","premium":false,"tools":false,"vision":false,"reasoning":false},
+	{"id":"gemma-4-31b-heretic","object":"model","owned_by":"google","label":"Gemma 4 31B (heretic)","premium":false,"tools":false,"vision":false,"reasoning":false},
+	{"id":"stheno-l3-8b","object":"model","owned_by":"huggingface","label":"L3 8B Stheno v3.2","premium":false,"tools":false,"vision":false,"reasoning":false},
+	{"id":"llama-3.2-3b","object":"model","owned_by":"meta","label":"Llama 3.2 3B Instruct","premium":false,"tools":false,"vision":false,"reasoning":false},
+	{"id":"llama-3.2-1b","object":"model","owned_by":"meta","label":"Llama 3.2 1B Instruct","premium":false,"tools":false,"vision":false,"reasoning":false},
+	{"id":"deepseek-v4.1","object":"model","owned_by":"deepseek","label":"DeepSeek V4.1 Flash","tools":true,"vision":true,"reasoning":true},
+	{"id":"mimo-v2.5","object":"model","owned_by":"xiaomi","label":"MiMo V2.5","premium":false,"tools":true,"vision":false},
+	{"id":"kimi-k2.6","object":"model","owned_by":"moonshotai","label":"Kimi K2.6","premium":false,"tools":true,"vision":false},
+	{"id":"gemma-4-26b","object":"model","owned_by":"google","label":"Gemma 4 26B","premium":false,"tools":true,"vision":true},
+	{"id":"qwen-3.8-27b","object":"model","owned_by":"qwen","label":"Qwen 3.8 27b","premium":false,"tools":true,"vision":false},
+	{"id":"openai","object":"model","owned_by":"openai","label":"OpenAI","premium":false,"tools":true,"vision":false},
+	{"id":"openai-fast","object":"model","owned_by":"openai","label":"OpenAI Fast","premium":false,"tools":true,"vision":false},
+	{"id":"gpt-oss","object":"model","owned_by":"openai","label":"GPT OSS","premium":false,"tools":true,"vision":false},
+	{"id":"codestral-latest","object":"model","owned_by":"mistral","label":"Codestral Latest","premium":false,"tools":true,"vision":false},
+	{"id":"meta-llama-3_3-70b-instruct","object":"model","owned_by":"meta","label":"Meta Llama 3 3 70b Instruct","premium":false,"tools":true,"vision":false},
+	{"id":"qwen3.5-397b-a17b","object":"model","owned_by":"qwen","label":"Qwen3.5 397b A17b","premium":false,"tools":true,"vision":false},
+	{"id":"mistral-small-3.2-24b-instruct-2506","object":"model","owned_by":"mistral","label":"Mistral Small 3.2 24b Instruct 2506","premium":false,"tools":true,"vision":false},
+	{"id":"mistral-nemo-instruct-2407","object":"model","owned_by":"mistral","label":"Mistral Nemo Instruct 2407","premium":false,"tools":true,"vision":false},
+	{"id":"qwen3.6-27b","object":"model","owned_by":"qwen","label":"Qwen3.6 27b","premium":false,"tools":true,"vision":false},
+	{"id":"qwen3-32b","object":"model","owned_by":"qwen","label":"Qwen3 32b","premium":false,"tools":true,"vision":false},
+	{"id":"qwen3.5-9b","object":"model","owned_by":"qwen","label":"Qwen3.5 9b","premium":false,"tools":true,"vision":false},
+	{"id":"qwen2.5-vl-72b-instruct","object":"model","owned_by":"qwen","label":"Qwen2.5 VL 72b Instruct","premium":false,"tools":true,"vision":true},
+	{"id":"mistral-7b-instruct-v0.3","object":"model","owned_by":"mistral","label":"Mistral 7b Instruct V0.3","premium":false,"tools":true,"vision":false},
+	{"id":"qwen3-coder-30b-a3b-instruct","object":"model","owned_by":"qwen","label":"Qwen3 Coder 30b A3b Instruct","premium":false,"tools":true,"vision":false},
+	{"id":"poolside-laguna-xs-2.1","object":"model","owned_by":"poolside","label":"Poolside Laguna XS 2.1","premium":false,"tools":true,"vision":false},
+	{"id":"stepfun-step-3.7-flash","object":"model","owned_by":"stepfun","label":"Stepfun Step 3.7 Flash","premium":false,"tools":true,"vision":false},
+	{"id":"nvidia-nemotron-3-nano-omni-30b-a3b-reasoning","object":"model","owned_by":"nvidia","label":"Nvidia Nemotron 3 Nano Omni 30b A3b Reasoning","premium":false,"tools":true,"vision":true},
+	{"id":"nvidia-nemotron-3-super-120b-a12b","object":"model","owned_by":"nvidia","label":"Nvidia Nemotron 3 Super 120b A12b","premium":false,"tools":true,"vision":false},
+	{"id":"nvidia-nemotron-3-ultra-550b-a55b","object":"model","owned_by":"nvidia","label":"Nvidia Nemotron 3 Ultra 550b A55b","premium":false,"tools":true,"vision":false},
+	{"id":"dots-studio-dots-3-note-preview","object":"model","owned_by":"rednote","label":"Dots Studio Dots 3 Note Preview","premium":false,"tools":true,"vision":false},
+	{"id":"inclusionai-ling-3.0-flash-fin","object":"model","owned_by":"inclusionai","label":"Inclusionai Ling 3.0 Flash Fin","premium":false,"tools":true,"vision":false},
+	{"id":"liquid-lfm-2.5-2.6b","object":"model","owned_by":"liquidai","label":"Liquid Lfm 2.5 2.6b","premium":false,"tools":true,"vision":false},
+	{"id":"minimax-minimax-m2.7","object":"model","owned_by":"minimax","label":"Minimax Minimax M2.7","premium":false,"tools":true,"vision":false},
+	{"id":"nvidia-nemotron-3.5-lightning","object":"model","owned_by":"nvidia","label":"Nvidia Nemotron 3.5 Lightning","premium":false,"tools":true,"vision":false},
+	{"id":"poolside-laguna-s-2.1","object":"model","owned_by":"poolside","label":"Poolside Laguna S 2.1","premium":false,"tools":true,"vision":false},
+	{"id":"image","object":"model","owned_by":"blackforest","label":"FLUX (fast)","image":true},
+	{"id":"sdxl-lightning","object":"model","owned_by":"stabilityai","label":"Stable Diffusion XL Lightning","premium":false,"image":true},
+	{"id":"flux-2-klein-4b","object":"model","owned_by":"blackforest","label":"FLUX.2 Klein 4B","premium":false,"image":true},
+	{"id":"flux-2-klein-9b","object":"model","owned_by":"blackforest","label":"FLUX.2 Klein 9B","premium":false,"image":true},
+	{"id":"flux-2-dev","object":"model","owned_by":"blackforest","label":"FLUX.2 Dev","premium":false,"image":true},
+	{"id":"flux-1-schnell","object":"model","owned_by":"blackforest","label":"FLUX.1 Schnell","premium":false,"image":true},
+	{"id":"phoenix-1.0","object":"model","owned_by":"leonardo","label":"Leonardo Phoenix","premium":false,"image":true},
+	{"id":"lucid-origin","object":"model","owned_by":"leonardo","label":"Leonardo Lucid Origin","premium":false,"image":true},
+	{"id":"image-edit","object":"model","owned_by":"blackforest","label":"FLUX.2 Edit","edit":true,"vision":true},
+	{"id":"music","object":"model","owned_by":"media","label":"Music (auto)","audio":true},
+	{"id":"musicgen","object":"model","owned_by":"media","label":"MusicGen","audio":true},
+	{"id":"musicgen-stream","object":"model","owned_by":"media","label":"MusicGen Streaming","audio":true},
+	{"id":"stable-audio","object":"model","owned_by":"media","label":"Stable Audio Open","audio":true},
+	{"id":"audioldm2","object":"model","owned_by":"media","label":"AudioLDM 2","audio":true},
+	{"id":"mustango","object":"model","owned_by":"media","label":"Mustango","audio":true},
+	{"id":"video","object":"model","owned_by":"media","label":"Video (auto)","video":true},
+	{"id":"ltx-video","object":"model","owned_by":"media","label":"LTX-Video","video":true},
+	{"id":"wan-2.1","object":"model","owned_by":"media","label":"Wan 2.1 Fast","video":true},
+	{"id":"self-forcing","object":"model","owned_by":"media","label":"Self-Forcing (streaming)","video":true},
+	{"id":"cogvideox","object":"model","owned_by":"media","label":"CogVideoX 5B","video":true},
+	{"id":"claude-opus-5-fast","object":"model","owned_by":"anthropic","label":"Claude Opus 5 Fast","tools":true},
+	{"id":"deepseek-v4-flash-0731","object":"model","owned_by":"deepseek","label":"DeepSeek V4 Flash 0731","tools":true},
+	{"id":"deepseek-v4-pro-0813","object":"model","owned_by":"deepseek","label":"DeepSeek V4 Pro 0813","tools":true},
+	{"id":"gemini-2.5-flash","object":"model","owned_by":"google","label":"Gemini 2.5 Flash","tools":true},
+	{"id":"gemini-2.5-pro","object":"model","owned_by":"google","label":"Gemini 2.5 Pro","tools":true},
+	{"id":"gemini-3.1-pro-preview","object":"model","owned_by":"google","label":"Gemini 3.1 Pro Preview","tools":true},
+	{"id":"gemini-3.8-flash","object":"model","owned_by":"google","label":"Gemini 3.8 Flash","tools":true},
+	{"id":"minimax-m3","object":"model","owned_by":"minimax","label":"MiniMax M3","tools":true},
+	{"id":"gpt-5.6-terra","object":"model","owned_by":"openai","label":"GPT-5.6 Terra","tools":true},
+	{"id":"qwen3-coder-plus","object":"model","owned_by":"qwen","label":"Qwen3 Coder Plus","tools":true},
+	{"id":"qwen3.7-flash","object":"model","owned_by":"qwen","label":"Qwen3.7 Flash","tools":true},
+	{"id":"qwen3.7-max","object":"model","owned_by":"qwen","label":"Qwen3.7 Max","tools":true},
+	{"id":"qwen3.7-plus","object":"model","owned_by":"qwen","label":"Qwen3.7 Plus","tools":true},
+	{"id":"qwen3.8-27b","object":"model","owned_by":"qwen","label":"Qwen3.8 27B","tools":true},
+	{"id":"qwen3.8-flash","object":"model","owned_by":"qwen","label":"Qwen3.8 Flash","tools":true},
+	{"id":"qwen3.8-max-0902","object":"model","owned_by":"qwen","label":"Qwen3.8 Max 0902","tools":true},
+	{"id":"grok-4.3","object":"model","owned_by":"xai","label":"Grok 4.3","tools":true},
+	{"id":"mimo-v2.5-pro","object":"model","owned_by":"xiaomi","label":"MiMo V2.5 Pro","tools":true}
+];
+
+async function fetchEmisModels() {
+	try {
+		const res = await fetch(`${EMIS_BASE_URL}/models`, {
+			method: "GET",
+			headers: {
+				"Authorization": `Bearer ${EMIS_API_KEY}`,
+				"Accept": "application/json",
+			},
+		});
+		if (res.ok) {
+			const json = await res.json();
+			if (json && Array.isArray(json.data) && json.data.length > 0) {
+				// Merge live data with rich metadata attributes (label, owned_by, reasoning, vision, tools)
+				const modelMap = new Map();
+				ALL_EMIS_MODELS.forEach(m => modelMap.set(m.id, { ...m }));
+				json.data.forEach(m => {
+					const existing = modelMap.get(m.id) || {};
+					modelMap.set(m.id, { ...existing, ...m });
+				});
+				return Array.from(modelMap.values());
+			}
+		}
+	} catch (err) {
+		console.warn("[EMIS API] Could not fetch models from upstream, using catalog:", err.message);
+	}
+	return ALL_EMIS_MODELS;
+}
+
+async function callEmisChatCompletions({ model, messages, temperature = 0.7, max_tokens, systemInstruction }) {
+	const selectedModel = model || DEFAULT_LLM_MODEL;
+	const fullMessages = [];
+
+	if (systemInstruction) {
+		fullMessages.push({ role: "system", content: systemInstruction });
+	}
+
+	if (Array.isArray(messages)) {
+		for (const m of messages) {
+			fullMessages.push({
+				role: m.role === "model" || m.role === "assistant" ? "assistant" : m.role === "system" ? "system" : "user",
+				content: typeof m.content === "string" ? m.content : (Array.isArray(m.parts) ? m.parts.map(p => p.text || "").join("\n") : String(m.content || "")),
+			});
+		}
+	}
+
+	const bodyPayload = {
+		model: selectedModel,
+		messages: fullMessages,
+		temperature: typeof temperature === "number" ? temperature : 0.7,
+	};
+	if (max_tokens) {
+		bodyPayload.max_tokens = max_tokens;
+	}
+
+	const res = await fetch(`${EMIS_BASE_URL}/chat/completions`, {
+		method: "POST",
+		headers: {
+			"Authorization": `Bearer ${EMIS_API_KEY}`,
+			"Content-Type": "application/json",
+			"Accept": "application/json",
+		},
+		body: JSON.stringify(bodyPayload),
+	});
+
+	if (!res.ok) {
+		const errText = await res.text();
+		throw new Error(`Emis API returned ${res.status}: ${errText}`);
+	}
+
+	const data = await res.json();
+	const replyContent = data.choices && data.choices[0] && data.choices[0].message
+		? data.choices[0].message.content
+		: "";
+	return {
+		text: replyContent,
+		raw: data,
+		model: selectedModel,
+		usage: data.usage || null,
+	};
+}
+
+// AI API Endpoints: Models List
+fastify.get("/api/llm/models", async (request, reply) => {
+	try {
+		const models = await fetchEmisModels();
+		return reply.send({
+			object: "list",
+			data: models,
+			defaultModel: DEFAULT_LLM_MODEL,
+			baseUrl: EMIS_BASE_URL,
+		});
+	} catch (err) {
+		console.error("Models API Error:", err);
+		return reply.code(500).send({ error: err.message || "Failed to fetch models" });
+	}
+});
+
+fastify.get("/api/ai/models", async (request, reply) => {
+	try {
+		const models = await fetchEmisModels();
+		return reply.send({
+			object: "list",
+			data: models,
+			defaultModel: DEFAULT_LLM_MODEL,
+			baseUrl: EMIS_BASE_URL,
+		});
+	} catch (err) {
+		console.error("AI Models API Error:", err);
+		return reply.code(500).send({ error: err.message || "Failed to fetch models" });
+	}
+});
+
+// AI Chat Completion Endpoint (OpenAI / Emis Compatible & Gemini Fallback)
+fastify.post("/api/llm/chat", async (request, reply) => {
+	try {
+		const {
+			model = DEFAULT_LLM_MODEL,
+			messages,
+			prompt,
+			history = [],
+			pageContext,
+			systemInstruction,
+			temperature,
+			max_tokens
+		} = request.body || {};
+
+		let chatMessages = Array.isArray(messages) ? [...messages] : [];
+
+		if (chatMessages.length === 0) {
+			if (history && history.length > 0) {
+				chatMessages = history.map(msg => ({
+					role: msg.role === "user" ? "user" : "assistant",
+					content: msg.content || (msg.parts ? msg.parts.map(p => p.text || "").join("") : ""),
+				}));
+			}
+
+			if (prompt) {
+				const contextText = pageContext && (pageContext.url || pageContext.title || pageContext.text)
+					? `[Page Context: Title "${pageContext.title || "Untitled"}", URL "${pageContext.url || "Unknown"}"${pageContext.text ? `\nSnippet: ${pageContext.text.slice(0, 2000)}` : ""}]\n\n`
+					: "";
+
+				chatMessages.push({
+					role: "user",
+					content: contextText + prompt,
+				});
+			}
+		}
+
+		if (chatMessages.length === 0) {
+			return reply.code(400).send({ error: "Messages or prompt required." });
+		}
+
+		const defaultSystem = systemInstruction || "You are Onyx AI, a powerful, fast, and helpful assistant built into VeilOS. You assist with coding, web navigation, research, creative writing, and problem solving. Provide accurate, clear markdown formatted responses.";
+
+		// Primary attempt: Emis OpenAI-compatible endpoint
+		try {
+			const result = await callEmisChatCompletions({
+				model,
+				messages: chatMessages,
+				temperature,
+				max_tokens,
+				systemInstruction: defaultSystem,
+			});
+
+			return reply.send({
+				id: result.raw?.id || `chatcmpl-${Date.now()}`,
+				object: "chat.completion",
+				created: Math.floor(Date.now() / 1000),
+				model: result.model,
+				text: result.text,
+				choices: [
+					{
+						index: 0,
+						message: {
+							role: "assistant",
+							content: result.text,
+						},
+						finish_reason: "stop",
+					},
+				],
+				usage: result.usage,
+			});
+		} catch (emisErr) {
+			console.warn("[EMIS Chat Error] Falling back to Gemini if available:", emisErr.message);
+
+			// Fallback to Gemini if configured
+			if (process.env.GEMINI_API_KEY) {
+				const ai = getAiClient();
+				const contents = chatMessages.map(msg => ({
+					role: msg.role === "assistant" || msg.role === "model" ? "model" : "user",
+					parts: [{ text: msg.content }],
+				}));
+
+				const geminiRes = await ai.models.generateContent({
+					model: "gemini-2.5-flash",
+					contents,
+					config: { systemInstruction: defaultSystem },
+				});
+
+				const replyText = geminiRes.text || "No response generated.";
+				return reply.send({
+					id: `chatcmpl-${Date.now()}`,
+					object: "chat.completion",
+					created: Math.floor(Date.now() / 1000),
+					model: "gemini-2.5-flash",
+					text: replyText,
+					choices: [
+						{
+							index: 0,
+							message: {
+								role: "assistant",
+								content: replyText,
+							},
+							finish_reason: "stop",
+						},
+					],
+				});
+			}
+
+			throw emisErr;
+		}
+	} catch (err) {
+		console.error("LLM Chat API Error:", err);
+		return reply.code(500).send({ error: err.message || "Failed to generate AI response" });
+	}
+});
+
+// Alias for /api/ai/chat
 fastify.post("/api/ai/chat", async (request, reply) => {
 	try {
-		const ai = getAiClient();
-		const { prompt, history = [], pageContext, systemInstruction } = request.body || {};
+		const {
+			model = DEFAULT_LLM_MODEL,
+			prompt,
+			history = [],
+			messages,
+			pageContext,
+			systemInstruction,
+			temperature,
+		} = request.body || {};
 
-		if (!prompt && !history.length) {
+		let chatMessages = Array.isArray(messages) ? [...messages] : [];
+
+		if (chatMessages.length === 0) {
+			if (history && history.length > 0) {
+				chatMessages = history.map(msg => ({
+					role: msg.role === "user" ? "user" : "assistant",
+					content: msg.content || (msg.parts ? msg.parts.map(p => p.text || "").join("") : ""),
+				}));
+			}
+
+			if (prompt) {
+				const contextText = pageContext && (pageContext.url || pageContext.title || pageContext.text)
+					? `[Page Context: Title "${pageContext.title || "Untitled"}", URL "${pageContext.url || "Unknown"}"${pageContext.text ? `\nSnippet: ${pageContext.text.slice(0, 2000)}` : ""}]\n\n`
+					: "";
+
+				chatMessages.push({
+					role: "user",
+					content: contextText + prompt,
+				});
+			}
+		}
+
+		if (chatMessages.length === 0) {
 			return reply.code(400).send({ error: "Prompt or message history is required." });
 		}
 
-		// Streamlined message content mapping
-		const contents = history.map(msg => ({
-			role: msg.role === "user" ? "user" : "model",
-			parts: [{ text: msg.content }],
-		}));
+		const defaultSystem = systemInstruction || "You are Veil AI, an intelligent, fast browser assistant built into VeilOS. You help users navigate the web, summarize content, answer questions, explain code, and assist with creative or research tasks. Keep answers concise, accurate, formatted in clear markdown, and friendly.";
 
-		if (prompt) {
-			const contextText = pageContext && (pageContext.url || pageContext.title || pageContext.text)
-				? `[Page Context: Title "${pageContext.title || "Untitled"}", URL "${pageContext.url || "Unknown"}"${pageContext.text ? `\nSnippet: ${pageContext.text.slice(0, 2000)}` : ""}]\n\n`
-				: "";
-
-			contents.push({
-				role: "user",
-				parts: [{ text: contextText + prompt }],
+		try {
+			const result = await callEmisChatCompletions({
+				model,
+				messages: chatMessages,
+				temperature,
+				systemInstruction: defaultSystem,
 			});
+			return reply.send({ text: result.text || "No response generated.", model: result.model });
+		} catch (emisErr) {
+			console.warn("[EMIS /api/ai/chat Error] Trying Gemini fallback:", emisErr.message);
+			if (process.env.GEMINI_API_KEY) {
+				const ai = getAiClient();
+				const contents = chatMessages.map(msg => ({
+					role: msg.role === "assistant" || msg.role === "model" ? "model" : "user",
+					parts: [{ text: msg.content }],
+				}));
+
+				const response = await ai.models.generateContent({
+					model: "gemini-2.5-flash",
+					contents,
+					config: { systemInstruction: defaultSystem },
+				});
+
+				return reply.send({ text: response.text || "No response generated.", model: "gemini-2.5-flash" });
+			}
+			throw emisErr;
 		}
-
-		const defaultSystem = systemInstruction || "You are Veil AI, an intelligent, fast browser assistant built into the Veil Web Browser. You help users navigate the web, summarize content, answer questions, explain code, and assist with creative or research tasks. Keep answers concise, accurate, formatted in clear markdown, and friendly.";
-
-		const response = await ai.models.generateContent({
-			model: "gemini-2.5-flash",
-			contents,
-			config: { systemInstruction: defaultSystem },
-		});
-
-		return reply.send({ text: response.text || "No response generated." });
 	} catch (err) {
 		console.error("AI Chat API Error:", err);
 		return reply.code(500).send({ error: err.message || "Failed to generate AI response" });
@@ -267,27 +658,40 @@ fastify.post("/api/ai/chat", async (request, reply) => {
 
 fastify.post("/api/ai/summarize", async (request, reply) => {
 	try {
-		const ai = getAiClient();
-		const { content = "", title = "N/A", url = "N/A" } = request.body || {};
+		const { content = "", title = "N/A", url = "N/A", model = DEFAULT_LLM_MODEL } = request.body || {};
 
 		if (!content && !url) {
 			return reply.code(400).send({ error: "Content or URL is required to summarize" });
 		}
 
-		const response = await ai.models.generateContent({
-			model: "gemini-2.5-flash",
-			contents: `Please summarize this content concisely:\nTitle: ${title}\nURL: ${url}\n\nContent:\n${content.slice(0, 15000)}`,
-			config: {
-				systemInstruction: "You are Veil AI Page Summarizer. Produce clear, elegant, markdown-formatted summaries including an executive summary (2-3 sentences), key takeaways (3-5 bullet points), and Conclusions/Actionable Insights.",
-			},
-		});
+		const summaryPrompt = `Please summarize this content concisely:\nTitle: ${title}\nURL: ${url}\n\nContent:\n${content.slice(0, 15000)}`;
+		const sysPrompt = "You are Veil AI Page Summarizer. Produce clear, elegant, markdown-formatted summaries including an executive summary (2-3 sentences), key takeaways (3-5 bullet points), and Conclusions/Actionable Insights.";
 
-		return reply.send({ summary: response.text || "Unable to generate summary." });
+		try {
+			const result = await callEmisChatCompletions({
+				model,
+				messages: [{ role: "user", content: summaryPrompt }],
+				systemInstruction: sysPrompt,
+			});
+			return reply.send({ summary: result.text || "Unable to generate summary.", model: result.model });
+		} catch (emisErr) {
+			if (process.env.GEMINI_API_KEY) {
+				const ai = getAiClient();
+				const response = await ai.models.generateContent({
+					model: "gemini-2.5-flash",
+					contents: summaryPrompt,
+					config: { systemInstruction: sysPrompt },
+				});
+				return reply.send({ summary: response.text || "Unable to generate summary.", model: "gemini-2.5-flash" });
+			}
+			throw emisErr;
+		}
 	} catch (err) {
 		console.error("AI Summarize API Error:", err);
 		return reply.code(500).send({ error: err.message || "Failed to summarize page" });
 	}
 });
+
 
 // Curated list of popular, high-utility Chrome extensions for instant browsing
 const FEATURED_EXTENSIONS = [
