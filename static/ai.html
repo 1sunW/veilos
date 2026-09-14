@@ -8,7 +8,7 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- FontAwesome Icons -->
+  <!-- FontAwesome Icons & fallback styles -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
@@ -121,31 +121,30 @@
 <body class="flex flex-col h-screen w-screen bg-[#09090d] text-slate-100 select-none">
 
   <!-- TOP HEADER / CONTROLS -->
-  <header class="h-14 bg-[#101017] border-b border-white/10 px-4 flex items-center justify-between shrink-0 shadow-md">
+  <header class="h-14 bg-[#101017] border-b border-white/10 px-4 flex items-center justify-between shrink-0 shadow-md z-20">
     <!-- Brand / Title -->
     <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-        <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 text-sm">
+        ✨
       </div>
       <div class="flex flex-col">
         <div class="flex items-center gap-2">
           <span class="font-bold text-sm text-white tracking-tight">Onyx AI</span>
-          <button id="openModelModalBtn" class="flex items-center gap-1 text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer group">
+          <button id="openModelModalBtn" class="flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer group shadow-sm">
             <span id="headerModelBadge">GLM 5.3</span>
-            <i class="fa-solid fa-chevron-down text-[9px] group-hover:translate-y-0.5 transition-transform"></i>
+            <span class="text-[9px] text-indigo-400 group-hover:translate-y-0.5 transition-transform">▼</span>
           </button>
         </div>
-        <span class="text-[10px] text-neutral-400">Emis OpenAI-Compatible API (<span id="totalModelCount">80+</span> models available)</span>
+        <span class="text-[10px] text-neutral-400">Emis OpenAI-Compatible API • <span id="totalModelCount" class="text-indigo-300 font-semibold">80+</span> models</span>
       </div>
     </div>
 
     <!-- Center / Right Controls -->
     <div class="flex items-center gap-2">
       <!-- Quick Dropdown Model Select -->
-      <div class="relative hidden md:block">
-        <select id="modelSelect" class="bg-[#181822] hover:bg-[#20202c] border border-white/10 hover:border-white/20 text-xs font-semibold text-white px-3 py-1.5 rounded-xl outline-none transition-all cursor-pointer max-w-[220px] truncate">
-          <!-- Populated dynamically with all models -->
-          <option value="glm-5.3" selected>GLM 5.3 (Default)</option>
+      <div class="relative hidden lg:block">
+        <select id="modelSelect" class="bg-[#181822] hover:bg-[#20202c] border border-white/10 hover:border-white/20 text-xs font-semibold text-white px-3 py-1.5 rounded-xl outline-none transition-all cursor-pointer max-w-[240px] truncate">
+          <!-- Populated dynamically -->
         </select>
       </div>
 
@@ -157,22 +156,22 @@
         <option value="creative">🎨 Creative Writer</option>
       </select>
 
-      <!-- Browse All Models Modal Trigger Button -->
-      <button id="browseModelsBtn" title="Browse All 80+ Models Catalog" class="px-2.5 py-1.5 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 text-indigo-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer">
-        <i class="fa-solid fa-cubes-stacked text-indigo-400"></i>
-        <span class="hidden sm:inline">All Models</span>
+      <!-- Browse All Models Catalog Button -->
+      <button id="browseModelsBtn" title="Open All 80+ Models Catalog" class="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-sm">
+        <span>⚡</span>
+        <span>Browse 80+ Models</span>
       </button>
 
       <div class="h-5 w-px bg-white/10 mx-1"></div>
 
       <!-- Clear Chat Button -->
       <button id="clearChatBtn" title="Clear Conversation" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white border border-white/5 flex items-center justify-center text-xs transition-colors cursor-pointer">
-        <i class="fa-solid fa-trash-can"></i>
+        🗑️
       </button>
 
       <!-- Export Button -->
       <button id="exportChatBtn" title="Export Chat Markdown" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white border border-white/5 flex items-center justify-center text-xs transition-colors cursor-pointer">
-        <i class="fa-solid fa-download"></i>
+        💾
       </button>
     </div>
   </header>
@@ -181,20 +180,20 @@
   <main id="chatContainer" class="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-5 max-w-4xl w-full mx-auto select-text">
     
     <!-- WELCOME HERO STATE -->
-    <div id="heroWelcome" class="flex flex-col items-center justify-center my-auto py-8 text-center select-none">
+    <div id="heroWelcome" class="flex flex-col items-center justify-center my-auto py-6 text-center select-none">
       <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white text-3xl shadow-2xl shadow-indigo-500/30 mb-4 animate-bounce">
-        <i class="fa-solid fa-brain"></i>
+        🧠
       </div>
       <h2 class="text-2xl font-bold text-white mb-2">How can I assist you today?</h2>
       <p class="text-xs text-neutral-400 max-w-md mb-6">
-        Connected to <span class="font-mono text-indigo-300">https://emis.zxs-is-very.cool/v1</span> • Active model: <span id="welcomeModelBadge" class="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md font-mono">GLM 5.3</span>
+        Connected to <span class="font-mono text-indigo-300">https://emis.zxs-is-very.cool/v1</span> • Active model: <span id="welcomeModelBadge" class="font-bold text-white bg-indigo-950/60 border border-indigo-500/40 px-2 py-0.5 rounded-md font-mono">GLM 5.3</span>
       </p>
 
       <!-- Quick Prompt Suggestions Grid -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl text-left">
         <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Explain how proxy protocols like Scramjet and Wisp work together in modern web browsers.">
           <div class="flex items-center gap-2 text-xs font-bold text-white mb-1">
-            <span class="text-indigo-400">🌐</span>
+            <span>🌐</span>
             <span>Explain Scramjet & Wisp</span>
           </div>
           <p class="text-[11px] text-neutral-400 group-hover:text-neutral-300">Deep dive into service worker rewriting & WebSocket transports.</p>
@@ -202,7 +201,7 @@
 
         <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Write a complete Python script using the openai library to query GLM-5.3 with streaming completions.">
           <div class="flex items-center gap-2 text-xs font-bold text-white mb-1">
-            <span class="text-emerald-400">🐍</span>
+            <span>🐍</span>
             <span>Python OpenAI Script</span>
           </div>
           <p class="text-[11px] text-neutral-400 group-hover:text-neutral-300">Complete example querying /v1/chat/completions with GLM-5.3.</p>
@@ -210,7 +209,7 @@
 
         <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Compare the reasoning capabilities of GLM 5.3, GPT-5.6 Luna, and Claude Sonnet 5.">
           <div class="flex items-center gap-2 text-xs font-bold text-white mb-1">
-            <span class="text-purple-400">🧠</span>
+            <span>🧠</span>
             <span>Reasoning Models Comparison</span>
           </div>
           <p class="text-[11px] text-neutral-400 group-hover:text-neutral-300">Analyze benchmarks, context limits, and coding strength.</p>
@@ -218,7 +217,7 @@
 
         <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Create a high-performance modern web application architecture for VeilOS.">
           <div class="flex items-center gap-2 text-xs font-bold text-white mb-1">
-            <span class="text-amber-400">💡</span>
+            <span>💡</span>
             <span>WebOS Architecture</span>
           </div>
           <p class="text-[11px] text-neutral-400 group-hover:text-neutral-300">Brainstorm innovative desktop concepts and widgets.</p>
@@ -232,7 +231,7 @@
     <!-- Loading Indicator -->
     <div id="loadingIndicator" class="hidden flex items-start gap-3 mt-2">
       <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shrink-0 text-xs shadow-md">
-        <i class="fa-solid fa-brain animate-pulse"></i>
+        🧠
       </div>
       <div class="bg-[#14141d] border border-white/10 rounded-2xl p-4 flex items-center gap-2 text-xs text-neutral-300 shadow-md">
         <span class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
@@ -257,13 +256,13 @@
           id="sendBtn"
           class="w-9 h-9 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-md transition-transform hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none shrink-0"
         >
-          <i class="fa-solid fa-arrow-up"></i>
+          ▲
         </button>
       </form>
 
       <div class="flex items-center justify-between text-[11px] text-neutral-400 px-2">
         <div class="flex items-center gap-2">
-          <span>Active Model: <b id="activeModelLabel" class="text-white font-mono cursor-pointer hover:underline" onclick="openModelCatalog()">glm-5.3</b></span>
+          <span>Active Model: <b id="activeModelLabel" class="text-white font-mono cursor-pointer hover:underline text-indigo-300" onclick="openModelCatalog()">glm-5.3</b></span>
           <span>•</span>
           <span>Base URL: <code class="text-indigo-400">https://emis.zxs-is-very.cool/v1</code></span>
         </div>
@@ -275,35 +274,35 @@
   </footer>
 
   <!-- FULL MODEL CATALOG MODAL / DIALOG -->
-  <div id="modelModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="bg-[#111119] border border-white/15 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-fade">
+  <div id="modelModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-[#111119] border border-white/15 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
       
       <!-- Modal Header -->
       <div class="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-[#151520]">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 flex items-center justify-center text-base">
-            <i class="fa-solid fa-cubes-stacked"></i>
+          <div class="w-10 h-10 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 flex items-center justify-center text-lg">
+            ⚡
           </div>
           <div>
             <h3 class="font-bold text-base text-white">Select AI Model</h3>
-            <p class="text-xs text-neutral-400">Choose from <span id="modalCatalogCount">80+</span> models available in the Emis LLM catalog</p>
+            <p class="text-xs text-neutral-400">Choose from <span id="modalCatalogCount" class="text-white font-semibold">80+</span> models available in the Emis LLM catalog</p>
           </div>
         </div>
 
-        <button id="closeModelModalBtn" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white flex items-center justify-center text-sm transition-colors cursor-pointer">
-          <i class="fa-solid fa-xmark"></i>
+        <button id="closeModelModalBtn" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white flex items-center justify-center text-sm transition-colors cursor-pointer font-bold">
+          ✕
         </button>
       </div>
 
       <!-- Search and Filter Bar -->
-      <div class="p-4 border-b border-white/10 flex flex-col sm:flex-row gap-3 bg-[#13131c]">
+      <div class="p-3 sm:p-4 border-b border-white/10 flex flex-col sm:flex-row gap-3 bg-[#13131c]">
         <!-- Search Input -->
         <div class="relative flex-1">
-          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400"></i>
+          <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400">🔍</span>
           <input
             id="modelSearchInput"
             type="text"
-            placeholder="Search model ID, label, provider (e.g. gpt, claude, glm, reasoning, vision, flux)..."
+            placeholder="Search model ID, label, provider (e.g. gpt, claude, glm, qwen, reasoning, vision, flux)..."
             class="w-full bg-[#1b1b26] border border-white/10 focus:border-indigo-500/60 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-neutral-500 outline-none"
           />
         </div>
@@ -319,7 +318,7 @@
       </div>
 
       <!-- Models List Grid -->
-      <div id="modalModelGrid" class="flex-1 overflow-y-auto p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 bg-[#0d0d14]">
+      <div id="modalModelGrid" class="flex-1 overflow-y-auto p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 bg-[#0d0d14] min-h-[320px]">
         <!-- Rendered dynamically -->
       </div>
 
@@ -329,7 +328,7 @@
           <span>Showing <b id="displayedModelCount" class="text-white font-mono">0</b> models</span>
         </div>
         <div class="flex items-center gap-2">
-          <span>Current: <span id="modalCurrentModel" class="font-mono text-indigo-300 font-bold">glm-5.3</span></span>
+          <span>Active: <span id="modalCurrentModel" class="font-mono text-indigo-300 font-bold">GLM 5.3 (glm-5.3)</span></span>
         </div>
       </div>
 
@@ -337,6 +336,133 @@
   </div>
 
   <script>
+    // Embedded Catalog of All 80+ Supported Models (Instant 0ms Display)
+    const STATIC_EMIS_MODELS = [
+      {"id":"glm-5.3","object":"model","owned_by":"zai","label":"GLM 5.3","reasoning":true,"tools":true,"vision":false},
+      {"id":"gpt-5.6-luna","object":"model","owned_by":"openai","label":"GPT-5.6 Luna","reasoning":true,"tools":true,"vision":true},
+      {"id":"claude-sonnet-5","object":"model","owned_by":"anthropic","label":"Claude Sonnet 5","reasoning":true,"tools":true,"vision":true},
+      {"id":"gpt-5.6-sol","object":"model","owned_by":"openai","label":"GPT-5.6 Sol","reasoning":true,"tools":true,"vision":true},
+      {"id":"claude-opus-4-8","object":"model","owned_by":"anthropic","label":"Claude Opus 4.8","reasoning":true,"tools":true,"vision":true},
+      {"id":"claude-opus-5","object":"model","owned_by":"anthropic","label":"Claude Opus 5","reasoning":true,"tools":true,"vision":true},
+      {"id":"claude-fable-5","object":"model","owned_by":"anthropic","label":"Claude Fable 5","reasoning":false,"tools":true,"vision":true},
+      {"id":"gpt-6-astra","object":"model","owned_by":"openai","label":"GPT-6 Astra","reasoning":false,"tools":true,"vision":true},
+      {"id":"claude-fable-5-1","object":"model","owned_by":"anthropic","label":"Claude Fable 5.1","reasoning":false,"tools":true,"vision":true},
+      {"id":"glm-5.2","object":"model","owned_by":"zai","label":"GLM 5.2","reasoning":true,"tools":true,"vision":false},
+      {"id":"glm-5.3-flash","object":"model","owned_by":"zai","label":"GLM 5.3 Flash","reasoning":true,"tools":true,"vision":false},
+      {"id":"deepseek-v4-pro","object":"model","owned_by":"deepseek","label":"Deepseek V4 Pro","reasoning":true,"tools":true,"vision":false},
+      {"id":"deepseek-v4-flash","object":"model","owned_by":"deepseek","label":"Deepseek V4 Flash","reasoning":true,"tools":true,"vision":false},
+      {"id":"qwen3.8-max","object":"model","owned_by":"qwen","label":"Qwen3.8 Max","reasoning":false,"tools":true,"vision":false},
+      {"id":"command-a","object":"model","owned_by":"cohere","label":"Command A","reasoning":false,"vision":false,"tools":false},
+      {"id":"command-a-plus","object":"model","owned_by":"cohere","label":"Command A Plus","reasoning":false,"vision":false,"tools":false},
+      {"id":"command-a-reasoning","object":"model","owned_by":"cohere","label":"Command A Reasoning","reasoning":true,"vision":false,"tools":false},
+      {"id":"command-a-vision","object":"model","owned_by":"cohere","label":"Command A Vision","reasoning":false,"vision":true,"tools":false},
+      {"id":"command-r-plus","object":"model","owned_by":"cohere","label":"Command R+","reasoning":false,"vision":false,"tools":false},
+      {"id":"command-r","object":"model","owned_by":"cohere","label":"Command R","reasoning":false,"vision":false,"tools":false},
+      {"id":"command-r7b","object":"model","owned_by":"cohere","label":"Command R7B","reasoning":false,"vision":false,"tools":false},
+      {"id":"aya-expanse-32b","object":"model","owned_by":"cohere","label":"Aya Expanse 32B","reasoning":false,"vision":false,"tools":false},
+      {"id":"aya-vision-32b","object":"model","owned_by":"cohere","label":"Aya Vision 32B","reasoning":false,"vision":true,"tools":false},
+      {"id":"north-mini-code","object":"model","owned_by":"cohere","label":"North Mini Code","reasoning":false,"vision":false,"tools":false},
+      {"id":"deepseek-v4-flash-0731-turbo","object":"model","owned_by":"deepseek","label":"DeepSeek V4 Flash (0731)","tools":true},
+      {"id":"compound-mini","object":"model","owned_by":"groq","label":"Compound Mini","premium":false,"tools":true,"vision":false,"reasoning":false},
+      {"id":"gpt-oss-120b","object":"model","owned_by":"groq","label":"GPT-OSS 120B","premium":false,"tools":true,"vision":false,"reasoning":false},
+      {"id":"gpt-oss-20b","object":"model","owned_by":"groq","label":"GPT-OSS 20B","premium":false,"tools":true,"vision":false,"reasoning":false},
+      {"id":"compound","object":"model","owned_by":"groq","label":"Compound","premium":false,"tools":true,"vision":false,"reasoning":false},
+      {"id":"qwen-3.6-27b","object":"model","owned_by":"qwen","label":"Qwen 3.6 27B","premium":false,"tools":true,"vision":false,"reasoning":false},
+      {"id":"allam-2-7b","object":"model","owned_by":"huggingface","label":"Allam 2 7B","premium":false,"tools":true,"vision":false,"reasoning":false},
+      {"id":"qwen3-235b","object":"model","owned_by":"qwen","label":"Qwen3 235B","premium":false,"reasoning":true},
+      {"id":"gpt-5-nano","object":"model","owned_by":"openai","label":"GPT-5 Nano","premium":false,"reasoning":false},
+      {"id":"gpt-4.1-nano","object":"model","owned_by":"openai","label":"GPT-4.1 Nano","premium":false,"reasoning":false},
+      {"id":"gpt-4o-mini","object":"model","owned_by":"openai","label":"GPT-4o Mini","premium":false,"reasoning":false},
+      {"id":"gemma-4","object":"model","owned_by":"google","label":"Gemma 4","premium":false,"reasoning":false},
+      {"id":"gemini-2.5-flash-lite","object":"model","owned_by":"google","label":"Gemini 2.5 Flash Lite","premium":false,"reasoning":false},
+      {"id":"llama-3.3-70b-instruct","object":"model","owned_by":"meta","label":"Llama 3.3 70B","premium":false,"reasoning":false},
+      {"id":"llama-3.1-8b-instant","object":"model","owned_by":"meta","label":"Llama 3.1 8B","premium":false,"reasoning":false},
+      {"id":"standard","object":"model","owned_by":"deepai","label":"Standard","premium":false,"reasoning":false},
+      {"id":"online","object":"model","owned_by":"deepai","label":"Online (web search)","premium":false,"reasoning":false},
+      {"id":"unfiltered_x","object":"model","owned_by":"huggingface","label":"Unfiltered X","premium":false,"reasoning":false},
+      {"id":"minimax-text-01","object":"model","owned_by":"minimax","label":"MiniMax Text 01","premium":false,"reasoning":false},
+      {"id":"vibethinker-3b","object":"model","owned_by":"huggingface","label":"VibeThinker 3B","premium":false,"reasoning":true},
+      {"id":"kimi-k3-base","object":"model","owned_by":"moonshotai","label":"Kimi K3 (GitHub)","premium":false,"tools":true,"vision":true,"reasoning":true},
+      {"id":"kimi-k3","object":"model","owned_by":"moonshotai","label":"Kimi K3","premium":false,"tools":true,"vision":true,"reasoning":true},
+      {"id":"gpt-5-mini","object":"model","owned_by":"openai","label":"GPT-5 mini","premium":false,"tools":true,"vision":true,"reasoning":true},
+      {"id":"claude-haiku-4.5","object":"model","owned_by":"anthropic","label":"Claude Haiku 4.5","premium":false,"tools":true,"vision":true,"reasoning":false},
+      {"id":"gpt-4.1","object":"model","owned_by":"openai","label":"GPT-4.1","premium":false,"tools":true,"vision":true,"reasoning":false},
+      {"id":"gpt-4o","object":"model","owned_by":"openai","label":"GPT-4o","premium":false,"tools":true,"vision":true,"reasoning":false},
+      {"id":"nova","object":"model","owned_by":"amazon","label":"Nova 2 Lite","premium":false,"tools":false,"vision":false,"reasoning":false},
+      {"id":"gemma-4-31b-heretic","object":"model","owned_by":"google","label":"Gemma 4 31B (heretic)","premium":false,"tools":false,"vision":false,"reasoning":false},
+      {"id":"stheno-l3-8b","object":"model","owned_by":"huggingface","label":"L3 8B Stheno v3.2","premium":false,"tools":false,"vision":false,"reasoning":false},
+      {"id":"llama-3.2-3b","object":"model","owned_by":"meta","label":"Llama 3.2 3B Instruct","premium":false,"tools":false,"vision":false,"reasoning":false},
+      {"id":"llama-3.2-1b","object":"model","owned_by":"meta","label":"Llama 3.2 1B Instruct","premium":false,"tools":false,"vision":false,"reasoning":false},
+      {"id":"deepseek-v4.1","object":"model","owned_by":"deepseek","label":"DeepSeek V4.1 Flash","tools":true,"vision":true,"reasoning":true},
+      {"id":"mimo-v2.5","object":"model","owned_by":"xiaomi","label":"MiMo V2.5","premium":false,"tools":true,"vision":false},
+      {"id":"kimi-k2.6","object":"model","owned_by":"moonshotai","label":"Kimi K2.6","premium":false,"tools":true,"vision":false},
+      {"id":"gemma-4-26b","object":"model","owned_by":"google","label":"Gemma 4 26B","premium":false,"tools":true,"vision":true},
+      {"id":"qwen-3.8-27b","object":"model","owned_by":"qwen","label":"Qwen 3.8 27b","premium":false,"tools":true,"vision":false},
+      {"id":"openai","object":"model","owned_by":"openai","label":"OpenAI","premium":false,"tools":true,"vision":false},
+      {"id":"openai-fast","object":"model","owned_by":"openai","label":"OpenAI Fast","premium":false,"tools":true,"vision":false},
+      {"id":"gpt-oss","object":"model","owned_by":"openai","label":"GPT OSS","premium":false,"tools":true,"vision":false},
+      {"id":"codestral-latest","object":"model","owned_by":"mistral","label":"Codestral Latest","premium":false,"tools":true,"vision":false},
+      {"id":"meta-llama-3_3-70b-instruct","object":"model","owned_by":"meta","label":"Meta Llama 3 3 70b Instruct","premium":false,"tools":true,"vision":false},
+      {"id":"qwen3.5-397b-a17b","object":"model","owned_by":"qwen","label":"Qwen3.5 397b A17b","premium":false,"tools":true,"vision":false},
+      {"id":"mistral-small-3.2-24b-instruct-2506","object":"model","owned_by":"mistral","label":"Mistral Small 3.2 24b Instruct 2506","premium":false,"tools":true,"vision":false},
+      {"id":"mistral-nemo-instruct-2407","object":"model","owned_by":"mistral","label":"Mistral Nemo Instruct 2407","premium":false,"tools":true,"vision":false},
+      {"id":"qwen3.6-27b","object":"model","owned_by":"qwen","label":"Qwen3.6 27b","premium":false,"tools":true,"vision":false},
+      {"id":"qwen3-32b","object":"model","owned_by":"qwen","label":"Qwen3 32b","premium":false,"tools":true,"vision":false},
+      {"id":"qwen3.5-9b","object":"model","owned_by":"qwen","label":"Qwen3.5 9b","premium":false,"tools":true,"vision":false},
+      {"id":"qwen2.5-vl-72b-instruct","object":"model","owned_by":"qwen","label":"Qwen2.5 VL 72b Instruct","premium":false,"tools":true,"vision":true},
+      {"id":"mistral-7b-instruct-v0.3","object":"model","owned_by":"mistral","label":"Mistral 7b Instruct V0.3","premium":false,"tools":true,"vision":false},
+      {"id":"qwen3-coder-30b-a3b-instruct","object":"model","owned_by":"qwen","label":"Qwen3 Coder 30b A3b Instruct","premium":false,"tools":true,"vision":false},
+      {"id":"poolside-laguna-xs-2.1","object":"model","owned_by":"poolside","label":"Poolside Laguna XS 2.1","premium":false,"tools":true,"vision":false},
+      {"id":"stepfun-step-3.7-flash","object":"model","owned_by":"stepfun","label":"Stepfun Step 3.7 Flash","premium":false,"tools":true,"vision":false},
+      {"id":"nvidia-nemotron-3-nano-omni-30b-a3b-reasoning","object":"model","owned_by":"nvidia","label":"Nvidia Nemotron 3 Nano Omni 30b A3b Reasoning","premium":false,"tools":true,"vision":true},
+      {"id":"nvidia-nemotron-3-super-120b-a12b","object":"model","owned_by":"nvidia","label":"Nvidia Nemotron 3 Super 120b A12b","premium":false,"tools":true,"vision":false},
+      {"id":"nvidia-nemotron-3-ultra-550b-a55b","object":"model","owned_by":"nvidia","label":"Nvidia Nemotron 3 Ultra 550b A55b","premium":false,"tools":true,"vision":false},
+      {"id":"dots-studio-dots-3-note-preview","object":"model","owned_by":"rednote","label":"Dots Studio Dots 3 Note Preview","premium":false,"tools":true,"vision":false},
+      {"id":"inclusionai-ling-3.0-flash-fin","object":"model","owned_by":"inclusionai","label":"Inclusionai Ling 3.0 Flash Fin","premium":false,"tools":true,"vision":false},
+      {"id":"liquid-lfm-2.5-2.6b","object":"model","owned_by":"liquidai","label":"Liquid Lfm 2.5 2.6b","premium":false,"tools":true,"vision":false},
+      {"id":"minimax-minimax-m2.7","object":"model","owned_by":"minimax","label":"Minimax Minimax M2.7","premium":false,"tools":true,"vision":false},
+      {"id":"nvidia-nemotron-3.5-lightning","object":"model","owned_by":"nvidia","label":"Nvidia Nemotron 3.5 Lightning","premium":false,"tools":true,"vision":false},
+      {"id":"poolside-laguna-s-2.1","object":"model","owned_by":"poolside","label":"Poolside Laguna S 2.1","premium":false,"tools":true,"vision":false},
+      {"id":"image","object":"model","owned_by":"blackforest","label":"FLUX (fast)","image":true},
+      {"id":"sdxl-lightning","object":"model","owned_by":"stabilityai","label":"Stable Diffusion XL Lightning","premium":false,"image":true},
+      {"id":"flux-2-klein-4b","object":"model","owned_by":"blackforest","label":"FLUX.2 Klein 4B","premium":false,"image":true},
+      {"id":"flux-2-klein-9b","object":"model","owned_by":"blackforest","label":"FLUX.2 Klein 9B","premium":false,"image":true},
+      {"id":"flux-2-dev","object":"model","owned_by":"blackforest","label":"FLUX.2 Dev","premium":false,"image":true},
+      {"id":"flux-1-schnell","object":"model","owned_by":"blackforest","label":"FLUX.1 Schnell","premium":false,"image":true},
+      {"id":"phoenix-1.0","object":"model","owned_by":"leonardo","label":"Leonardo Phoenix","premium":false,"image":true},
+      {"id":"lucid-origin","object":"model","owned_by":"leonardo","label":"Leonardo Lucid Origin","premium":false,"image":true},
+      {"id":"image-edit","object":"model","owned_by":"blackforest","label":"FLUX.2 Edit","edit":true,"vision":true},
+      {"id":"music","object":"model","owned_by":"media","label":"Music (auto)","audio":true},
+      {"id":"musicgen","object":"model","owned_by":"media","label":"MusicGen","audio":true},
+      {"id":"musicgen-stream","object":"model","owned_by":"media","label":"MusicGen Streaming","audio":true},
+      {"id":"stable-audio","object":"model","owned_by":"media","label":"Stable Audio Open","audio":true},
+      {"id":"audioldm2","object":"model","owned_by":"media","label":"AudioLDM 2","audio":true},
+      {"id":"mustango","object":"model","owned_by":"media","label":"Mustango","audio":true},
+      {"id":"video","object":"model","owned_by":"media","label":"Video (auto)","video":true},
+      {"id":"ltx-video","object":"model","owned_by":"media","label":"LTX-Video","video":true},
+      {"id":"wan-2.1","object":"model","owned_by":"media","label":"Wan 2.1 Fast","video":true},
+      {"id":"self-forcing","object":"model","owned_by":"media","label":"Self-Forcing (streaming)","video":true},
+      {"id":"cogvideox","object":"model","owned_by":"media","label":"CogVideoX 5B","video":true},
+      {"id":"claude-opus-5-fast","object":"model","owned_by":"anthropic","label":"Claude Opus 5 Fast","tools":true},
+      {"id":"deepseek-v4-flash-0731","object":"model","owned_by":"deepseek","label":"DeepSeek V4 Flash 0731","tools":true},
+      {"id":"deepseek-v4-pro-0813","object":"model","owned_by":"deepseek","label":"DeepSeek V4 Pro 0813","tools":true},
+      {"id":"gemini-2.5-flash","object":"model","owned_by":"google","label":"Gemini 2.5 Flash","tools":true},
+      {"id":"gemini-2.5-pro","object":"model","owned_by":"google","label":"Gemini 2.5 Pro","tools":true},
+      {"id":"gemini-3.1-pro-preview","object":"model","owned_by":"google","label":"Gemini 3.1 Pro Preview","tools":true},
+      {"id":"gemini-3.8-flash","object":"model","owned_by":"google","label":"Gemini 3.8 Flash","tools":true},
+      {"id":"minimax-m3","object":"model","owned_by":"minimax","label":"MiniMax M3","tools":true},
+      {"id":"gpt-5.6-terra","object":"model","owned_by":"openai","label":"GPT-5.6 Terra","tools":true},
+      {"id":"qwen3-coder-plus","object":"model","owned_by":"qwen","label":"Qwen3 Coder Plus","tools":true},
+      {"id":"qwen3.7-flash","object":"model","owned_by":"qwen","label":"Qwen3.7 Flash","tools":true},
+      {"id":"qwen3.7-max","object":"model","owned_by":"qwen","label":"Qwen3.7 Max","tools":true},
+      {"id":"qwen3.7-plus","object":"model","owned_by":"qwen","label":"Qwen3.7 Plus","tools":true},
+      {"id":"qwen3.8-27b","object":"model","owned_by":"qwen","label":"Qwen3.8 27B","tools":true},
+      {"id":"qwen3.8-flash","object":"model","owned_by":"qwen","label":"Qwen3.8 Flash","tools":true},
+      {"id":"qwen3.8-max-0902","object":"model","owned_by":"qwen","label":"Qwen3.8 Max 0902","tools":true},
+      {"id":"grok-4.3","object":"model","owned_by":"xai","label":"Grok 4.3","tools":true},
+      {"id":"mimo-v2.5-pro","object":"model","owned_by":"xiaomi","label":"MiMo V2.5 Pro","tools":true}
+    ];
+
     // Initialize Markdown Parser with Highlight.js
     const md = window.markdownit({
       html: false,
@@ -361,7 +487,8 @@
       creative: "You are a creative writer and storytelling companion. Write engaging, vivid, expressive, and compelling prose."
     };
 
-    let allModels = [];
+    // Pre-populate with our rich static models immediately!
+    let allModels = [...STATIC_EMIS_MODELS];
     let currentModelId = "glm-5.3";
     let activeFilter = "all";
     let chatHistory = [];
@@ -418,7 +545,28 @@
       xiaomi: "bg-amber-500/20 text-amber-300 border-amber-500/30"
     };
 
-    // Fetch and populate models
+    function populateSelectDropdown() {
+      modelSelect.innerHTML = "";
+      allModels.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        const provider = m.owned_by ? `[${m.owned_by.toUpperCase()}] ` : "";
+        opt.textContent = `${provider}${m.label || m.id}`;
+        if (m.id === currentModelId) {
+          opt.selected = true;
+        }
+        modelSelect.appendChild(opt);
+      });
+      totalModelCount.textContent = allModels.length;
+      modalCatalogCount.textContent = allModels.length;
+    }
+
+    // Initialize immediate state from STATIC_EMIS_MODELS
+    populateSelectDropdown();
+    updateModelLabels();
+    renderModalModels();
+
+    // Fetch and populate models from server
     async function loadModels() {
       try {
         const res = await fetch("/api/llm/models");
@@ -426,28 +574,13 @@
           const json = await res.json();
           if (json && Array.isArray(json.data) && json.data.length > 0) {
             allModels = json.data;
-            totalModelCount.textContent = allModels.length;
-            modalCatalogCount.textContent = allModels.length;
-
-            // Populate Top Bar Select dropdown
-            modelSelect.innerHTML = "";
-            allModels.forEach(m => {
-              const opt = document.createElement("option");
-              opt.value = m.id;
-              const provider = m.owned_by ? `[${m.owned_by.toUpperCase()}] ` : "";
-              opt.textContent = `${provider}${m.label || m.id}`;
-              if (m.id === currentModelId) {
-                opt.selected = true;
-              }
-              modelSelect.appendChild(opt);
-            });
-
+            populateSelectDropdown();
             updateModelLabels();
             renderModalModels();
           }
         }
       } catch (e) {
-        console.warn("Could not load dynamic models:", e);
+        console.warn("Could not load dynamic models from backend, using pre-bundled catalog:", e);
       }
     }
     loadModels();
@@ -479,8 +612,8 @@
     function openModelCatalog() {
       modelModal.classList.remove("hidden");
       modelSearchInput.value = "";
-      modelSearchInput.focus();
       renderModalModels();
+      setTimeout(() => modelSearchInput.focus(), 50);
     }
     window.openModelCatalog = openModelCatalog;
 
@@ -513,10 +646,10 @@
     });
 
     function renderModalModels() {
-      const query = modelSearchInput.value.toLowerCase().trim();
+      const query = (modelSearchInput ? modelSearchInput.value : "").toLowerCase().trim();
       let filtered = allModels.filter(m => {
         const matchesQuery = !query || 
-          m.id.toLowerCase().includes(query) || 
+          (m.id && m.id.toLowerCase().includes(query)) || 
           (m.label && m.label.toLowerCase().includes(query)) ||
           (m.owned_by && m.owned_by.toLowerCase().includes(query));
 
@@ -534,10 +667,10 @@
 
       if (filtered.length === 0) {
         modalModelGrid.innerHTML = `
-          <div class="col-span-full py-12 text-center text-neutral-400">
-            <i class="fa-solid fa-filter-circle-xmark text-3xl mb-2 text-neutral-600"></i>
-            <p class="text-sm font-semibold">No models match your search "${query}"</p>
-            <p class="text-xs text-neutral-500 mt-1">Try searching for "gpt", "claude", "glm", "qwen", or "reasoning".</p>
+          <div class="col-span-full py-12 text-center text-neutral-400 flex flex-col items-center justify-center">
+            <span class="text-3xl mb-2">🔎</span>
+            <p class="text-sm font-semibold text-white">No models match your search "${query}"</p>
+            <p class="text-xs text-neutral-400 mt-1">Try searching for "gpt", "claude", "glm", "qwen", "flux", or "reasoning".</p>
           </div>
         `;
         return;
@@ -550,7 +683,7 @@
         const card = document.createElement("div");
         card.className = `p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 group relative ${
           isSelected 
-            ? "bg-indigo-950/70 border-indigo-500 shadow-lg shadow-indigo-500/20" 
+            ? "bg-indigo-950/80 border-indigo-500 shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-500" 
             : "bg-[#161622] hover:bg-[#1f1f2e] border-white/10 hover:border-white/20"
         }`;
 
@@ -560,7 +693,7 @@
               <span class="text-[10px] uppercase font-bold font-mono px-2 py-0.5 rounded-md border ${providerColor}">
                 ${m.owned_by || "model"}
               </span>
-              ${isSelected ? '<span class="text-[10px] font-bold text-indigo-400 flex items-center gap-1"><i class="fa-solid fa-check"></i> Active</span>' : ''}
+              ${isSelected ? '<span class="text-[10px] font-bold text-indigo-400 flex items-center gap-1">✓ Active</span>' : ''}
             </div>
 
             <h4 class="font-bold text-sm text-white group-hover:text-indigo-300 transition-colors">
@@ -618,14 +751,14 @@
 
         const copyBtn = document.createElement("button");
         copyBtn.className = "copy-code-btn absolute top-2 right-2 px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/10 rounded-md text-[10px] font-mono text-neutral-300 transition-colors flex items-center gap-1 cursor-pointer";
-        copyBtn.innerHTML = `<i class="fa-regular fa-copy"></i><span>Copy</span>`;
+        copyBtn.innerHTML = `<span>📋 Copy</span>`;
         copyBtn.onclick = (e) => {
           e.stopPropagation();
           const code = pre.querySelector("code") ? pre.querySelector("code").innerText : pre.innerText;
           navigator.clipboard.writeText(code).then(() => {
-            copyBtn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i><span class="text-emerald-400">Copied!</span>`;
+            copyBtn.innerHTML = `<span class="text-emerald-400">✓ Copied!</span>`;
             setTimeout(() => {
-              copyBtn.innerHTML = `<i class="fa-regular fa-copy"></i><span>Copy</span>`;
+              copyBtn.innerHTML = `<span>📋 Copy</span>`;
             }, 2000);
           });
         };
@@ -659,7 +792,7 @@
         const renderedHtml = md.render(content);
         msgDiv.innerHTML = `
           <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shrink-0 text-xs shadow-md">
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            ✨
           </div>
           <div class="flex flex-col max-w-[88%] sm:max-w-[80%]">
             <div class="flex items-center gap-2 mb-1">
