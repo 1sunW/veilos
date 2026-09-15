@@ -1048,17 +1048,6 @@ window.addEventListener("load", async () => {
 					</h1>
 				</div>
 
-				<!-- DESKTOP APP SHORTCUTS (Left Canvas) -->
-				<div class="absolute top-28 left-8 z-10 hidden sm:flex flex-col gap-6 pointer-events-auto">
-					${APPS.map(app => html`
-						<div class="flex flex-col items-center justify-center w-20 h-20 rounded-2xl bg-black/30 hover:bg-black/50 border border-white/10 backdrop-blur-md transition-all cursor-pointer group hover:scale-105 active:scale-95 shadow-lg"
-							on:click=${() => this.openApp(app.id)} title=${app.desc}>
-							<div class="text-3xl mb-1 group-hover:scale-110 transition-transform drop-shadow-md">${app.icon}</div>
-							<span class="text-[10px] font-semibold text-neutral-200 tracking-tight truncate max-w-[70px]">${app.name}</span>
-						</div>
-					`)}
-				</div>
-
 				<!-- WINDOWS LAYER -->
 				<div class="absolute inset-0 pointer-events-none">
 					${use(this.windows, (winList) => winList.map(win => renderWindowDOM(win, scramjet, this)))}

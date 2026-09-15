@@ -383,6 +383,72 @@ async function fetchEmisModels() {
 	return ALL_EMIS_MODELS;
 }
 
+function parseEmisPayload(rawText) {
+	const trimmed = (rawText || "").trim();
+	if (!trimmed) return { text: "", raw: null };
+
+	// 1. Try standard JSON parsing
+	if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+		try {
+			const json = JSON.parse(trimmed);
+			if (json.choices && Array.isArray(json.choices) && json.choices.length > 0) {
+				const c = json.choices[0];
+				const content = c.message?.content || c.delta?.content || c.text || "";
+				return { text: content, raw: json, id: json.id, usage: json.usage };
+			}
+			if (typeof json.text === "string") {
+				return { text: json.text, raw: json, id: json.id, usage: json.usage };
+			}
+		} catch (e) {
+			// fallback to SSE parser below
+		}
+	}
+
+	// 2. Parse Server-Sent Events (SSE) data: chunks
+	let accumulated = "";
+	let lastId = null;
+	let parsedModel = null;
+	let lastUsage = null;
+	const lines = trimmed.split("\n");
+
+	for (const line of lines) {
+		const l = line.trim();
+		if (!l || !l.startsWith("data:")) continue;
+		const dataStr = l.replace(/^data:\s*/, "").trim();
+		if (dataStr === "[DONE]") continue;
+
+		try {
+			const parsed = JSON.parse(dataStr);
+			if (parsed.id) lastId = parsed.id;
+			if (parsed.model) parsedModel = parsed.model;
+			if (parsed.usage) lastUsage = parsed.usage;
+			if (Array.isArray(parsed.choices) && parsed.choices.length > 0) {
+				const c = parsed.choices[0];
+				if (c.delta && typeof c.delta.content === "string") {
+					accumulated += c.delta.content;
+				} else if (c.message && typeof c.message.content === "string") {
+					accumulated += c.message.content;
+				} else if (typeof c.text === "string") {
+					accumulated += c.text;
+				}
+			}
+		} catch (e) {
+			// ignore non-json line
+		}
+	}
+
+	if (accumulated.length > 0) {
+		return {
+			text: accumulated,
+			raw: { id: lastId, model: parsedModel, usage: lastUsage },
+			id: lastId,
+			usage: lastUsage,
+		};
+	}
+
+	return { text: trimmed, raw: null };
+}
+
 async function callEmisChatCompletions({ model, messages, temperature = 0.7, max_tokens, systemInstruction }) {
 	const selectedModel = model || DEFAULT_LLM_MODEL;
 	const fullMessages = [];
@@ -414,7 +480,7 @@ async function callEmisChatCompletions({ model, messages, temperature = 0.7, max
 		headers: {
 			"Authorization": `Bearer ${EMIS_API_KEY}`,
 			"Content-Type": "application/json",
-			"Accept": "application/json",
+			"Accept": "text/event-stream, application/json, */*",
 		},
 		body: JSON.stringify(bodyPayload),
 	});
@@ -424,15 +490,14 @@ async function callEmisChatCompletions({ model, messages, temperature = 0.7, max
 		throw new Error(`Emis API returned ${res.status}: ${errText}`);
 	}
 
-	const data = await res.json();
-	const replyContent = data.choices && data.choices[0] && data.choices[0].message
-		? data.choices[0].message.content
-		: "";
+	const rawText = await res.text();
+	const parsed = parseEmisPayload(rawText);
+
 	return {
-		text: replyContent,
-		raw: data,
+		text: parsed.text || "",
+		raw: parsed.raw || parsed,
 		model: selectedModel,
-		usage: data.usage || null,
+		usage: parsed.usage || null,
 	};
 }
 
@@ -549,7 +614,7 @@ fastify.post("/api/llm/chat", async (request, reply) => {
 				}));
 
 				const geminiRes = await ai.models.generateContent({
-					model: "gemini-2.5-flash",
+					model: "gemini-3.8-flash",
 					contents,
 					config: { systemInstruction: defaultSystem },
 				});
@@ -559,7 +624,7 @@ fastify.post("/api/llm/chat", async (request, reply) => {
 					id: `chatcmpl-${Date.now()}`,
 					object: "chat.completion",
 					created: Math.floor(Date.now() / 1000),
-					model: "gemini-2.5-flash",
+					model: "gemini-3.8-flash",
 					text: replyText,
 					choices: [
 						{
@@ -641,12 +706,12 @@ fastify.post("/api/ai/chat", async (request, reply) => {
 				}));
 
 				const response = await ai.models.generateContent({
-					model: "gemini-2.5-flash",
+					model: "gemini-3.8-flash",
 					contents,
 					config: { systemInstruction: defaultSystem },
 				});
 
-				return reply.send({ text: response.text || "No response generated.", model: "gemini-2.5-flash" });
+				return reply.send({ text: response.text || "No response generated.", model: "gemini-3.8-flash" });
 			}
 			throw emisErr;
 		}
@@ -678,11 +743,11 @@ fastify.post("/api/ai/summarize", async (request, reply) => {
 			if (process.env.GEMINI_API_KEY) {
 				const ai = getAiClient();
 				const response = await ai.models.generateContent({
-					model: "gemini-2.5-flash",
+					model: "gemini-3.8-flash",
 					contents: summaryPrompt,
 					config: { systemInstruction: sysPrompt },
 				});
-				return reply.send({ summary: response.text || "Unable to generate summary.", model: "gemini-2.5-flash" });
+				return reply.send({ summary: response.text || "Unable to generate summary.", model: "gemini-3.8-flash" });
 			}
 			throw emisErr;
 		}

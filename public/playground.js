@@ -36,6 +36,9 @@ const scramjet = new ScramjetController({
 })();
 
 const connection = new BareMux.BareMuxConnection("/baremux/worker.js");
+var store = (typeof window !== "undefined" && window.store) ||
+	(typeof self !== "undefined" && self.store) ||
+	(typeof store !== "undefined" ? store : { transport: "/epoxy/index.mjs", wispurl: "wss://fern.best/wisp", bareurl: "https://fern.best/bare/" });
 const flex = css`
 	display: flex;
 `;
