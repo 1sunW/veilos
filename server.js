@@ -1,4 +1,5 @@
 // Dev server imports
+import "dotenv/config";
 import { createBareServer } from "@nebula-services/bare-server-node";
 import { createServer } from "http";
 import Fastify from "fastify";
@@ -225,8 +226,14 @@ fastify.get("/~/sx/*", async (request, reply) => {
 
 // Emis LLM OpenAI-Compatible API Configuration
 const EMIS_BASE_URL = (process.env.EMIS_BASE_URL || "https://emis.zxs-is-very.cool/v1").replace(/\/$/, "");
-const EMIS_API_KEY = process.env.EMIS_API_KEY || "emis-9ca396c75f997364920555ebfafcfe5a9e6c3ee6";
+const EMIS_API_KEY = process.env.EMIS_API_KEY;
 const DEFAULT_LLM_MODEL = "glm-5.3";
+
+if (!EMIS_API_KEY) {
+	console.warn(
+		"[EMIS API] Warning: EMIS_API_KEY is not set. Set it in your environment or .env file. LLM chat/model endpoints will fail until this is configured."
+	);
+}
 
 // Complete catalog of all supported models with capabilities and providers
 const ALL_EMIS_MODELS = [
@@ -450,6 +457,10 @@ function parseEmisPayload(rawText) {
 }
 
 async function callEmisChatCompletions({ model, messages, temperature = 0.7, max_tokens, systemInstruction }) {
+	if (!EMIS_API_KEY) {
+		throw new Error("EMIS_API_KEY is not configured on the server.");
+	}
+
 	const selectedModel = model || DEFAULT_LLM_MODEL;
 	const fullMessages = [];
 
