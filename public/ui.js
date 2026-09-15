@@ -20,7 +20,7 @@ if (!store) {
 		url: "https://google.com",
 		wispurl: (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.wispurl) ||
 			(typeof window !== "undefined" && window._CONFIG && window._CONFIG.wispurl) ||
-			"wss://fern.best/wisp",
+			"wss://copium-wisp-9514419.onrender.com/wisp/",
 		bareurl: (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.bareurl) ||
 			(typeof window !== "undefined" && window._CONFIG && window._CONFIG.bareurl) ||
 			"https://fern.best/bare/",
@@ -467,7 +467,7 @@ function Config() {
 
                 <div class="input_row">
                   <label for="wisp_url_input">Wisp Server URL</label>
-                  <input id="wisp_url_input" bind:value=${use(store.wispurl)} spellcheck="false" placeholder="wss://fern.best/wisp"></input>
+                  <input id="wisp_url_input" bind:value=${use(store.wispurl)} spellcheck="false" placeholder="wss://copium-wisp-9514419.onrender.com/wisp/"></input>
                 </div>
 
                 <div class="input_row">
@@ -777,7 +777,7 @@ window.addEventListener("load", async () => {
 	// Definition of Apps in VeilOS - Onyx Browser, Onyx AI, Helium Vault, SSV Movies, Pulse Games, Cloud Gaming, and Onyx Chat
 	const APPS = [
 		{ id: "browser", name: "Onyx Browser", icon: "🌐", desc: "Proxy Web Browser with tabs & search", category: "Internet", defaultW: 980, defaultH: 640 },
-		{ id: "ai", name: "Onyx AI", icon: "✨", desc: "AI Assistant powered by GLM-5.3 & Emis API", category: "Productivity", defaultW: 940, defaultH: 660 },
+		{ id: "ai", name: "Onyx AI", icon: "✨", desc: "Onyx AI Assistant Web Application", category: "Productivity", defaultW: 1040, defaultH: 700 },
 		{ id: "vault", name: "Helium Vault", icon: "📺", desc: "Curated Movies, TV Shows, Anime & Direct Streams", category: "Entertainment", defaultW: 1120, defaultH: 740 },
 		{ id: "movies", name: "SSV Movies", icon: "🎬", desc: "Proxied movies, TV shows, and streaming player", category: "Entertainment", defaultW: 1080, defaultH: 720 },
 		{ id: "games", name: "Pulse Games", icon: "🕹️", desc: "Unblocked arcade with 8 providers & 1,000+ games", category: "Gaming", defaultW: 1080, defaultH: 720 },
@@ -1225,7 +1225,7 @@ window.addEventListener("load", async () => {
 
 						<!-- Onyx AI Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
-							on:click=${() => this.openApp("ai")} title="Onyx AI (GLM 5.3 & Emis API)">
+							on:click=${() => this.openApp("ai")} title="Onyx AI">
 							<span class="text-xl drop-shadow-md">✨</span>
 							${use(this.windows, (winList) => winList.some(w => w.appId === "ai") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
 						</div>
@@ -1460,7 +1460,7 @@ window.addEventListener("load", async () => {
 		if (appId === "browser") {
 			return renderBrowserApp(win, scramjet, osInstance);
 		} else if (appId === "ai") {
-			return html`<iframe src="/ai.html" class="w-full h-full border-0 outline-none bg-[#09090d]" allow="fullscreen; clipboard-read; clipboard-write"></iframe>`;
+			return renderOnyxAIApp(win, scramjet, osInstance);
 		} else if (appId === "vault") {
 			return html`<iframe src="/vault.html" class="w-full h-full border-0 outline-none bg-[#090a12]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>`;
 		} else if (appId === "movies") {
@@ -1476,7 +1476,29 @@ window.addEventListener("load", async () => {
 		return html`<div class="p-6 text-center text-neutral-400">Application loading...</div>`;
 	}
 
-	// 2. Cloud Gaming App Renderer (Pure full-window nowgg.fun webpage)
+	// 2. Onyx AI App Renderer (Proxied full-window Onyx AI web application)
+	function renderOnyxAIApp(win, scramjet, osInstance) {
+		if (!win.customState) {
+			win.customState = {};
+		}
+
+		if (!win.customState.frameObj) {
+			const frameObj = scramjet.createFrame();
+			frameObj.frame.className = "w-full h-full border-0 outline-none bg-[#09090d] block";
+			frameObj.go("https://onyxai-fornow-ochre.vercel.app/");
+			win.customState.frameObj = frameObj;
+		}
+
+		const frameObj = win.customState.frameObj;
+
+		return html`
+			<div class="w-full h-full relative bg-[#09090d] overflow-hidden select-text">
+				${frameObj.frame}
+			</div>
+		`;
+	}
+
+	// 3. Cloud Gaming App Renderer (Pure full-window nowgg.fun webpage)
 	function renderCloudGamingApp(win, scramjet, osInstance) {
 		if (!win.customState) {
 			win.customState = {};

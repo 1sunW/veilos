@@ -553,20 +553,26 @@ async function startBackground(ext, registry, host, rootEl) {
     };
     if (bgInfo.type === "page") {
         const raw = await (0,_fileStore__rspack_import_1.readExtFileText)(ext.id, bgInfo.page);
-        const html = raw !== null ? await (0,_htmlInject__rspack_import_2.rewriteExtHtml)(ext.id, raw, bgInfo.page) : "<!DOCTYPE html><html><head></head><body></body></html>";
+        const html = raw !== null ? await (0,_htmlInject__rspack_import_2.rewriteExtHtml)(ext.id, raw, bgInfo.page) : `<!DOCTYPE html><html><head><base href="${(0,_urlScheme__rspack_import_4.sapphireExtensionBase)(ext.id)}"></head><body></body></html>`;
         (0,_htmlInject__rspack_import_2.writeDocument)(win, html);
+        (0,_chromeApi__rspack_import_0.installChromeApi)(win, {
+            extId: ext.id,
+            tabId: null,
+            isBackground: true,
+            registry,
+            host,
+            senderUrl: backgroundPath ? (0,_urlScheme__rspack_import_4.chromeExtensionUrl)(ext.id, backgroundPath) : undefined
+        });
     } else {
-        (0,_htmlInject__rspack_import_2.writeDocument)(win, "<!DOCTYPE html><html><head></head><body></body></html>");
-        try {
-            (0,_chromeApi__rspack_import_0.installChromeApi)(win, {
-                extId: ext.id,
-                tabId: null,
-                isBackground: true,
-                registry,
-                host,
-                senderUrl: backgroundPath ? (0,_urlScheme__rspack_import_4.chromeExtensionUrl)(ext.id, backgroundPath) : undefined
-            });
-        } catch  {}
+        (0,_htmlInject__rspack_import_2.writeDocument)(win, `<!DOCTYPE html><html><head><base href="${(0,_urlScheme__rspack_import_4.sapphireExtensionBase)(ext.id)}"></head><body></body></html>`);
+        (0,_chromeApi__rspack_import_0.installChromeApi)(win, {
+            extId: ext.id,
+            tabId: null,
+            isBackground: true,
+            registry,
+            host,
+            senderUrl: backgroundPath ? (0,_urlScheme__rspack_import_4.chromeExtensionUrl)(ext.id, backgroundPath) : undefined
+        });
         const scriptPaths = bgInfo.type === "worker" ? [
             bgInfo.script
         ] : bgInfo.scripts;
@@ -677,15 +683,10 @@ function buildTabObject(host, tabId, realm) {
 }
 function openUrlInTab(host, tabId, url) {
     const decoded = (0,_urlScheme__rspack_import_7.decodeSapphireUrl)(url);
-    const targetUrl = decoded ? (0,_urlScheme__rspack_import_7.buildExtensionUrl)(decoded.extId, decoded.path) : url;
-    if (tabId !== null && host.navigateTab) {
-        host.navigateTab(tabId, targetUrl);
-    } else if (host.openTab) {
-        host.openTab(targetUrl, true);
-    } else if (decoded && host.openExtensionTab) {
-        host.openExtensionTab(decoded.extId, decoded.path, null);
-    } else if (host.navigateTab) {
-        host.navigateTab(null, targetUrl);
+    if (decoded) {
+        host.openExtensionTab?.(decoded.extId, decoded.path, tabId);
+    } else {
+        host.navigateTab?.(tabId, url);
     }
 }
 async function captureVisibleTabViaDisplayMedia(targetWin) {
@@ -837,15 +838,13 @@ async function storageGetKeys(extId, area) {
 }
 function makeStorageArea(extId, area, realm) {
     return {
-        get: (keysOrCb, maybeCb)=>{
-            const cb = typeof keysOrCb === "function" ? keysOrCb : maybeCb;
-            const keys = typeof keysOrCb === "function" ? null : keysOrCb;
-            const p = storageGet(extId, area, keys).then((result)=>cloneForRealm(realm, result ?? {}));
+        get: (keys, cb)=>{
+            const p = storageGet(extId, area, keys).then((result)=>cloneForRealm(realm, result));
             if (cb) p.then(cb);
             return p;
         },
         set: (items, cb)=>{
-            const p = storageSet(extId, area, items ?? {});
+            const p = storageSet(extId, area, items);
             if (cb) p.then(cb);
             return p;
         },
@@ -859,14 +858,13 @@ function makeStorageArea(extId, area, realm) {
             if (cb) p.then(cb);
             return p;
         },
-        getBytesInUse: (keysOrCb, maybeCb)=>{
-            const cb = typeof keysOrCb === "function" ? keysOrCb : maybeCb;
+        getBytesInUse: (_keys, cb)=>{
             const result = 0;
             cb?.(result);
             return Promise.resolve(result);
         },
         getKeys: (cb)=>{
-            const p = storageGetKeys(extId, area).then((keys)=>cloneForRealm(realm, keys ?? []));
+            const p = storageGetKeys(extId, area);
             if (cb) p.then(cb);
             return p;
         }
@@ -1000,17 +998,8 @@ function installChromeApi(realm, opts) {
         },
         openOptionsPage: (cb)=>{
             const page = ext.manifest.options_page ?? ext.manifest.options_ui?.page;
-            if (page) {
-                if (host.openExtensionTab) {
-                    host.openExtensionTab(extId, page, null);
-                } else if (host.openTab) {
-                    host.openTab((0,_urlScheme__rspack_import_7.chromeExtensionUrl)(extId, page), true);
-                } else {
-                    host.navigateTab?.(null, (0,_urlScheme__rspack_import_7.chromeExtensionUrl)(extId, page));
-                }
-            }
+            if (page) host.openExtensionTab?.(extId, page, tabId);
             cb?.();
-            return Promise.resolve(undefined);
         },
         setUninstallURL: (_url, cb)=>{
             cb?.();
@@ -1033,23 +1022,12 @@ function installChromeApi(realm, opts) {
     };
     const tabs = {
         query: (queryInfo = {}, cb)=>{
-            const active = host.getActiveTabId?.() ?? host.getAllTabs().find((t)=>t.active)?.id ?? host.getAllTabs()[0]?.id ?? null;
-            const allTabs = host.getAllTabs();
-            let filtered = allTabs.filter((t)=>{
-                if (queryInfo.active !== undefined) {
-                    const isAct = t.active || active !== null && t.id === active;
-                    if (queryInfo.active !== isAct) return false;
-                }
+            const active = host.getActiveTabId?.();
+            const result = host.getAllTabs().filter((t)=>{
+                if (queryInfo.active !== undefined && queryInfo.active !== (t.id === active)) return false;
                 if (queryInfo.url && !t.url.includes(queryInfo.url)) return false;
                 return true;
-            });
-            if (filtered.length === 0 && queryInfo.active !== false && allTabs.length > 0) {
-                const fallbackTab = (active !== null ? allTabs.find((t)=>t.id === active) : null) || allTabs[0];
-                if (fallbackTab) filtered = [
-                    fallbackTab
-                ];
-            }
-            const result = filtered.map((t)=>buildTabObject(host, t.id, realm));
+            }).map((t)=>buildTabObject(host, t.id, realm));
             cb?.(result);
             return Promise.resolve(result);
         },
@@ -1064,11 +1042,7 @@ function installChromeApi(realm, opts) {
             return Promise.resolve(tab);
         },
         create: (createProps = {}, cb)=>{
-            let targetUrl = createProps?.url || "https://google.com";
-            if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://") && !targetUrl.startsWith("about:") && !targetUrl.startsWith("chrome-extension://") && !targetUrl.startsWith("/~/sx/")) {
-                targetUrl = (0,_urlScheme__rspack_import_7.chromeExtensionUrl)(extId, targetUrl);
-            }
-            openUrlInTab(host, null, targetUrl);
+            if (createProps.url) openUrlInTab(host, null, createProps.url);
             const tab = buildTabObject(host, tabId, realm);
             cb?.(tab);
             return Promise.resolve(tab);
@@ -1176,18 +1150,7 @@ function installChromeApi(realm, opts) {
             return Promise.resolve(all);
         },
         create: (createData = {}, cb)=>{
-            if (createData?.url) {
-                const urls = Array.isArray(createData.url) ? createData.url : [
-                    createData.url
-                ];
-                for (const u of urls){
-                    let targetUrl = u;
-                    if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://") && !targetUrl.startsWith("about:") && !targetUrl.startsWith("chrome-extension://") && !targetUrl.startsWith("/~/sx/")) {
-                        targetUrl = (0,_urlScheme__rspack_import_7.chromeExtensionUrl)(extId, targetUrl);
-                    }
-                    openUrlInTab(host, null, targetUrl);
-                }
-            }
+            if (createData.url) host.navigateTab?.(null, createData.url);
             const w = {
                 id: 1,
                 focused: true,
@@ -1354,21 +1317,17 @@ function installChromeApi(realm, opts) {
     };
     const declarativeNetRequest = {
         updateDynamicRules: (options, cb)=>{
-            if (options?.removeRuleIds && ext.dynamicRules) {
+            if (options.removeRuleIds) {
                 ext.dynamicRules = ext.dynamicRules.filter((r)=>!options.removeRuleIds.includes(r.id));
             }
-            if (options?.addRules) {
-                if (!ext.dynamicRules) ext.dynamicRules = [];
-                ext.dynamicRules.push(...options.addRules);
-            }
+            if (options.addRules) ext.dynamicRules.push(...options.addRules);
             cb?.();
             return Promise.resolve(undefined);
         },
         getDynamicRules: (filterOrCb, maybeCb)=>{
             const filter = typeof filterOrCb === "function" ? undefined : filterOrCb;
             const cb = typeof filterOrCb === "function" ? filterOrCb : maybeCb;
-            const allRules = Array.isArray(ext.dynamicRules) ? ext.dynamicRules : [];
-            const rules = filter?.ruleIds ? allRules.filter((r)=>filter.ruleIds.includes(r.id)) : allRules;
+            const rules = filter?.ruleIds ? ext.dynamicRules.filter((r)=>filter.ruleIds.includes(r.id)) : ext.dynamicRules;
             cb?.(rules);
             return Promise.resolve(rules);
         },
@@ -1396,158 +1355,31 @@ function installChromeApi(realm, opts) {
             return Promise.resolve(result);
         },
         getAvailableRulesets: (cb)=>{
-            const fromManifest = (ext.manifest?.declarative_net_request?.rule_resources ?? []).map((r)=>r.id).filter(Boolean);
-            const fromRules = ext.rulesetRules ? Array.from(ext.rulesetRules.keys()) : [];
-            const all = Array.from(new Set([
-                ...fromManifest,
-                ...fromRules
-            ]));
-            cb?.(all);
-            return Promise.resolve(all);
-        },
-        getRulesets: (cb)=>{
-            const manifestResources = ext.manifest?.declarative_net_request?.rule_resources ?? [];
-            const rulesets = manifestResources.map((r)=>({
-                    id: r.id,
-                    enabled: ext.enabledRulesetIds ? ext.enabledRulesetIds.has(r.id) : false,
-                    path: r.path
-                }));
-            cb?.(rulesets);
-            return Promise.resolve(rulesets);
+            const ids = [
+                ...ext.rulesetRules.keys()
+            ];
+            cb?.(ids);
+            return Promise.resolve(ids);
         },
         getEnabledRulesets: (cb)=>{
-            const ids = ext.enabledRulesetIds ? Array.from(ext.enabledRulesetIds) : [];
+            const ids = [
+                ...ext.enabledRulesetIds
+            ];
             cb?.(ids);
             return Promise.resolve(ids);
         },
         updateEnabledRulesets: (options, cb)=>{
-            if (!ext.enabledRulesetIds) ext.enabledRulesetIds = new Set();
-            for (const id of options?.disableRulesetIds ?? [])ext.enabledRulesetIds.delete(id);
-            for (const id of options?.enableRulesetIds ?? []){
-                if (ext.rulesetRules?.has(id) || ext.manifest?.declarative_net_request?.rule_resources?.some((r)=>r.id === id)) {
-                    ext.enabledRulesetIds.add(id);
-                }
+            for (const id of options.disableRulesetIds ?? [])ext.enabledRulesetIds.delete(id);
+            for (const id of options.enableRulesetIds ?? []){
+                if (ext.rulesetRules.has(id)) ext.enabledRulesetIds.add(id);
             }
             (0,_dnr__rspack_import_4.recomputeStaticRules)(ext);
             cb?.();
             return Promise.resolve(undefined);
         },
-        getDisabledRuleIds: (optionsOrId, cb)=>{
-            const actualCb = typeof optionsOrId === "function" ? optionsOrId : cb;
-            let rulesetId;
-            if (typeof optionsOrId === "string") {
-                rulesetId = optionsOrId;
-            } else if (optionsOrId && typeof optionsOrId === "object") {
-                const opt = optionsOrId;
-                if (opt.rulesetId) {
-                    rulesetId = opt.rulesetId;
-                } else if (Array.isArray(opt.rulesetIds)) {
-                    const all = new Set();
-                    if (ext.disabledRulesetRuleIds) {
-                        for (const rid of opt.rulesetIds){
-                            const set = ext.disabledRulesetRuleIds.get(rid);
-                            if (set) for (const id of set)all.add(id);
-                        }
-                    }
-                    const ids = Array.from(all);
-                    actualCb?.(ids);
-                    return Promise.resolve(ids);
-                }
-            }
-            const set = rulesetId && ext.disabledRulesetRuleIds ? ext.disabledRulesetRuleIds.get(rulesetId) : undefined;
-            const ids = set ? Array.from(set) : [];
-            actualCb?.(ids);
-            return Promise.resolve(ids);
-        },
-        updateStaticRules: (options, cb)=>{
-            if (options?.rulesetId) {
-                if (!ext.disabledRulesetRuleIds) ext.disabledRulesetRuleIds = new Map();
-                let set = ext.disabledRulesetRuleIds.get(options.rulesetId);
-                if (!set) {
-                    set = new Set();
-                    ext.disabledRulesetRuleIds.set(options.rulesetId, set);
-                }
-                for (const id of options.disableRuleIds ?? [])set.add(id);
-                for (const id of options.enableRuleIds ?? [])set.delete(id);
-                (0,_dnr__rspack_import_4.recomputeStaticRules)(ext);
-            }
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        getMatchedRules: (_options, cb)=>{
-            const result = {
-                rulesMatchedInfo: []
-            };
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getAvailableStaticRuleCount: (cb)=>{
-            const count = 30000;
-            cb?.(count);
-            return Promise.resolve(count);
-        },
-        getExtensionIdPrefixes: (cb)=>{
-            const prefixes = [];
-            cb?.(prefixes);
-            return Promise.resolve(prefixes);
-        },
-        getExtensionActionOptions: (cb)=>{
-            const opts = {
-                displayActionCountAsBadgeText: true
-            };
-            cb?.(opts);
-            return Promise.resolve(opts);
-        },
-        setExtensionActionOptions: (_options, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        RuleActionType: {
-            BLOCK: "block",
-            REDIRECT: "redirect",
-            ALLOW: "allow",
-            UPGRADE_SCHEME: "upgradeScheme",
-            MODIFY_HEADERS: "modifyHeaders",
-            ALLOW_ALL_REQUESTS: "allowAllRequests"
-        },
-        HeaderOperation: {
-            APPEND: "append",
-            SET: "set",
-            REMOVE: "remove"
-        },
-        ResourceType: {
-            MAIN_FRAME: "main_frame",
-            SUB_FRAME: "sub_frame",
-            STYLESHEET: "stylesheet",
-            SCRIPT: "script",
-            IMAGE: "image",
-            FONT: "font",
-            OBJECT: "object",
-            XMLHTTPREQUEST: "xmlhttprequest",
-            PING: "ping",
-            CSP_REPORT: "csp_report",
-            MEDIA: "media",
-            WEBSOCKET: "websocket",
-            OTHER: "other"
-        },
-        DomainType: {
-            FIRST_PARTY: "firstParty",
-            THIRD_PARTY: "thirdParty"
-        },
-        onRuleMatchedDebug: new _eventHub__rspack_import_5.EventHub().toApi(),
         MAX_NUMBER_OF_RULES: 30000,
-        DYNAMIC_RULE_LIMIT: 30000,
-        SESSION_RULE_LIMIT: 5000,
         MAX_NUMBER_OF_DYNAMIC_RULES: 5000,
-        MAX_NUMBER_OF_SESSION_RULES: 5000,
-        MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES: 30000,
-        MAX_NUMBER_OF_DISABLED_STATIC_RULES: 5000,
-        GUARANTEED_MINIMUM_STATIC_RULES: 30000,
-        MAX_NUMBER_OF_STATIC_RULESETS: 100,
-        MAX_NUMBER_OF_ENABLED_STATIC_RULESETS: 50,
-        MAX_NUMBER_OF_REGEX_RULES: 1000,
-        DYNAMIC_RULESET_ID: "_dynamic",
-        SESSION_RULESET_ID: "_session"
+        GUARANTEED_MINIMUM_STATIC_RULES: 30000
     };
     function injectCss(win, css) {
         try {
@@ -1626,60 +1458,28 @@ function installChromeApi(realm, opts) {
             cb?.();
             return Promise.resolve(undefined);
         },
-        unregisterContentScripts: (filterOrCb, cb)=>{
-            const actualCb = typeof filterOrCb === "function" ? filterOrCb : cb;
-            const filter = typeof filterOrCb === "object" ? filterOrCb : undefined;
+        unregisterContentScripts: (filter, cb)=>{
             for(let i = registry.contentScripts.length - 1; i >= 0; i--){
                 const cs = registry.contentScripts[i];
                 if (cs.extId !== extId || cs.id === undefined) continue;
                 if (filter?.ids && !filter.ids.includes(cs.id)) continue;
                 registry.contentScripts.splice(i, 1);
             }
-            actualCb?.();
-            return Promise.resolve(undefined);
-        },
-        getRegisteredContentScripts: (filterOrCb, maybeCb)=>{
-            const actualCb = typeof filterOrCb === "function" ? filterOrCb : maybeCb;
-            const filter = typeof filterOrCb === "object" ? filterOrCb : undefined;
-            const result = registry.contentScripts.filter((cs)=>cs.extId === extId && cs.id !== undefined && (!filter?.ids || filter.ids.includes(cs.id))).map((cs)=>({
-                    id: cs.id,
-                    matches: cs.matches ?? [],
-                    excludeMatches: cs.excludeMatches ?? [],
-                    js: cs.js ?? [],
-                    css: cs.css ?? [],
-                    runAt: cs.runAt ?? "document_idle",
-                    allFrames: cs.allFrames ?? false
-                }));
-            actualCb?.(result);
-            return Promise.resolve(result);
-        },
-        updateContentScripts: (scripts, cb)=>{
-            for (const s of scripts){
-                const idx = registry.contentScripts.findIndex((cs)=>cs.extId === extId && cs.id === s.id);
-                if (idx !== -1) {
-                    const cur = registry.contentScripts[idx];
-                    registry.contentScripts[idx] = {
-                        extId,
-                        id: s.id,
-                        matches: s.matches ?? cur.matches,
-                        excludeMatches: s.excludeMatches ?? cur.excludeMatches,
-                        js: s.js ?? cur.js,
-                        css: s.css ?? cur.css,
-                        runAt: s.runAt ?? cur.runAt,
-                        allFrames: s.allFrames ?? cur.allFrames
-                    };
-                }
-            }
             cb?.();
             return Promise.resolve(undefined);
         },
-        ExecutionWorld: {
-            ISOLATED: "ISOLATED",
-            MAIN: "MAIN"
-        },
-        StyleOrigin: {
-            AUTHOR: "AUTHOR",
-            USER: "USER"
+        getRegisteredContentScripts: (filter, cb)=>{
+            const result = registry.contentScripts.filter((cs)=>cs.extId === extId && cs.id !== undefined && (!filter?.ids || filter.ids.includes(cs.id))).map((cs)=>({
+                    id: cs.id,
+                    matches: cs.matches,
+                    excludeMatches: cs.excludeMatches,
+                    js: cs.js,
+                    css: cs.css,
+                    runAt: cs.runAt,
+                    allFrames: cs.allFrames
+                }));
+            cb?.(result);
+            return Promise.resolve(result);
         }
     };
     function makeAction(clickHub) {
@@ -2231,69 +2031,65 @@ function installChromeApi(realm, opts) {
         loadTimes: ()=>({})
     };
     const chromeApiWithFallback = globalThis.SAPPHIRE_TRACE ? traceCalls((0,_autoStub__rspack_import_0.withMissingMemberFallback)(chromeApi)) : (0,_autoStub__rspack_import_0.withMissingMemberFallback)(chromeApi);
-    try {
-        realm.chrome = chromeApiWithFallback;
-        Object.assign(realm.chrome, chromeApiWithFallback);
-    } catch  {}
+    realm.chrome = chromeApiWithFallback;
     if (!realm.browser) {
-        try {
-            realm.browser = chromeApiWithFallback;
-        } catch  {}
+        realm.browser = chromeApiWithFallback;
     }
     try {
-        const g = globalThis;
-        if (!g.__sapphire_api_map__) g.__sapphire_api_map__ = new WeakMap();
-        g.__sapphire_api_map__.set(realm, chromeApiWithFallback);
-        if (!g.__sapphire_sync_api__) {
-            g.__sapphire_sync_api__ = (childWin)=>{
+        const origFetch = realm.fetch;
+        if (typeof origFetch === "function" && !origFetch.__sapphire_patched) {
+            const patchedFetch = function(input, init) {
                 try {
-                    const api = g.__sapphire_api_map__?.get(childWin);
-                    if (api) {
-                        childWin.chrome = api;
-                        Object.assign(childWin.chrome, api);
-                        childWin.browser = api;
-                    }
-                } catch  {}
-            };
-        }
-    } catch  {}
-    try {
-        const winRealm = realm;
-        if (winRealm && typeof winRealm.open === "function") {
-            const origOpen = winRealm.open.bind(winRealm);
-            winRealm.open = (url, target, features)=>{
-                if (url) {
-                    let fullUrl = String(url);
-                    if (!fullUrl.startsWith("http://") && !fullUrl.startsWith("https://") && !fullUrl.startsWith("about:") && !fullUrl.startsWith("chrome-extension://") && !fullUrl.startsWith("/~/sx/")) {
-                        fullUrl = (0,_urlScheme__rspack_import_7.chromeExtensionUrl)(extId, fullUrl);
-                    }
-                    openUrlInTab(host, null, fullUrl);
-                    return null;
-                }
-                return origOpen ? origOpen(url, target, features) : null;
-            };
-        }
-        if (winRealm && typeof winRealm.addEventListener === "function") {
-            winRealm.addEventListener("click", (e)=>{
-                const a = e.target?.closest?.("a");
-                if (a && a.href) {
-                    const rawHref = a.getAttribute("href") || "";
-                    if (rawHref && !rawHref.startsWith("#") && !rawHref.startsWith("javascript:")) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        let dest = a.href;
-                        const decoded = (0,_urlScheme__rspack_import_7.decodeSapphireUrl)(dest);
-                        if (decoded) {
-                            if (host.openExtensionTab) host.openExtensionTab(decoded.extId, decoded.path, null);
-                            else openUrlInTab(host, null, dest);
-                        } else {
-                            openUrlInTab(host, null, dest);
+                    let urlStr = typeof input === "string" ? input : input instanceof URL ? input.href : input instanceof Request ? input.url : String(input);
+                    if (urlStr.startsWith("chrome-extension://")) {
+                        const parsed = new URL(urlStr);
+                        const path = parsed.pathname.replace(/^\//, "");
+                        const newUrl = `${realm.location.origin}/~/sx/${parsed.hostname || extId}/${path}`;
+                        if (typeof input === "string") {
+                            input = newUrl;
+                        } else if (input instanceof URL) {
+                            input = new URL(newUrl);
+                        } else if (input instanceof Request) {
+                            input = new Request(newUrl, input);
+                        }
+                    } else if (urlStr.startsWith("/") && !urlStr.startsWith("/~/")) {
+                        const newUrl = `${realm.location.origin}/~/sx/${extId}${urlStr}`;
+                        if (typeof input === "string") {
+                            input = newUrl;
+                        } else if (input instanceof URL) {
+                            input = new URL(newUrl);
+                        } else if (input instanceof Request) {
+                            input = new Request(newUrl, input);
                         }
                     }
-                }
-            }, true);
+                } catch (e) {}
+                return origFetch.call(this, input, init);
+            };
+            patchedFetch.__sapphire_patched = true;
+            realm.fetch = patchedFetch;
         }
-    } catch  {}
+    } catch (e) {}
+    try {
+        const proto = realm.XMLHttpRequest?.prototype;
+        if (proto && typeof proto.open === "function" && !proto.open.__sapphire_patched) {
+            const origOpen = proto.open;
+            const patchedOpen = function(method, url, ...rest) {
+                try {
+                    let urlStr = typeof url === "string" ? url : url instanceof URL ? url.href : String(url);
+                    if (urlStr.startsWith("chrome-extension://")) {
+                        const parsed = new URL(urlStr);
+                        const path = parsed.pathname.replace(/^\//, "");
+                        url = `${realm.location.origin}/~/sx/${parsed.hostname || extId}/${path}`;
+                    } else if (urlStr.startsWith("/") && !urlStr.startsWith("/~/")) {
+                        url = `${realm.location.origin}/~/sx/${extId}${urlStr}`;
+                    }
+                } catch (e) {}
+                return origOpen.call(this, method, url, ...rest);
+            };
+            patchedOpen.__sapphire_patched = true;
+            proto.open = patchedOpen;
+        }
+    } catch (e) {}
     return events;
 }
 
@@ -2667,6 +2463,7 @@ function checkDeclarativeNetRequest(registry, requestUrl, initiatorUrl, resource
     for (const ext of registry.list()){
         if (!ext.enabled) continue;
         const rules = [
+            ...ext.sessionRules ?? [],
             ...ext.dynamicRules,
             ...ext.staticRules
         ].sort((a, b)=>(b.priority ?? 1) - (a.priority ?? 1));
@@ -2868,7 +2665,8 @@ async function installExtension(buffer, filename, registry, host, backgroundRoot
     } catch (e) {
         throw new Error(`invalid manifest: ${e.message}`);
     }
-    const extId = (0,_crx__rspack_import_1.generateExtensionId)(manifest.name + (manifest.version ?? ""));
+    const matchId = filename && filename.match(/^([a-z]{32})(\.crx|\.zip)?$/i);
+    const extId = matchId ? matchId[1].toLowerCase() : (0,_crx__rspack_import_1.generateExtensionId)(manifest.name + (manifest.version ?? ""));
     const fileOps = [];
     zip.forEach((path, file)=>{
         if (file.dir) return;
@@ -2959,7 +2757,16 @@ async function readExtFile(extId, path) {
 async function readExtFileText(extId, path) {
     const ab = await readExtFile(extId, path);
     if (!ab) return null;
-    return new TextDecoder().decode(ab);
+    let text = new TextDecoder().decode(ab);
+    if (path.endsWith("ruleset-manager.js")) {
+        try {
+            console.log("[Sapphire Patch] Patching ruleset-manager.js inside readExtFileText!");
+            text = text.replaceAll(".concat(", "?.concat(");
+        } catch (e) {
+            console.error("[Sapphire Patch] Failed to patch ruleset-manager.js in readExtFileText:", e);
+        }
+    }
+    return text;
 }
 async function readExtFileURL(extId, path) {
     const ab = await readExtFile(extId, path);
@@ -3342,6 +3149,7 @@ class SapphireRegistry {
             filename,
             messages: {},
             dynamicRules: [],
+            sessionRules: [],
             staticRules: [],
             rulesetRules: new Map(),
             enabledRulesetIds: new Set(),
@@ -10307,12 +10115,12 @@ __webpack_require__.d(__webpack_exports__, {
 	 */ route({ request }) {
         const cfg = this.config || _shared__rspack_import_6.config;
         if (!cfg) return false;
-        const locOrigin = typeof location !== "undefined" ? location.origin : "";
-        if (locOrigin && cfg.files?.wasm && request.url === locOrigin + cfg.files.wasm) {
+        const url = new URL(request.url);
+        if (cfg.files?.wasm && url.pathname === cfg.files.wasm) {
             return true;
         }
         const prefix = cfg.prefix || "/scramjet/";
-        if (locOrigin && request.url.startsWith(locOrigin + prefix) || locOrigin && request.url === locOrigin + prefix.replace(/\/$/, "")) {
+        if (url.pathname.startsWith(prefix) || url.pathname === prefix.replace(/\/$/, "")) {
             return true;
         }
         return false;
@@ -15826,6 +15634,7 @@ __webpack_require__.d(__webpack_exports__, {
   JSZip: () => (/* reexport default from dynamic */ jszip__rspack_import_2_default.a),
   Sapphire: () => (/* reexport safe */ _x8r_sapphire__rspack_import_1.Sapphire),
   SapphireContentScriptPlugin: () => (/* reexport safe */ _x8r_sapphire__rspack_import_1.SapphireContentScriptPlugin),
+  crxToZip: () => (crxToZip),
   findMatchingCommand: () => (/* reexport safe */ _x8r_sapphire__rspack_import_1.findMatchingCommand),
   normalizeExtensionBuffer: () => (normalizeExtensionBuffer),
   triggerCommand: () => (/* reexport safe */ _x8r_sapphire__rspack_import_1.triggerCommand)
@@ -15868,11 +15677,33 @@ if (typeof _x8r_sapphire__rspack_import_1.Sapphire.prototype.getPopupUrl !== "fu
         return null;
     };
 }
+function crxToZip(buffer) {
+    if (!buffer || buffer.byteLength < 16) return buffer;
+    const view = new DataView(buffer);
+    const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
+    if (magic !== "Cr24") {
+        return buffer;
+    }
+    const version = view.getUint32(4, true);
+    let zipStart;
+    if (version === 2) {
+        const pubKeyLen = view.getUint32(8, true);
+        const sigLen = view.getUint32(12, true);
+        zipStart = 16 + pubKeyLen + sigLen;
+    } else if (version === 3) {
+        const headerSize = view.getUint32(8, true);
+        zipStart = 12 + headerSize;
+    } else {
+        return buffer;
+    }
+    return buffer.slice(zipStart);
+}
 async function normalizeExtensionBuffer(buffer, _filename = "extension.zip") {
     try {
-        const zip = await jszip__rspack_import_2_default().loadAsync(buffer);
+        const zipBuffer = crxToZip(buffer);
+        const zip = await jszip__rspack_import_2_default().loadAsync(zipBuffer);
         if (zip.file("manifest.json")) {
-            return buffer;
+            return zipBuffer;
         }
         let manifestPath = null;
         zip.forEach((relativePath, file)=>{
@@ -15899,6 +15730,7 @@ async function normalizeExtensionBuffer(buffer, _filename = "extension.zip") {
                 type: "arraybuffer"
             });
         }
+        return zipBuffer;
     } catch (e) {
         console.warn("[normalizeExtensionBuffer] fallback to original buffer:", e);
     }
@@ -16020,6 +15852,7 @@ globalThis.SapphireContentScriptPlugin = _x8r_sapphire__rspack_import_1.Sapphire
 globalThis.findMatchingCommand = _x8r_sapphire__rspack_import_1.findMatchingCommand;
 globalThis.triggerCommand = _x8r_sapphire__rspack_import_1.triggerCommand;
 globalThis.JSZip = (jszip__rspack_import_2_default());
+globalThis.crxToZip = crxToZip;
 globalThis.normalizeExtensionBuffer = normalizeExtensionBuffer;
 if ("document" in globalThis && document?.currentScript) {
     document.currentScript.remove();
