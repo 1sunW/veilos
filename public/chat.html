@@ -84,6 +84,9 @@
     }
     const auth = firebase.auth();
     const db = firebase.firestore();
+    try {
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((e) => console.warn('Auth persistence error:', e));
+    } catch (e) {}
 
     const PUBLIC_CHANNELS = [
       { id: 'general', label: '# general' },
@@ -454,8 +457,20 @@
     // --- AuthModal ---
     const AuthModal = ({ isOpen, onAlert }) => {
       const [isSignUpMode, setIsSignUpMode] = useState(false);
-      const [email, setEmail] = useState('');
-      const [password, setPassword] = useState('');
+      const [email, setEmail] = useState(() => {
+        try {
+          const creds = localStorage.getItem('onyx_chat_credentials');
+          if (creds) return JSON.parse(creds).email || '';
+        } catch (e) {}
+        return '';
+      });
+      const [password, setPassword] = useState(() => {
+        try {
+          const creds = localStorage.getItem('onyx_chat_credentials');
+          if (creds) return JSON.parse(creds).password || '';
+        } catch (e) {}
+        return '';
+      });
       const [username, setUsername] = useState('');
       const [fileName, setFileName] = useState('choose image file...');
       const [uploadedImageData, setUploadedImageData] = useState('');
@@ -504,6 +519,9 @@
             const avatarUrl = uploadedImageData || `https://api.dicebear.com/7.x/identicon/svg?seed=${cleanUsername}`;
             const res = await auth.createUserWithEmailAndPassword(email, password);
             if (res.user) {
+              try {
+                localStorage.setItem('onyx_chat_credentials', JSON.stringify({ email, password, username: cleanUsername }));
+              } catch (e) {}
               await res.user.updateProfile({ displayName: cleanUsername });
 
               // Get the current total number of registered users to assign sequential join number
@@ -531,6 +549,9 @@
             }
           } else {
             await auth.signInWithEmailAndPassword(email, password);
+            try {
+              localStorage.setItem('onyx_chat_credentials', JSON.stringify({ email, password }));
+            } catch (e) {}
           }
         } catch (err) {
           onAlert(err.message || 'Authentication failed', 'auth error');
@@ -2076,14 +2097,26 @@
 
     // --- Main App ---
     const App = () => {
-      const [currentUser, setCurrentUser] = useState(null);
+      const [currentUser, setCurrentUser] = useState(() => {
+        try {
+          const cached = localStorage.getItem('onyx_chat_user_cache');
+          if (cached) return JSON.parse(cached);
+        } catch (e) {}
+        return null;
+      });
       const [activeChannel, setActiveChannel] = useState('general');
       const [channelTitle, setChannelTitle] = useState('# general');
       const [messages, setMessages] = useState([]);
       const [dms, setDms] = useState([]);
 
       // Modals State
-      const [isAuthOpen, setIsAuthOpen] = useState(false);
+      const [isAuthOpen, setIsAuthOpen] = useState(() => {
+        try {
+          return !localStorage.getItem('onyx_chat_credentials') && !localStorage.getItem('onyx_chat_user_cache');
+        } catch (e) {
+          return false;
+        }
+      });
       const [isSettingsOpen, setIsSettingsOpen] = useState(false);
       const [isDMModalOpen, setIsDMModalOpen] = useState(false);
       const [isFriendRequestsOpen, setIsFriendRequestsOpen] = useState(false);
@@ -2117,17 +2150,19 @@
 
       // 1. Auth State Listener
       useEffect(() => {
+        let isCancelled = false;
         const unsubscribe = auth.onAuthStateChanged(async (user) => {
           if (user) {
             setIsAuthOpen(false);
             const userDoc = await db.collection('users').doc(user.uid).get();
+            if (isCancelled) return;
             if (userDoc.exists) {
               const data = userDoc.data();
               const rolesList = Array.isArray(data.roles) ? data.roles : (data.role ? [data.role] : ['beta tester']);
               const adminRoles = ['admin', 'owner', 'developer', 'moderator'];
               const isAdmin = adminRoles.includes(data.role?.toLowerCase()) || rolesList.some((r) => adminRoles.includes(r.toLowerCase()));
 
-              setCurrentUser({
+              const userObj = {
                 uid: user.uid,
                 username: data.username || user.displayName || 'user',
                 photoURL: data.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.uid}`,
@@ -2141,10 +2176,14 @@
                 views: data.views || 0,
                 friends: data.friends || [],
                 friendRequestsIncoming: data.friendRequestsIncoming || [],
-              });
+              };
+              setCurrentUser(userObj);
+              try {
+                localStorage.setItem('onyx_chat_user_cache', JSON.stringify(userObj));
+              } catch (e) {}
             } else {
               const fallbackUsername = user.displayName || user.email?.split('@')[0] || 'user';
-              setCurrentUser({
+              const userObj = {
                 uid: user.uid,
                 username: fallbackUsername,
                 photoURL: user.photoURL || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.uid}`,
@@ -2156,14 +2195,37 @@
                 views: 0,
                 friends: [],
                 friendRequestsIncoming: [],
-              });
+              };
+              setCurrentUser(userObj);
+              try {
+                localStorage.setItem('onyx_chat_user_cache', JSON.stringify(userObj));
+              } catch (e) {}
             }
           } else {
-            setCurrentUser(null);
-            setIsAuthOpen(true);
+            // Check if saved account exists in localStorage to auto sign in
+            let autoLoggingIn = false;
+            try {
+              const saved = localStorage.getItem('onyx_chat_credentials');
+              if (saved) {
+                const creds = JSON.parse(saved);
+                if (creds.email && creds.password) {
+                  autoLoggingIn = true;
+                  await auth.signInWithEmailAndPassword(creds.email, creds.password);
+                }
+              }
+            } catch (err) {
+              console.warn('Auto sign-in with stored account failed:', err);
+            }
+            if (!autoLoggingIn && !isCancelled) {
+              setCurrentUser(null);
+              setIsAuthOpen(true);
+            }
           }
         });
-        return () => unsubscribe();
+        return () => {
+          isCancelled = true;
+          unsubscribe();
+        };
       }, []);
 
       // 2. Realtime User Doc Listener
@@ -2183,16 +2245,23 @@
               setFlashOverlay({ url: targetUrl, admin: data.flashedBy || 'Admin' });
             }
 
-            setCurrentUser((prev) => ({
-              ...prev,
-              username: data.username || prev.username,
-              photoURL: data.photoURL || prev.photoURL,
-              bio: data.bio || prev.bio,
-              friends: data.friends || [],
-              friendRequestsIncoming: data.friendRequestsIncoming || [],
-              banned: data.banned === true,
-              isAdmin: !!isAdmin,
-            }));
+            setCurrentUser((prev) => {
+              if (!prev) return prev;
+              const updated = {
+                ...prev,
+                username: data.username || prev.username,
+                photoURL: data.photoURL || prev.photoURL,
+                bio: data.bio || prev.bio,
+                friends: data.friends || [],
+                friendRequestsIncoming: data.friendRequestsIncoming || [],
+                banned: data.banned === true,
+                isAdmin: !!isAdmin,
+              };
+              try {
+                localStorage.setItem('onyx_chat_user_cache', JSON.stringify(updated));
+              } catch (e) {}
+              return updated;
+            });
           }
         });
         return () => unsub();
@@ -2409,7 +2478,13 @@
       };
 
       const handleLogout = () => {
+        try {
+          localStorage.removeItem('onyx_chat_credentials');
+          localStorage.removeItem('onyx_chat_user_cache');
+        } catch (e) {}
+        setCurrentUser(null);
         auth.signOut();
+        setIsAuthOpen(true);
       };
 
       return (

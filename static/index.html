@@ -60,6 +60,30 @@
 					opacity: 1;
 				}
 			}
+
+			/* Custom sleek dark scrollbar */
+			.custom-scrollbar::-webkit-scrollbar {
+				width: 5px;
+				height: 5px;
+			}
+			.custom-scrollbar::-webkit-scrollbar-track {
+				background: transparent;
+			}
+			.custom-scrollbar::-webkit-scrollbar-thumb {
+				background: rgba(255, 255, 255, 0.15);
+				border-radius: 9999px;
+			}
+			.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+				background: rgba(255, 255, 255, 0.3);
+			}
+
+			/* Selected item highlight with prominent white outline */
+			.selected-item {
+				outline: 2px solid #ffffff !important;
+				outline-offset: 1px !important;
+				border: 1px solid #ffffff !important;
+				box-shadow: 0 0 12px rgba(255, 255, 255, 0.25) !important;
+			}
 		</style>
 		<script
 			defer

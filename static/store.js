@@ -81,7 +81,7 @@ const initialSettings = {
 	bareurl: defaultBare,
 	proxy: "",
 	transport: "/epoxy/index.mjs",
-	searchEngine: "google", // "google" | "duckduckgo" | "bing" | "brave"
+	searchEngine: "duckduckgo", // "duckduckgo" | "google" | "bing" | "brave"
 	tabCloak: "default",
 	customCloakTitle: "",
 	customCloakIcon: "",
@@ -91,7 +91,7 @@ const initialSettings = {
 	history: [
 		{ id: "h1", name: "Google", url: "https://google.com", visitedAt: Date.now() - 3600000 }
 	],
-	wallpaper: "/morning-garden.mp4",
+	wallpaper: "assets/background.jpg",
 	accentColor: "indigo",
 	notes: defaultNotes,
 	osUsername: "Veil User",
@@ -133,8 +133,8 @@ try {
 store.wispurl = defaultWisp;
 store.bareurl = defaultBare;
 
-if (!store.searchEngine) {
-	store.searchEngine = "google";
+if (!store.searchEngine || (!localStorage.getItem("veil_user_picked_engine") && store.searchEngine === "google")) {
+	store.searchEngine = "duckduckgo";
 }
 if (!store.tabCloak) {
 	store.tabCloak = "default";
@@ -191,7 +191,7 @@ function openAboutBlankCloak(targetUrl) {
 	try {
 		const win = window.open("about:blank", "_blank");
 		if (!win) {
-			alert("Pop-up was blocked! Please enable pop-ups in your browser settings to use About:Blank Cloak.");
+			console.warn("[AboutBlank Cloak] Pop-up was blocked by the browser. Please allow pop-ups for this site to use About:Blank Cloak.");
 			return false;
 		}
 		const doc = win.document;
@@ -272,7 +272,7 @@ if (typeof window !== "undefined") {
 			try {
 				const cloaked = openAboutBlankCloak(window.location.href);
 				if (cloaked) {
-					window.location.replace("https://classroom.google.com");
+					console.log("[Auto About:Blank] Launched disguised about:blank window.");
 				}
 			} catch (err) {
 				console.warn("[Auto About:Blank] trigger error:", err);

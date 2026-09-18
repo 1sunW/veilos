@@ -42,7 +42,7 @@ if (!store) {
 		history: [
 			{ id: "h1", name: "Google", url: "https://google.com", visitedAt: Date.now() - 3600000 }
 		],
-		wallpaper: "/morning-garden.mp4",
+		wallpaper: "assets/background.jpg",
 		accentColor: "indigo",
 		notes: [
 			{ id: "note_1", title: "Welcome to VeilOS", content: "# VeilOS Web Operating System\n\nWelcome to your new Web OS!", updatedAt: Date.now() }
@@ -138,7 +138,7 @@ function Config() {
     &.cfg {
       background: rgba(10, 10, 15, 0.95) !important;
       color: #f1f5f9;
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
       border-radius: 24px;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
       backdrop-filter: blur(20px);
@@ -149,6 +149,24 @@ function Config() {
       box-sizing: border-box;
       max-height: 88vh;
       overflow-y: auto;
+      outline: none !important;
+    }
+
+    &.cfg {
+      outline: none !important;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    &.cfg *:focus:not(.selected-item):not(.active), &.cfg *:focus-visible:not(.selected-item):not(.active) {
+      outline: none;
+      box-shadow: none;
+    }
+
+    .selected-item, &.cfg .selected-item {
+      outline: 2px solid #ffffff !important;
+      outline-offset: 1px !important;
+      border: 1px solid #ffffff !important;
+      box-shadow: 0 0 14px rgba(255, 255, 255, 0.25) !important;
     }
 
     &::backdrop {
@@ -184,7 +202,7 @@ function Config() {
       background: rgba(255, 255, 255, 0.04);
       padding: 4px;
       border-radius: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: none !important;
     }
 
     .tab-pills button {
@@ -195,7 +213,8 @@ function Config() {
       font-weight: 600;
       color: #94a3b8;
       background: transparent;
-      border: none;
+      border: none !important;
+      outline: none !important;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -206,8 +225,11 @@ function Config() {
 
     .tab-pills button.active {
       background: rgba(255, 255, 255, 0.15);
+      outline: 2px solid #ffffff !important;
+      outline-offset: 1px !important;
+      border: 1px solid #ffffff !important;
       color: #ffffff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 14px rgba(255, 255, 255, 0.25);
     }
 
     .section-title {
@@ -227,7 +249,8 @@ function Config() {
 
     .buttons button {
       flex: 1;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: none !important;
+      outline: none !important;
       background-color: rgba(255, 255, 255, 0.04);
       border-radius: 12px;
       color: #cbd5e1;
@@ -243,15 +266,14 @@ function Config() {
     }
 
     .buttons button.active {
-      background-color: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.5);
+      background-color: rgba(99, 102, 241, 0.25);
+      border: 1px solid rgba(129, 140, 248, 0.6) !important;
       color: #ffffff;
-      box-shadow: 0 0 16px rgba(255, 255, 255, 0.15);
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.2);
     }
 
     .buttons button:hover:not(.active) {
       background-color: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.15);
       color: #f1f5f9;
     }
 
@@ -351,45 +373,42 @@ function Config() {
             <i class="fa-solid fa-user-secret"></i>
             <span>Cloaking Hub</span>
           </button>
-          <button class=${use(this.cfgTab, (t) => t === "proxy" ? "active" : "")} on:click=${() => { this.cfgTab = "proxy"; }}>
-            <i class="fa-solid fa-network-wired"></i>
-            <span>Proxy</span>
-          </button>
         </div>
 
         ${use(this.cfgTab, (tab) => {
 					if (tab === "search") {
+						const curEng = (store.searchEngine || "duckduckgo").toLowerCase();
 						return html`
               <div class="flex flex-col gap-3 mb-4 animate-fade">
                 <div class="section-title">Default Search Engine</div>
                 <div class="grid grid-cols-2 gap-2 mb-2">
-                  <button class="p-3 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${store.searchEngine === 'google' ? 'bg-indigo-600/30 border-indigo-400 text-white shadow-md' : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'}"
-                    on:click=${() => { store.searchEngine = "google"; this.cfgTab = "search"; }}>
+                  <button class="p-3 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${curEng === 'google' ? 'selected-item bg-white/15 text-white font-semibold' : 'bg-white/5 border border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'}"
+                    on:click=${() => { store.searchEngine = "google"; try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){} this.cfgTab = "search"; }}>
                     <i class="fa-brands fa-google text-blue-400 text-sm"></i>
                     <span>Google</span>
                   </button>
-                  <button class="p-3 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${store.searchEngine === 'duckduckgo' ? 'bg-indigo-600/30 border-indigo-400 text-white shadow-md' : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'}"
-                    on:click=${() => { store.searchEngine = "duckduckgo"; this.cfgTab = "search"; }}>
+                  <button class="p-3 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${curEng === 'duckduckgo' ? 'selected-item bg-white/15 text-white font-semibold' : 'bg-white/5 border border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'}"
+                    on:click=${() => { store.searchEngine = "duckduckgo"; try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){} this.cfgTab = "search"; }}>
                     <i class="fa-solid fa-shield-halved text-amber-400 text-sm"></i>
                     <span>DuckDuckGo</span>
                   </button>
-                  <button class="p-3 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${store.searchEngine === 'bing' ? 'bg-indigo-600/30 border-indigo-400 text-white shadow-md' : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'}"
-                    on:click=${() => { store.searchEngine = "bing"; this.cfgTab = "search"; }}>
+                  <button class="p-3 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${curEng === 'bing' ? 'selected-item bg-white/15 text-white font-semibold' : 'bg-white/5 border border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'}"
+                    on:click=${() => { store.searchEngine = "bing"; try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){} this.cfgTab = "search"; }}>
                     <i class="fa-brands fa-microsoft text-cyan-400 text-sm"></i>
                     <span>Bing</span>
                   </button>
-                  <button class="p-3 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${store.searchEngine === 'brave' ? 'bg-indigo-600/30 border-indigo-400 text-white shadow-md' : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'}"
-                    on:click=${() => { store.searchEngine = "brave"; this.cfgTab = "search"; }}>
+                  <button class="p-3 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${curEng === 'brave' ? 'selected-item bg-white/15 text-white font-semibold' : 'bg-white/5 border border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'}"
+                    on:click=${() => { store.searchEngine = "brave"; try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){} this.cfgTab = "search"; }}>
                     <i class="fa-solid fa-fire text-orange-400 text-sm"></i>
                     <span>Brave Search</span>
                   </button>
                 </div>
-                <div class="text-[11px] text-neutral-400 bg-white/5 p-3 rounded-xl border border-white/5 leading-relaxed">
+                <div class="text-[11px] text-neutral-400 bg-white/5 p-3 rounded-xl leading-relaxed">
                   Queries entered into the address bar will automatically route through your selected search provider.
                 </div>
               </div>
             `;
-					} else if (tab === "cloak") {
+					} else {
 						const presets = window.TAB_CLOAK_PRESETS || [
 							{ id: "default", name: "VeilOS (Default)", title: "VeilOS", icon: "/favicon.webp" },
 							{ id: "classroom", name: "Google Classroom", title: "Classes", icon: "https://ssl.gstatic.com/classroom/favicon.png" },
@@ -403,8 +422,10 @@ function Config() {
               <div class="flex flex-col gap-3 mb-4 animate-fade">
                 <div class="section-title">Tab Cloak Presets</div>
                 <div class="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto custom-scrollbar p-1">
-                  ${presets.map(p => html`
-                    <button class="p-2 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer text-xs ${store.tabCloak === p.id ? 'bg-indigo-600/30 border-indigo-400 text-white font-semibold' : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'}"
+                  ${presets.map(p => {
+										const isSel = (store.tabCloak || "default") === p.id;
+										return html`
+                    <button class="p-2 rounded-xl text-left flex items-center gap-2 transition-all cursor-pointer text-xs ${isSel ? 'selected-item bg-white/15 text-white font-semibold' : 'bg-white/5 border border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'}"
                       on:click=${() => {
 												store.tabCloak = p.id;
 												if (window.applyTabCloak) window.applyTabCloak(p.id);
@@ -413,24 +434,25 @@ function Config() {
                       <img src="${p.icon || '/favicon.webp'}" class="w-4 h-4 rounded object-contain shrink-0" onerror="this.src='/favicon.webp'" />
                       <span class="truncate">${p.name}</span>
                     </button>
-                  `)}
+                  `;
+									})}
                 </div>
 
                 <div class="section-title mt-2">Stealth Launchers</div>
                 <div class="grid grid-cols-2 gap-2">
-                  <button class="p-2.5 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/40 text-purple-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
+                  <button class="p-2.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/20 text-purple-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
                     on:click=${() => { if (window.openAboutBlankCloak) window.openAboutBlankCloak(); }}>
                     <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     <span>About:Blank Cloak</span>
                   </button>
-                  <button class="p-2.5 rounded-xl bg-teal-950/60 hover:bg-teal-900/80 border border-teal-500/40 text-teal-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
+                  <button class="p-2.5 rounded-xl bg-teal-950/40 hover:bg-teal-900/60 border border-teal-500/20 text-teal-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
                     on:click=${() => { if (window.openBlobCloak) window.openBlobCloak(); }}>
                     <i class="fa-solid fa-cube"></i>
                     <span>Blob Cloak</span>
                   </button>
                 </div>
 
-                <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 mt-1">
+                <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 mt-1">
                   <div class="flex flex-col">
                     <span class="text-xs font-semibold text-white">Auto About:Blank Cloak</span>
                     <span class="text-[10px] text-neutral-400">Launch in disguised about:blank automatically</span>
@@ -440,48 +462,9 @@ function Config() {
                       on:change=${(e) => {
 												store.autoAboutBlank = Boolean(e.target.checked);
 												this.cfgTab = "cloak";
-											}} />
+											}}>
                     <div class="w-9 h-5 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                   </label>
-                </div>
-              </div>
-            `;
-					} else {
-						return html`
-              <div class="flex flex-col gap-2 mb-4 animate-fade">
-                <div class="section-title">Select Connection Protocol</div>
-                <div class="buttons">
-                  <button class=${use(store.transport, (t) => t === "/baremod/index.mjs" ? "active" : "")} on:click=${() => {
-										store.transport = "/baremod/index.mjs";
-										applyTransport("/baremod/index.mjs", store.wispurl, store.bareurl);
-									}}>Bare 3</button>
-                  <button class=${use(store.transport, (t) => t === "/libcurl/index.mjs" ? "active" : "")} on:click=${() => {
-										store.transport = "/libcurl/index.mjs";
-										applyTransport("/libcurl/index.mjs", store.wispurl, store.bareurl);
-									}}>Libcurl</button>
-                  <button class=${use(store.transport, (t) => t === "/epoxy/index.mjs" ? "active" : "")} on:click=${() => {
-										store.transport = "/epoxy/index.mjs";
-										applyTransport("/epoxy/index.mjs", store.wispurl, store.bareurl);
-									}}>Epoxy</button>
-                </div>
-
-                <div class="input_row">
-                  <label for="wisp_url_input">Wisp Server URL</label>
-                  <input id="wisp_url_input" bind:value=${use(store.wispurl)} spellcheck="false" placeholder="wss://copium-wisp-9514419.onrender.com/wisp/"></input>
-                </div>
-
-                <div class="input_row">
-                  <label for="bare_url_input">Bare Server URL</label>
-                  <input id="bare_url_input" bind:value=${use(store.bareurl)} spellcheck="false" placeholder="https://fern.best/bare"></input>
-                </div>
-
-                <div class="section-title">Active Connection</div>
-                <div class="status-pill">
-                  ${use(store.transport, (t) => {
-										if (t === "/epoxy/index.mjs") return "⚡ Epoxy (WebAssembly TCP)";
-										if (t === "/libcurl/index.mjs") return "🌐 Libcurl.js (Wisp Proxy)";
-										return "🔗 Bare Server 3 (Classic)";
-									})}
                 </div>
               </div>
             `;
@@ -490,7 +473,6 @@ function Config() {
 
         <div>
           <button class="close-btn" on:click=${() => {
-						applyTransport(store.transport, store.wispurl, store.bareurl);
 						if (window.applyTabCloak) window.applyTabCloak(store.tabCloak, store.customCloakTitle, store.customCloakIcon);
 						handleModalClose(this.root);
 					}}>
@@ -790,10 +772,16 @@ window.addEventListener("load", async () => {
 		window.osGlobalInstance = this;
 		this.windows = [];
 		this.activeWinId = null;
+		this.appsMenuOpen = false;
 		this.startMenuOpen = false;
 		this.dockOpen = true;
 		this.controlCenterOpen = false;
 		this.isLocked = false;
+
+		// Stable persistent DOM container for all OS windows to prevent iframe unmounting/reloading
+		this.windowsContainer = document.createElement("div");
+		this.windowsContainer.id = "os-windows-layer";
+		this.windowsContainer.className = "absolute inset-0 pointer-events-none";
 
 		this.animationsEnabled = true;
 		this.notificationsEnabled = true;
@@ -803,8 +791,6 @@ window.addEventListener("load", async () => {
 		this.daySpacedStr = "W E D N E S D A Y";
 		this.dockTimeStr = "7:58 PM";
 		this.dockDateStr = "Wed, Sep 2";
-		this.cpuLoad = 12;
-		this.ramLoad = 34;
 		this.topZIndex = 100;
 
 		// Clock & Day Updater
@@ -822,14 +808,16 @@ window.addEventListener("load", async () => {
 		updateClock();
 		setInterval(updateClock, 1000);
 
-		// Dynamic CPU/RAM simulation
-		setInterval(() => {
-			this.cpuLoad = Math.floor(8 + Math.random() * 20);
-			this.ramLoad = Math.floor(28 + Math.random() * 12);
-		}, 3000);
-
-		// Global Keydown Listener for commands & ⌘K search shortcut
+		// Global Keydown Listener for commands, Escape key exit, & ⌘K search shortcut
 		window.addEventListener("keydown", (e) => {
+			if (e.key === "Escape") {
+				if (this.appsMenuOpen || this.startMenuOpen || this.controlCenterOpen) {
+					this.appsMenuOpen = false;
+					this.startMenuOpen = false;
+					this.controlCenterOpen = false;
+					this.windows = [...this.windows];
+				}
+			}
 			if (window.sapphire && window.findMatchingCommand && window.triggerCommand) {
 				try {
 					const match = window.findMatchingCommand(window.sapphire.registry, e);
@@ -840,7 +828,11 @@ window.addEventListener("load", async () => {
 			}
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
 				e.preventDefault();
-				this.startMenuOpen = !this.startMenuOpen;
+				this.appsMenuOpen = !this.appsMenuOpen;
+				if (this.appsMenuOpen) {
+					this.startMenuOpen = false;
+					this.controlCenterOpen = false;
+				}
 				this.windows = [...this.windows];
 			}
 		});
@@ -859,12 +851,14 @@ window.addEventListener("load", async () => {
 						existing.isMinimized = true;
 						const remaining = this.windows.filter(w => w.id !== existing.id && !w.isMinimized);
 						this.activeWinId = remaining.length ? remaining[remaining.length - 1].id : null;
+						this.windows.forEach(w => updateWindowStyle(w, this.activeWinId === w.id));
 						this.windows = [...this.windows];
 						return;
 					}
 					this.focusWindow(existing.id);
-					this.windows = [...this.windows];
+					this.appsMenuOpen = false;
 					this.startMenuOpen = false;
+					this.windows = [...this.windows];
 					return;
 				}
 			}
@@ -895,9 +889,17 @@ window.addEventListener("load", async () => {
 				customState: customState
 			};
 
-			this.windows = [...this.windows, newWin];
+			this.windows.push(newWin);
 			this.activeWinId = winId;
+			this.appsMenuOpen = false;
 			this.startMenuOpen = false;
+
+			const winEl = renderWindowDOM(newWin, scramjet, this);
+			if (winEl && this.windowsContainer && !this.windowsContainer.contains(winEl)) {
+				this.windowsContainer.appendChild(winEl);
+			}
+			this.windows.forEach(w => updateWindowStyle(w, this.activeWinId === w.id));
+			this.windows = [...this.windows];
 		};
 
 		this.closeWindow = (winId, e) => {
@@ -918,8 +920,8 @@ window.addEventListener("load", async () => {
 			if (this.activeWinId === winId) {
 				const remaining = this.windows.filter(w => !w.isMinimized);
 				this.activeWinId = remaining.length ? remaining[remaining.length - 1].id : null;
-				this.windows.forEach(w => updateWindowStyle(w, this.activeWinId === w.id));
 			}
+			this.windows.forEach(w => updateWindowStyle(w, this.activeWinId === w.id));
 			this.windows = [...this.windows];
 		};
 
@@ -931,12 +933,11 @@ window.addEventListener("load", async () => {
 			const win = this.windows.find(w => w.id === winId);
 			if (win) {
 				win.isMinimized = true;
-				updateWindowStyle(win, false);
 				if (this.activeWinId === winId) {
 					const remaining = this.windows.filter(w => w.id !== winId && !w.isMinimized);
 					this.activeWinId = remaining.length ? remaining[remaining.length - 1].id : null;
-					this.windows.forEach(w => updateWindowStyle(w, this.activeWinId === w.id));
 				}
+				this.windows.forEach(w => updateWindowStyle(w, this.activeWinId === w.id));
 				this.windows = [...this.windows];
 			}
 		};
@@ -950,7 +951,7 @@ window.addEventListener("load", async () => {
 			if (win) {
 				win.isMaximized = !win.isMaximized;
 				this.focusWindow(winId);
-				updateWindowStyle(win, this.activeWinId === winId);
+				this.windows.forEach(w => updateWindowStyle(w, this.activeWinId === w.id));
 			}
 		};
 
@@ -1017,75 +1018,178 @@ window.addEventListener("load", async () => {
 			window.addEventListener("mouseup", onMouseUp);
 		};
 
-		// Boot default browser window
-		setTimeout(() => {
-			this.openApp("browser");
-		}, 300);
-
 		return html`
 			<div class="relative w-screen h-screen overflow-hidden select-none font-sans text-white bg-black">
 				
-				<!-- ONLY BACKGROUND: Morning Garden Looping Video Background -->
+				<!-- DESKTOP BACKGROUND: assets/background.jpg -->
 				<div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-					<video 
-						autoplay 
-						loop 
-						muted 
-						playsinline
-						class="w-full h-full object-cover pointer-events-none"
-						src="/morning-garden.mp4">
-					</video>
-					<div class="absolute inset-0 bg-black/25 pointer-events-none"></div>
+					<img 
+						src="assets/background.jpg"
+						alt="Desktop Background"
+						class="w-full h-full object-cover pointer-events-none select-none" />
+					<div class="absolute inset-0 bg-black/20 pointer-events-none"></div>
 				</div>
 
 				<!-- Subtle Screen Ambient Vignette -->
 				<div class="absolute inset-0 bg-radial from-transparent via-black/20 to-black/60 pointer-events-none"></div>
 
 				<!-- TOP CENTER: BIG DAY DISPLAY (e.g., W E D N E S D A Y) -->
-				<div class="absolute top-10 sm:top-12 left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none select-none w-full px-4">
+				<div class="absolute top-10 sm:top-12 left-1/2 -translate-x-1/2 z-10 text-center select-none w-full px-4 pointer-events-none">
 					<h1 class="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extralight tracking-[0.35em] text-white/90 drop-shadow-[0_12px_24px_rgba(0,0,0,0.85)] font-sans uppercase">
 						${use(this.daySpacedStr)}
 					</h1>
 				</div>
 
-				<!-- WINDOWS LAYER -->
-				<div class="absolute inset-0 pointer-events-none">
-					${use(this.windows, (winList) => winList.map(win => renderWindowDOM(win, scramjet, this)))}
-				</div>
+				<!-- WINDOWS LAYER (STABLE PERSISTENT DOM CONTAINER) -->
+				${this.windowsContainer}
 
-				<!-- BACKDROP FOR START MENU / FLYOUT (click outside to close) -->
-				<div class="fixed inset-0 z-40 bg-transparent"
-					style=${use(this.windows, () => this.startMenuOpen ? "display: block;" : "display: none;")}
-					on:click=${() => { this.startMenuOpen = false; this.windows = [...this.windows]; }}></div>
+				<!-- BACKDROP FOR POPUPS / MENUS (click outside to close) -->
+				<div class="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px]"
+					style=${use(this.windows, () => (this.appsMenuOpen || this.startMenuOpen || this.controlCenterOpen) ? "display: block;" : "display: none;")}
+					on:click=${(e) => {
+						e.stopPropagation();
+						this.appsMenuOpen = false;
+						this.startMenuOpen = false;
+						this.controlCenterOpen = false;
+						this.windows = [...this.windows];
+					}}></div>
 
-				<!-- BOTTOM LEFT FLOATING MENU BUTTON ( ☰ ) -->
+				<!-- BOTTOM LEFT FLOATING HAMBURGER BUTTON ( ☰ ) -->
 				<button class="fixed bottom-4 left-4 z-50 w-11 h-11 rounded-full bg-black/75 hover:bg-black/90 border border-white/20 backdrop-blur-2xl text-white flex items-center justify-center text-lg shadow-2xl cursor-pointer hover:scale-105 active:scale-95 transition-all"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						return (active && active.isMaximized && !active.isMinimized) ? "display: none !important;" : "";
 					})}
-					on:click=${(e) => { e.stopPropagation(); this.toggleStartMenu(); }} title="Toggle System Menu">
+					on:click=${(e) => {
+						e.stopPropagation();
+						this.startMenuOpen = !this.startMenuOpen;
+						if (this.startMenuOpen) {
+							this.appsMenuOpen = false;
+							this.controlCenterOpen = false;
+						}
+						this.windows = [...this.windows];
+					}} title="Toggle Hamburger Menu">
 					<i class="fa-solid fa-bars text-base"></i>
 				</button>
 
-				<!-- LEFT FLYOUT SIDEBAR MENU / APP LAUNCHER -->
-				<div class="fixed bottom-16 left-4 z-50 w-80 max-h-[80vh] bg-neutral-950/90 border border-white/20 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-fade overflow-hidden"
+				<!-- LEFT FLYOUT SIDEBAR MENU / HAMBURGER MENU -->
+				<div class="fixed bottom-16 left-4 z-50 w-72 max-h-[80vh] bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-fade overflow-hidden"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
-						return this.startMenuOpen ? "display: flex;" : "display: none;";
+						const disp = this.startMenuOpen ? "display: flex;" : "display: none;";
+						return `${disp} font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;`;
 					})}>
 					
 					<!-- Header: Branding & Title -->
 					<div class="flex items-center justify-between px-1 pb-1 border-b border-white/10">
 						<div class="flex items-center gap-2">
 							<div class="w-6 h-6 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs text-indigo-300">
-								<i class="fa-solid fa-shapes"></i>
+								<i class="fa-solid fa-bars"></i>
 							</div>
-							<span class="text-xs font-bold text-white tracking-tight uppercase">VeilOS Launcher</span>
+							<span class="text-xs font-bold text-white tracking-tight uppercase">VeilOS Menu</span>
 						</div>
 						<button class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-400 hover:text-white text-xs flex items-center justify-center cursor-pointer transition-colors"
-							on:click=${() => { this.startMenuOpen = false; this.windows = [...this.windows]; }} title="Close">
+							on:click=${(e) => { e.stopPropagation(); this.startMenuOpen = false; this.windows = [...this.windows]; }} title="Close">
+							<i class="fa-solid fa-xmark"></i>
+						</button>
+					</div>
+
+					<!-- Quick System Toggles: App Dock with Arrow & Realtime Feedback -->
+					${use(this.windows, () => html`
+						<div class="flex items-center justify-between px-2 py-1.5 rounded-xl bg-white/5 border border-white/10">
+							<div class="flex items-center gap-2 text-xs font-medium text-neutral-300">
+								<i class="fa-solid fa-table-columns text-sky-400 text-xs"></i>
+								<span>App Dock</span>
+							</div>
+							<button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${this.dockOpen ? 'bg-sky-500/25 text-sky-300 border border-sky-400/40' : 'bg-white/10 text-neutral-400 hover:text-white border border-transparent'}"
+								on:click=${(e) => {
+									e.stopPropagation();
+									this.dockOpen = !this.dockOpen;
+									this.windows = [...this.windows];
+								}}>
+								<span>${this.dockOpen ? 'Visible' : 'Hidden'}</span>
+								<i class="fa-solid ${this.dockOpen ? 'fa-chevron-up' : 'fa-chevron-down'} text-[9px] opacity-75"></i>
+							</button>
+						</div>
+					`)}
+
+					<!-- Action Menu Items -->
+					<div class="grid grid-cols-2 gap-2 pt-1">
+						<button class="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all"
+							on:click=${() => {
+								this.controlCenterOpen = !this.controlCenterOpen;
+								this.startMenuOpen = false;
+								this.windows = [...this.windows];
+							}} title="Control Center">
+							<i class="fa-solid fa-sliders text-amber-400 text-sm"></i>
+							<span class="text-xs font-medium">Controls</span>
+						</button>
+
+						<button class="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all"
+							on:click=${() => {
+								this.startMenuOpen = false;
+								this.windows = [...this.windows];
+								window.openSettingsModal();
+							}} title="Cloak & System Settings">
+							<i class="fa-solid fa-gear text-indigo-400 text-sm"></i>
+							<span class="text-xs font-medium">Preferences</span>
+						</button>
+					</div>
+
+					<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-1 pt-1">Cloak Launchers</div>
+					<div class="grid grid-cols-2 gap-1.5">
+						<button class="py-2 px-2 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+							on:click=${() => { if (window.openAboutBlankCloak) window.openAboutBlankCloak(); }}>
+							<i class="fa-solid fa-arrow-up-right-from-square"></i>
+							<span>About:Blank</span>
+						</button>
+						<button class="py-2 px-2 bg-teal-950/60 hover:bg-teal-900/80 border border-teal-500/40 rounded-xl text-teal-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+							on:click=${() => { if (window.openBlobCloak) window.openBlobCloak(); }}>
+							<i class="fa-solid fa-cube"></i>
+							<span>Blob Cloak</span>
+						</button>
+					</div>
+
+					<div class="h-px bg-white/10 my-0.5"></div>
+
+					<div class="grid grid-cols-2 gap-1.5">
+						<button class="py-2 px-2 bg-white/5 hover:bg-white/15 border border-white/10 rounded-xl text-neutral-300 hover:text-white text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+							on:click=${() => {
+								this.isLocked = true;
+								this.startMenuOpen = false;
+								this.windows = [...this.windows];
+							}}>
+							<i class="fa-solid fa-lock text-rose-400"></i>
+							<span>Lock</span>
+						</button>
+						<button class="py-2 px-2 bg-rose-950/50 hover:bg-rose-900/70 border border-rose-800/40 rounded-xl text-rose-300 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+							on:click=${() => location.reload()}>
+							<i class="fa-solid fa-rotate-right"></i>
+							<span>Restart</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- APPS MENU (Dedicated menu with apps, opened from the Apps Dock Button) -->
+				<div class="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 w-80 max-w-[92vw] max-h-[75vh] bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-fade overflow-hidden"
+					style=${use(this.windows, () => {
+						const active = this.windows.find(w => w.id === this.activeWinId);
+						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
+						const disp = this.appsMenuOpen ? "display: flex;" : "display: none;";
+						return `${disp} font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;`;
+					})}>
+					
+					<!-- Header: Title & Close Button -->
+					<div class="flex items-center justify-between px-1 pb-1 border-b border-white/10">
+						<div class="flex items-center gap-2">
+							<div class="w-6 h-6 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs text-indigo-300">
+								<i class="fa-solid fa-shapes"></i>
+							</div>
+							<span class="text-xs font-bold text-white tracking-tight uppercase">Applications</span>
+						</div>
+						<button class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-400 hover:text-white text-xs flex items-center justify-center cursor-pointer transition-colors"
+							on:click=${(e) => { e.stopPropagation(); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Close">
 							<i class="fa-solid fa-xmark"></i>
 						</button>
 					</div>
@@ -1099,10 +1203,10 @@ window.addEventListener("load", async () => {
 							on:keydown=${(e) => {
 								if (e.key === "Enter") {
 									const q = (this.searchQuery || "").toLowerCase().trim();
-									const match = APPS.find(a => a.name.toLowerCase().includes(q) || a.category.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q)) || APPS[0];
+									const match = APPS.find(a => a.name.toLowerCase().includes(q)) || APPS[0];
 									if (match) {
 										this.openApp(match.id);
-										this.startMenuOpen = false;
+										this.appsMenuOpen = false;
 										this.windows = [...this.windows];
 									}
 								}
@@ -1112,11 +1216,10 @@ window.addEventListener("load", async () => {
 					</div>
 
 					<!-- APPLICATIONS LIST -->
-					<div class="flex flex-col gap-1 overflow-y-auto max-h-56 pr-1 custom-scrollbar">
-						<span class="text-[9px] font-bold text-neutral-400 uppercase tracking-wider px-1">Applications</span>
+					<div class="flex flex-col gap-1 overflow-y-auto max-h-60 pr-1 custom-scrollbar">
 						${use(this.windows, () => {
 							const q = (this.searchQuery || "").toLowerCase().trim();
-							const filteredApps = APPS.filter(a => !q || a.name.toLowerCase().includes(q) || a.category.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q));
+							const filteredApps = APPS.filter(a => !q || a.name.toLowerCase().includes(q));
 							
 							if (filteredApps.length === 0) {
 								return html`
@@ -1127,78 +1230,25 @@ window.addEventListener("load", async () => {
 							}
 
 							return filteredApps.map(app => html`
-								<div class="flex items-center gap-3 p-2 rounded-2xl hover:bg-white/10 active:scale-[0.99] cursor-pointer transition-all border border-transparent hover:border-white/10 group"
+								<div class="flex items-center gap-3 px-3 py-2 rounded-2xl hover:bg-white/10 active:scale-[0.99] cursor-pointer transition-all border border-transparent hover:border-white/10 group"
 									on:click=${() => {
 										this.openApp(app.id);
-										this.startMenuOpen = false;
+										this.appsMenuOpen = false;
 										this.windows = [...this.windows];
 									}}>
-									<div class="w-9 h-9 rounded-xl bg-white/5 group-hover:bg-white/15 border border-white/10 flex items-center justify-center text-lg shrink-0 transition-colors shadow-sm">
+									<div class="w-8 h-8 rounded-xl bg-white/5 group-hover:bg-white/15 border border-white/10 flex items-center justify-center text-base shrink-0 transition-colors shadow-sm">
 										${app.icon}
 									</div>
-									<div class="flex flex-col min-w-0 flex-1">
-										<div class="flex items-center justify-between gap-1">
-											<span class="text-xs font-semibold text-white truncate group-hover:text-indigo-300 transition-colors">${app.name}</span>
-											<span class="text-[9px] text-neutral-400 font-mono px-1.5 py-0.5 rounded bg-white/5">${app.category}</span>
-										</div>
-										<span class="text-[10px] text-neutral-400 truncate">${app.desc}</span>
+									<div class="flex items-center min-w-0 flex-1">
+										<span class="text-xs font-medium text-neutral-200 truncate group-hover:text-white transition-colors">${app.name}</span>
 									</div>
 								</div>
 							`);
 						})}
 					</div>
-
-					<div class="h-px bg-white/10 my-0.5"></div>
-
-					<!-- Quick System Toggles -->
-					<div class="flex items-center justify-between px-1 py-1">
-						<div class="flex items-center gap-1.5 text-xs font-medium text-neutral-300">
-							<i class="fa-solid fa-table-columns text-sky-400 text-xs"></i>
-							<span>App Dock</span>
-						</div>
-						<button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${this.dockOpen ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : 'bg-white/5 text-neutral-400 hover:text-white'}"
-							on:click=${() => { this.dockOpen = !this.dockOpen; this.windows = [...this.windows]; }}>
-							${this.dockOpen ? 'Visible' : 'Hidden'}
-						</button>
-					</div>
-
-					<div class="h-px bg-white/10 my-0.5"></div>
-
-					<!-- Action Menu Items -->
-					<div class="grid grid-cols-3 gap-1.5 pt-0.5">
-						<button class="flex flex-col items-center justify-center p-2 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all gap-1"
-							on:click=${() => {
-								this.controlCenterOpen = !this.controlCenterOpen;
-								this.startMenuOpen = false;
-								this.windows = [...this.windows];
-							}} title="Control Center">
-							<i class="fa-solid fa-sliders text-amber-400 text-sm"></i>
-							<span class="text-[10px] font-medium">Controls</span>
-						</button>
-
-						<button class="flex flex-col items-center justify-center p-2 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all gap-1"
-							on:click=${() => {
-								this.startMenuOpen = false;
-								this.windows = [...this.windows];
-								window.openSettingsModal();
-							}} title="Cloak & System Settings">
-							<i class="fa-solid fa-user-secret text-indigo-400 text-sm"></i>
-							<span class="text-[10px] font-medium">Settings</span>
-						</button>
-
-						<button class="flex flex-col items-center justify-center p-2 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-rose-300 hover:text-rose-200 cursor-pointer transition-all gap-1"
-							on:click=${() => {
-								this.isLocked = true;
-								this.startMenuOpen = false;
-								this.windows = [...this.windows];
-							}} title="Lock Screen">
-							<i class="fa-solid fa-lock text-rose-400 text-sm"></i>
-							<span class="text-[10px] font-medium">Lock</span>
-						</button>
-					</div>
 				</div>
 
-				<!-- FLOATING DOCK (Centered Glass Pill at Bottom - matching image.png) -->
+				<!-- FLOATING DOCK (Centered Glass Pill at Bottom) -->
 				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-2 bg-black/75 border border-white/15 rounded-3xl shadow-2xl backdrop-blur-2xl text-white max-w-[95vw] overflow-x-auto transition-all"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
@@ -1206,9 +1256,17 @@ window.addEventListener("load", async () => {
 						return this.dockOpen ? "display: flex;" : "display: none;";
 					})}>
 					
-					<!-- Left Launcher Grid Icon ( ::: ) -->
+					<!-- Left Apps Button -> Dedicated Applications Menu -->
 					<button class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center text-sm font-bold text-white cursor-pointer shrink-0"
-						on:click=${() => this.toggleStartMenu()} title="App Launcher">
+						on:click=${(e) => {
+							e.stopPropagation();
+							this.appsMenuOpen = !this.appsMenuOpen;
+							if (this.appsMenuOpen) {
+								this.startMenuOpen = false;
+								this.controlCenterOpen = false;
+							}
+							this.windows = [...this.windows];
+						}} title="Applications">
 						<i class="fa-solid fa-shapes text-xs"></i>
 					</button>
 
@@ -1268,49 +1326,63 @@ window.addEventListener("load", async () => {
 
 					<div class="w-px h-6 bg-white/15 shrink-0"></div>
 
-					<!-- Right end: Clock & Date Widget inside Dock -->
-					<div class="flex flex-col items-end shrink-0 pl-1 font-sans cursor-pointer"
-						on:click=${() => { this.controlCenterOpen = !this.controlCenterOpen; }}>
+					<!-- Right end: Clock & Date Display inside Dock (Decoupled from controls) -->
+					<div class="flex flex-col items-end shrink-0 pl-1 font-sans select-none pointer-events-none">
 						<span class="text-xs sm:text-sm font-bold tracking-tight text-white leading-none">${use(this.dockTimeStr)}</span>
 						<span class="text-[10px] text-neutral-400 font-medium leading-tight mt-0.5">${use(this.dockDateStr)}</span>
 					</div>
 				</div>
 
-				<!-- CONTROL CENTER FLYOUT POPUP -->
-				<div class="fixed bottom-16 right-6 z-50 w-72 bg-black/85 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-fade"
+				<!-- CONTROL CENTER FLYOUT POPUP (Clean: No fake CPU/RAM usage) -->
+				<div class="fixed bottom-16 right-6 z-50 w-72 bg-neutral-950/92 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-fade"
 					style=${use(this.controlCenterOpen, (open) => open ? "display: flex;" : "display: none;")}>
 					<div class="flex items-center justify-between">
-						<div class="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+						<div class="text-xs font-bold text-neutral-200 uppercase tracking-wider flex items-center gap-1.5">
 							<i class="fa-solid fa-sliders text-indigo-400"></i>
 							<span>Control Center</span>
 						</div>
-					</div>
-					
-					<div class="grid grid-cols-2 gap-2 text-xs">
-						<div class="bg-white/10 p-2.5 rounded-2xl flex flex-col gap-1 border border-white/10">
-							<span class="text-[10px] text-neutral-400 font-bold uppercase">CPU Load</span>
-							<span class="font-mono font-bold text-emerald-400 text-sm">${use(this.cpuLoad)}%</span>
-						</div>
-						<div class="bg-white/10 p-2.5 rounded-2xl flex flex-col gap-1 border border-white/10">
-							<span class="text-[10px] text-neutral-400 font-bold uppercase">RAM Memory</span>
-							<span class="font-mono font-bold text-sky-400 text-sm">${use(this.ramLoad)}%</span>
-						</div>
+						<button class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-400 hover:text-white text-xs flex items-center justify-center cursor-pointer transition-colors"
+							on:click=${() => { this.controlCenterOpen = false; this.windows = [...this.windows]; }}>
+							<i class="fa-solid fa-xmark"></i>
+						</button>
 					</div>
 
-					<div class="flex items-center justify-between p-2 rounded-2xl bg-white/5 border border-white/10 text-xs">
-						<span>Network Proxy</span>
-						<div class="px-2.5 py-1 bg-white/10 rounded-xl font-mono text-[10px] text-sky-300">
-							${use(store.transport, (t) => t.includes("epoxy") ? "Epoxy (Active)" : t.includes("libcurl") ? "Libcurl (Active)" : "Bare3 (Active)")}
-						</div>
+					<div class="flex flex-col gap-2">
+						<button class="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors cursor-pointer text-left"
+							on:click=${() => {
+								this.controlCenterOpen = false;
+								this.windows = [...this.windows];
+								window.openSettingsModal();
+							}}>
+							<div class="flex items-center gap-2">
+								<i class="fa-solid fa-gear text-indigo-400"></i>
+								<span class="font-medium">System Preferences</span>
+							</div>
+							<i class="fa-solid fa-chevron-right text-[10px] text-neutral-400"></i>
+						</button>
+
+						<button class="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors cursor-pointer text-left"
+							on:click=${() => {
+								this.isLocked = true;
+								this.controlCenterOpen = false;
+								this.windows = [...this.windows];
+							}}>
+							<div class="flex items-center gap-2">
+								<i class="fa-solid fa-lock text-amber-400"></i>
+								<span class="font-medium">Lock Screen</span>
+							</div>
+							<i class="fa-solid fa-chevron-right text-[10px] text-neutral-400"></i>
+						</button>
 					</div>
 
+					<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-1">Stealth Launchers</div>
 					<div class="grid grid-cols-2 gap-1.5">
-						<button class="py-1.5 px-2 bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+						<button class="py-2 px-2 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
 							on:click=${() => { if (window.openAboutBlankCloak) window.openAboutBlankCloak(); }}>
 							<i class="fa-solid fa-arrow-up-right-from-square"></i>
 							<span>About:Blank</span>
 						</button>
-						<button class="py-1.5 px-2 bg-teal-950/60 hover:bg-teal-900 border border-teal-500/40 rounded-xl text-teal-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+						<button class="py-2 px-2 bg-teal-950/60 hover:bg-teal-900/80 border border-teal-500/40 rounded-xl text-teal-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
 							on:click=${() => { if (window.openBlobCloak) window.openBlobCloak(); }}>
 							<i class="fa-solid fa-cube"></i>
 							<span>Blob Cloak</span>
@@ -1318,32 +1390,46 @@ window.addEventListener("load", async () => {
 					</div>
 
 					<div class="h-px bg-white/10"></div>
-					<button class="w-full py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/50 rounded-2xl text-rose-300 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+					<button class="w-full py-2 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/50 rounded-2xl text-rose-300 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
 						on:click=${() => location.reload()}>
 						<i class="fa-solid fa-rotate-right"></i>
 						<span>Restart VeilOS</span>
 					</button>
 				</div>
 
-				<!-- LOCK SCREEN OVERLAY -->
-				<div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-white font-sans animate-fade"
+				<!-- LOCK SCREEN (No password requirement - one-click unlock) -->
+				<div class="fixed inset-0 z-50 bg-black/85 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-white font-sans animate-fade select-none"
 					style=${use(this.isLocked, (locked) => locked ? "display: flex;" : "display: none;")}>
 					
-					<div class="text-center flex flex-col items-center gap-4 max-w-md">
-						<h1 class="text-4xl sm:text-6xl font-extralight tracking-[0.35em] text-white/90 uppercase font-sans">
-							${use(this.daySpacedStr)}
-						</h1>
-						<div class="text-3xl font-bold font-mono tracking-tight text-neutral-300">
-							${use(this.dockTimeStr)}
+					<div class="text-center flex flex-col items-center gap-5 max-w-sm w-full bg-white/[0.04] border border-white/10 p-8 rounded-3xl backdrop-blur-2xl shadow-2xl">
+						<div class="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-3xl shadow-xl border-2 border-white/20">
+							<i class="fa-solid fa-user-astronaut text-white"></i>
 						</div>
-						
-						<div class="my-6"></div>
 
-						<button class="px-8 py-3 rounded-full bg-white text-black font-bold text-sm hover:bg-neutral-200 transition-all shadow-xl hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2"
-							on:click=${() => { this.isLocked = false; }}>
-							<i class="fa-solid fa-lock-open"></i>
-							<span>Unlock VeilOS</span>
-						</button>
+						<div class="flex flex-col items-center gap-1">
+							<h2 class="text-xl font-bold tracking-tight text-white">VeilOS User</h2>
+							<span class="text-xs text-neutral-400">Welcome to VeilOS</span>
+						</div>
+
+						<div class="text-center my-1">
+							<div class="text-4xl font-extralight tracking-[0.2em] text-white/90 uppercase font-sans">
+								${use(this.dockTimeStr)}
+							</div>
+							<div class="text-xs text-neutral-400 font-medium mt-1">
+								${use(this.dockDateStr)}
+							</div>
+						</div>
+
+						<div class="w-full flex flex-col gap-3 mt-2">
+							<button class="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs transition-all shadow-lg hover:shadow-indigo-500/25 active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+								on:click=${() => {
+									this.isLocked = false;
+									this.windows = [...this.windows];
+								}}>
+								<span>Unlock VeilOS</span>
+								<i class="fa-solid fa-arrow-right text-xs"></i>
+							</button>
+						</div>
 					</div>
 				</div>
 
@@ -1358,10 +1444,18 @@ window.addEventListener("load", async () => {
 	function updateWindowStyle(win, isFocused) {
 		if (!win || !win.domEl) return;
 		if (win.isMinimized) {
-			win.domEl.style.display = "none";
-		} else {
-			win.domEl.style.display = "flex";
+			win.domEl.style.visibility = "hidden";
+			win.domEl.style.opacity = "0";
+			win.domEl.style.pointerEvents = "none";
+			win.domEl.style.transform = "scale(0.96)";
+			return;
 		}
+		win.domEl.style.visibility = "visible";
+		win.domEl.style.opacity = "1";
+		win.domEl.style.pointerEvents = "auto";
+		win.domEl.style.transform = "none";
+		win.domEl.style.display = "flex";
+
 		if (win.isMaximized) {
 			win.domEl.style.top = "0px";
 			win.domEl.style.left = "0px";
@@ -1369,7 +1463,7 @@ window.addEventListener("load", async () => {
 			win.domEl.style.height = "100%";
 			win.domEl.style.borderRadius = "0px";
 			win.domEl.style.borderWidth = "0px";
-			win.domEl.style.zIndex = "100";
+			win.domEl.style.zIndex = "" + (win.zIndex || 100);
 		} else {
 			win.domEl.style.top = win.y + "px";
 			win.domEl.style.left = win.x + "px";
@@ -1377,12 +1471,12 @@ window.addEventListener("load", async () => {
 			win.domEl.style.height = win.h + "px";
 			win.domEl.style.borderRadius = "1rem";
 			win.domEl.style.borderWidth = "1px";
-			win.domEl.style.zIndex = win.zIndex;
+			win.domEl.style.zIndex = "" + win.zIndex;
 		}
 		if (isFocused) {
-			win.domEl.className = "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-shadow duration-200 border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl";
+			win.domEl.className = "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl";
 		} else {
-			win.domEl.className = "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-shadow duration-200 border-white/10 bg-neutral-950/90 backdrop-blur-xl";
+			win.domEl.className = "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/10 bg-neutral-950/90 backdrop-blur-xl";
 		}
 	}
 
@@ -1390,18 +1484,21 @@ window.addEventListener("load", async () => {
 	function renderWindowDOM(win, scramjet, osInstance) {
 		if (win.domEl) {
 			updateWindowStyle(win, win.id === osInstance.activeWinId);
+			if (osInstance && osInstance.windowsContainer && !osInstance.windowsContainer.contains(win.domEl)) {
+				osInstance.windowsContainer.appendChild(win.domEl);
+			}
 			return win.domEl;
 		}
 
 		const isFocused = win.id === osInstance.activeWinId;
 		const styleStr = win.isMaximized 
-			? `position: absolute; top:0; left:0; width:100%; height:100%; z-index:100; display:${win.isMinimized ? 'none' : 'flex'}; border-radius: 0px; border-width: 0px;`
-			: `position: absolute; top:${win.y}px; left:${win.x}px; width:${win.w}px; height:${win.h}px; z-index:${win.zIndex}; display:${win.isMinimized ? 'none' : 'flex'}; border-radius: 1rem; border-width: 1px;`;
+			? `position: absolute; top:0; left:0; width:100%; height:100%; z-index:${win.zIndex || 100}; display:flex; visibility:${win.isMinimized ? 'hidden' : 'visible'}; opacity:${win.isMinimized ? '0' : '1'}; pointer-events:${win.isMinimized ? 'none' : 'auto'}; border-radius: 0px; border-width: 0px;`
+			: `position: absolute; top:${win.y}px; left:${win.x}px; width:${win.w}px; height:${win.h}px; z-index:${win.zIndex}; display:flex; visibility:${win.isMinimized ? 'hidden' : 'visible'}; opacity:${win.isMinimized ? '0' : '1'}; pointer-events:${win.isMinimized ? 'none' : 'auto'}; border-radius: 1rem; border-width: 1px;`;
 
 		const contentEl = renderAppContent(win, scramjet, osInstance);
 
 		const winEl = html`
-			<div class="pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-shadow duration-200 ${isFocused ? 'border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl' : 'border-white/10 bg-neutral-950/90 backdrop-blur-xl'}"
+			<div class="pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 ${isFocused ? 'border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl' : 'border-white/10 bg-neutral-950/90 backdrop-blur-xl'}"
 				style=${styleStr}
 				on:mousedown=${(e) => {
 					if (!e.target.closest('button')) {
@@ -1450,30 +1547,38 @@ window.addEventListener("load", async () => {
 		`;
 
 		win.domEl = winEl;
+		if (osInstance && osInstance.windowsContainer && !osInstance.windowsContainer.contains(winEl)) {
+			osInstance.windowsContainer.appendChild(winEl);
+		}
 		return winEl;
 	}
 
 	// Helper function to render specific App content inside an OS Window
 	function renderAppContent(win, scramjet, osInstance) {
-		const appId = win.appId;
-
-		if (appId === "browser") {
-			return renderBrowserApp(win, scramjet, osInstance);
-		} else if (appId === "ai") {
-			return renderOnyxAIApp(win, scramjet, osInstance);
-		} else if (appId === "vault") {
-			return html`<iframe src="/vault.html" class="w-full h-full border-0 outline-none bg-[#090a12]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>`;
-		} else if (appId === "movies") {
-			return html`<iframe src="/movies.html" class="w-full h-full border-0 outline-none bg-[#0e001a]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>`;
-		} else if (appId === "games") {
-			return html`<iframe src="/games.html" class="w-full h-full border-0 outline-none bg-[#090814]"></iframe>`;
-		} else if (appId === "chat") {
-			return html`<iframe src="/chat.html" class="w-full h-full border-0 outline-none bg-[#0b0b0e]"></iframe>`;
-		} else if (appId === "cloudgaming") {
-			return renderCloudGamingApp(win, scramjet, osInstance);
+		if (win.contentEl) {
+			return win.contentEl;
 		}
-
-		return html`<div class="p-6 text-center text-neutral-400">Application loading...</div>`;
+		const appId = win.appId;
+		let el;
+		if (appId === "browser") {
+			el = renderBrowserApp(win, scramjet, osInstance);
+		} else if (appId === "ai") {
+			el = renderOnyxAIApp(win, scramjet, osInstance);
+		} else if (appId === "vault") {
+			el = html`<iframe src="/vault.html" class="w-full h-full border-0 outline-none bg-[#090a12]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>`;
+		} else if (appId === "movies") {
+			el = html`<iframe src="/movies.html" class="w-full h-full border-0 outline-none bg-[#0e001a]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>`;
+		} else if (appId === "games") {
+			el = html`<iframe src="/games.html" class="w-full h-full border-0 outline-none bg-[#090814]"></iframe>`;
+		} else if (appId === "chat") {
+			el = html`<iframe src="/chat.html" class="w-full h-full border-0 outline-none bg-[#0b0b0e]"></iframe>`;
+		} else if (appId === "cloudgaming") {
+			el = renderCloudGamingApp(win, scramjet, osInstance);
+		} else {
+			el = html`<div class="p-6 text-center text-neutral-400">Application loading...</div>`;
+		}
+		win.contentEl = el;
+		return el;
 	}
 
 	// 2. Onyx AI App Renderer (Proxied full-window Onyx AI web application)
@@ -1524,6 +1629,9 @@ window.addEventListener("load", async () => {
 	function renderBrowserApp(win, scramjet, osInstance) {
 		if (!win.customState) {
 			win.customState = {};
+		}
+		if (win.customState.rootEl) {
+			return win.customState.rootEl;
 		}
 
 		const formatUrl = (targetUrl) => {
@@ -1691,6 +1799,11 @@ window.addEventListener("load", async () => {
 		reloadBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i>';
 		reloadBtn.title = "Reload";
 
+		const homeBtn = document.createElement("button");
+		homeBtn.className = "w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white flex items-center justify-center text-xs cursor-pointer transition-colors";
+		homeBtn.innerHTML = '<i class="fa-solid fa-house text-xs"></i>';
+		homeBtn.title = "Home (New Tab)";
+
 		const urlInputBox = document.createElement("div");
 		urlInputBox.className = "flex-1 flex items-center bg-black/60 border border-white/10 focus-within:border-purple-400 rounded-xl px-3 py-1 gap-2";
 
@@ -1829,6 +1942,7 @@ window.addEventListener("load", async () => {
 		urlBar.appendChild(backBtn);
 		urlBar.appendChild(fwdBtn);
 		urlBar.appendChild(reloadBtn);
+		urlBar.appendChild(homeBtn);
 		urlBar.appendChild(urlInputBox);
 		urlBar.appendChild(goBtn);
 		urlBar.appendChild(toolbarExtensions);
@@ -1877,7 +1991,128 @@ window.addEventListener("load", async () => {
 
 			const lower = (targetUrl || "").toLowerCase();
 
-			// Common Top Header for onyx:// pages
+			let currentSection = "bookmarks";
+			if (lower.startsWith("onyx://newtab") || lower.startsWith("onyx://home")) {
+				currentSection = "newtab";
+			} else if (lower.startsWith("onyx://history")) {
+				currentSection = "history";
+			} else if (lower.startsWith("onyx://extensions")) {
+				currentSection = "extensions";
+			} else if (lower.startsWith("onyx://settings")) {
+				currentSection = "settings";
+			}
+
+			// 0. HOME / NEW TAB PAGE (Matching Image 2 exactly)
+			if (currentSection === "newtab") {
+				const homeContainer = document.createElement("div");
+				homeContainer.className = "w-full h-full flex flex-col items-center justify-center bg-[#070709] select-none p-6 text-white min-h-[65vh]";
+
+				const homeWrap = document.createElement("div");
+				homeWrap.className = "flex flex-col items-center justify-center max-w-xl w-full gap-7";
+
+				// Title: onyx (lowercase bold centered)
+				const titleEl = document.createElement("h1");
+				titleEl.className = "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none";
+				titleEl.textContent = "onyx";
+				homeWrap.appendChild(titleEl);
+
+				// Search card: rounded-full pill with "search here...", engine switcher chip & arrow button
+				const searchCard = document.createElement("div");
+				searchCard.className = "w-full flex items-center bg-[#13141b] border border-white/10 hover:border-white/20 focus-within:border-white/25 rounded-full px-4 py-2.5 gap-3 shadow-2xl transition-all";
+
+				const searchIcon = document.createElement("span");
+				searchIcon.className = "text-neutral-400 text-sm pl-1";
+				searchIcon.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+				searchCard.appendChild(searchIcon);
+
+				const searchInp = document.createElement("input");
+				searchInp.className = "flex-1 bg-transparent text-sm text-white placeholder-neutral-500 outline-none font-sans";
+				searchInp.placeholder = "search here...";
+				searchInp.onkeydown = (e) => {
+					if (e.key === "Enter") {
+						const q = searchInp.value.trim();
+						if (q) handleNav(q);
+					}
+				};
+				searchCard.appendChild(searchInp);
+
+				// Engine chip button: e.g. 🦆 DuckDuckGo
+				const engineChip = document.createElement("button");
+				const getEngineInfo = (eng) => {
+					const e = (eng || store.searchEngine || "duckduckgo").toLowerCase();
+					if (e === "google") return { name: "Google", icon: "🔍" };
+					if (e === "bing") return { name: "Bing", icon: "🌐" };
+					if (e === "brave") return { name: "Brave", icon: "🛡️" };
+					return { name: "DuckDuckGo", icon: "🦆" };
+				};
+
+				const updateEngineChip = () => {
+					const info = getEngineInfo(store.searchEngine);
+					engineChip.innerHTML = `<span>${info.icon}</span><span>${info.name}</span>`;
+					engineChip.title = `Search engine: ${info.name}. Click to switch.`;
+				};
+
+				engineChip.className = "flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/50 border border-white/10 hover:border-white/25 text-xs text-neutral-300 hover:text-white cursor-pointer transition-all shrink-0 font-medium";
+				updateEngineChip();
+
+				engineChip.onclick = () => {
+					const engines = ["duckduckgo", "google", "bing", "brave"];
+					const curIdx = engines.indexOf((store.searchEngine || "duckduckgo").toLowerCase());
+					const nextEngine = engines[(curIdx + 1) % engines.length];
+					store.searchEngine = nextEngine;
+					updateEngineChip();
+					searchInp.focus();
+				};
+				searchCard.appendChild(engineChip);
+
+				// Arrow submit button: circle with ->
+				const submitBtn = document.createElement("button");
+				submitBtn.className = "w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-neutral-300 hover:text-white flex items-center justify-center text-xs cursor-pointer transition-all shrink-0";
+				submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right text-[11px]"></i>';
+				submitBtn.title = "Search or Navigate";
+				submitBtn.onclick = () => {
+					const q = searchInp.value.trim();
+					if (q) handleNav(q);
+				};
+				searchCard.appendChild(submitBtn);
+
+				homeWrap.appendChild(searchCard);
+
+				// 3 Action Buttons below: bookmarks, chat, settings (matching Image 2)
+				const btnRow = document.createElement("div");
+				btnRow.className = "flex items-center justify-center gap-3 w-full";
+
+				const bookmarksBtn = document.createElement("button");
+				bookmarksBtn.className = "px-7 py-2 rounded-2xl bg-[#13141b] hover:bg-[#1c1d25] border border-white/10 hover:border-white/25 text-xs font-medium text-neutral-300 hover:text-white transition-all cursor-pointer select-none";
+				bookmarksBtn.textContent = "bookmarks";
+				bookmarksBtn.onclick = () => handleNav("onyx://bookmarks");
+				btnRow.appendChild(bookmarksBtn);
+
+				const chatBtn = document.createElement("button");
+				chatBtn.className = "px-7 py-2 rounded-2xl bg-[#13141b] hover:bg-[#1c1d25] border border-indigo-500/40 hover:border-indigo-400 text-xs font-medium text-indigo-200 hover:text-white transition-all cursor-pointer select-none shadow-sm";
+				chatBtn.textContent = "chat";
+				chatBtn.onclick = () => {
+					if (window.osGlobalInstance && typeof window.osGlobalInstance.openApp === "function") {
+						window.osGlobalInstance.openApp("chat");
+					} else {
+						handleNav("onyx://chat");
+					}
+				};
+				btnRow.appendChild(chatBtn);
+
+				const settingsBtn = document.createElement("button");
+				settingsBtn.className = "px-7 py-2 rounded-2xl bg-[#13141b] hover:bg-[#1c1d25] border border-white/10 hover:border-white/25 text-xs font-medium text-neutral-300 hover:text-white transition-all cursor-pointer select-none";
+				settingsBtn.textContent = "settings";
+				settingsBtn.onclick = () => handleNav("onyx://settings");
+				btnRow.appendChild(settingsBtn);
+
+				homeWrap.appendChild(btnRow);
+				homeContainer.appendChild(homeWrap);
+				container.appendChild(homeContainer);
+				return;
+			}
+
+			// Common Top Header for other onyx:// pages (Bookmarks, History, Extensions, Settings)
 			const headerWrap = document.createElement("div");
 			headerWrap.className = "w-full border-b border-white/10 bg-neutral-900/90 backdrop-blur sticky top-0 z-20 px-6 py-4";
 
@@ -1890,23 +2125,19 @@ window.addEventListener("load", async () => {
 			let pageIcon = "⭐";
 			let pageTitle = "Bookmarks";
 			let pageSub = "Manage and search your saved sites";
-			let currentSection = "bookmarks";
 
-			if (lower.startsWith("onyx://history")) {
+			if (currentSection === "history") {
 				pageIcon = "🕒";
 				pageTitle = "History";
 				pageSub = "View and manage visited pages";
-				currentSection = "history";
-			} else if (lower.startsWith("onyx://extensions")) {
+			} else if (currentSection === "extensions") {
 				pageIcon = "🧩";
 				pageTitle = "Extensions";
 				pageSub = "Manage, install, and configure browser extensions";
-				currentSection = "extensions";
-			} else if (lower.startsWith("onyx://settings")) {
+			} else if (currentSection === "settings") {
 				pageIcon = "⚙️";
 				pageTitle = "Settings";
-				pageSub = "Proxy and browser options";
-				currentSection = "settings";
+				pageSub = "Browser preferences and cloak options";
 			}
 
 			titleBox.innerHTML = `
@@ -1923,6 +2154,7 @@ window.addEventListener("load", async () => {
 			navTabs.className = "flex items-center gap-1.5 bg-black/40 p-1 rounded-xl border border-white/10";
 
 			const internalTabs = [
+				{ id: "newtab", url: "onyx://newtab", label: "Home", icon: "🏠" },
 				{ id: "bookmarks", url: "onyx://bookmarks", label: "Bookmarks", icon: "⭐" },
 				{ id: "history", url: "onyx://history", label: "History", icon: "🕒" },
 				{ id: "extensions", url: "onyx://extensions", label: "Extensions", icon: "🧩" },
@@ -2849,13 +3081,14 @@ window.addEventListener("load", async () => {
 				];
 				engines.forEach(eng => {
 					const btn = document.createElement("button");
-					const isSel = (store.searchEngine || "google") === eng.id;
+					const isSel = (store.searchEngine || "duckduckgo") === eng.id;
 					btn.className = `p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-						isSel ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200 shadow-md' : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'
+						isSel ? 'selected-item bg-white/15 border-white text-white shadow-lg' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
 					}`;
 					btn.innerHTML = `<span>${eng.icon}</span><span>${eng.label}</span>`;
 					btn.onclick = () => {
 						store.searchEngine = eng.id;
+						try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){}
 						renderInternalPageView(tabObj, targetUrl);
 					};
 					enginesGrid.appendChild(btn);
@@ -2889,7 +3122,7 @@ window.addEventListener("load", async () => {
 					const btn = document.createElement("button");
 					const isSel = (store.tabCloak || "default") === clk.id;
 					btn.className = `p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-						isSel ? 'bg-purple-600/30 border-purple-500 text-purple-200 shadow-md' : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'
+						isSel ? 'selected-item bg-white/15 border-white text-white shadow-lg' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
 					}`;
 					btn.innerHTML = `<span>🎭</span><span>${clk.label}</span>`;
 					btn.onclick = () => {
@@ -2920,49 +3153,13 @@ window.addEventListener("load", async () => {
 				}, 10);
 				settingsWrap.appendChild(cloakSec);
 
-				// Section 3: Proxy Transport
-				const proxySec = document.createElement("div");
-				proxySec.className = "p-5 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-4";
-				proxySec.innerHTML = `
-					<div class="flex items-center gap-2.5">
-						<span class="text-lg">🌐</span>
-						<div>
-							<h3 class="text-sm font-bold text-white">Proxy Network Transport</h3>
-							<p class="text-xs text-neutral-400">Select WebAssembly TCP or WebSocket Wisp tunneling.</p>
-						</div>
-					</div>
-				`;
-				const transportGrid = document.createElement("div");
-				transportGrid.className = "grid grid-cols-3 gap-2.5";
-				const transports = [
-					{ id: "/epoxy/index.mjs", label: "Epoxy (Wasm TCP)" },
-					{ id: "/libcurl/index.mjs", label: "Libcurl.js" },
-					{ id: "/baremod/index.mjs", label: "Bare 3" }
-				];
-				transports.forEach(tr => {
-					const btn = document.createElement("button");
-					const isSel = (store.transport || "/epoxy/index.mjs") === tr.id;
-					btn.className = `p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-						isSel ? 'bg-sky-600/30 border-sky-500 text-sky-200 shadow-md' : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'
-					}`;
-					btn.textContent = tr.label;
-					btn.onclick = () => {
-						store.transport = tr.id;
-						applyTransport(tr.id, store.wispurl, store.bareurl);
-						renderInternalPageView(tabObj, targetUrl);
-					};
-					transportGrid.appendChild(btn);
-				});
-				proxySec.appendChild(transportGrid);
-
 				const systemModalBtn = document.createElement("button");
 				systemModalBtn.className = "w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer";
 				systemModalBtn.innerHTML = `<span>⚙️</span><span>Open VeilOS System Settings Dialog</span>`;
 				systemModalBtn.onclick = () => {
 					window.openSettingsModal();
 				};
-				proxySec.appendChild(systemModalBtn);
-				settingsWrap.appendChild(proxySec);
+				settingsWrap.appendChild(systemModalBtn);
 
 				contentArea.appendChild(settingsWrap);
 			}
@@ -2977,7 +3174,9 @@ window.addEventListener("load", async () => {
 
 			if (target.startsWith("onyx://") || target.startsWith("veil://")) {
 				if (tabObj.frameObj && tabObj.frameObj.frame) {
-					tabObj.frameObj.frame.style.display = "none";
+					tabObj.frameObj.frame.style.visibility = "hidden";
+					tabObj.frameObj.frame.style.pointerEvents = "none";
+					tabObj.frameObj.frame.style.position = "absolute";
 				}
 				if (!tabObj.internalEl) {
 					tabObj.internalEl = document.createElement("div");
@@ -2999,7 +3198,9 @@ window.addEventListener("load", async () => {
 				tabObj.internalEl.style.display = "none";
 			}
 			if (tabObj.frameObj && tabObj.frameObj.frame) {
-				tabObj.frameObj.frame.style.display = "block";
+				tabObj.frameObj.frame.style.visibility = "visible";
+				tabObj.frameObj.frame.style.pointerEvents = "auto";
+				tabObj.frameObj.frame.style.position = "";
 			}
 
 			const isExtensionPage = target.includes("/~/sx/") || target.startsWith("chrome-extension://");
@@ -3072,6 +3273,15 @@ window.addEventListener("load", async () => {
 
 			const tabEl = document.createElement("div");
 			tabEl.className = "w-full h-full absolute inset-0";
+			tabEl.style.display = "block";
+			tabEl.style.position = "absolute";
+			tabEl.style.inset = "0";
+			tabEl.style.width = "100%";
+			tabEl.style.height = "100%";
+			tabEl.style.visibility = "hidden";
+			tabEl.style.opacity = "0";
+			tabEl.style.pointerEvents = "none";
+			tabEl.style.zIndex = "0";
 			tabEl.appendChild(frame.frame);
 
 			const tabObj = {
@@ -3118,7 +3328,19 @@ window.addEventListener("load", async () => {
 			win.customState.activeTabId = tabId;
 			win.customState.tabs.forEach(t => {
 				if (t.tabEl) {
-					t.tabEl.style.display = (t.id === tabId) ? "block" : "none";
+					const isActive = (t.id === tabId);
+					t.tabEl.style.display = "block";
+					if (isActive) {
+						t.tabEl.style.visibility = "visible";
+						t.tabEl.style.opacity = "1";
+						t.tabEl.style.pointerEvents = "auto";
+						t.tabEl.style.zIndex = "10";
+					} else {
+						t.tabEl.style.visibility = "hidden";
+						t.tabEl.style.opacity = "0";
+						t.tabEl.style.pointerEvents = "none";
+						t.tabEl.style.zIndex = "0";
+					}
 				}
 			});
 			const activeTab = getActiveTab();
@@ -3139,7 +3361,7 @@ window.addEventListener("load", async () => {
 			}
 			win.customState.tabs = win.customState.tabs.filter(t => t.id !== tabId);
 			if (win.customState.tabs.length === 0) {
-				const freshTab = createTab("https://google.com");
+				const freshTab = createTab("onyx://newtab");
 				win.customState.tabs.push(freshTab);
 				switchTab(freshTab.id);
 			} else if (win.customState.activeTabId === tabId) {
@@ -3151,7 +3373,7 @@ window.addEventListener("load", async () => {
 		};
 
 		const createNewTab = (rawUrl) => {
-			const newTab = createTab(rawUrl || "https://google.com");
+			const newTab = createTab(rawUrl || "onyx://newtab");
 			win.customState.tabs.push(newTab);
 			switchTab(newTab.id);
 			urlInput.focus();
@@ -3184,15 +3406,21 @@ window.addEventListener("load", async () => {
 			win.customState.tabs.forEach(tab => {
 				const isActive = activeTab && tab.id === activeTab.id;
 				const tabDiv = document.createElement("div");
-				tabDiv.className = `flex items-center gap-2 px-3 py-1.5 rounded-t-xl text-xs transition-all cursor-pointer select-none max-w-[170px] group border-t border-x ${
+				tabDiv.className = `flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer select-none min-w-[120px] max-w-[210px] flex-1 group border relative ${
 					isActive 
-						? 'bg-neutral-800 text-white font-semibold border-white/20 shadow-md' 
-						: 'bg-black/40 text-neutral-400 hover:text-white hover:bg-white/5 border-transparent'
+						? 'bg-neutral-900 text-white font-medium border-white/15 shadow-sm ring-1 ring-white/5' 
+						: 'bg-white/[0.03] text-neutral-400 hover:text-white hover:bg-white/[0.08] border-transparent'
 				}`;
-				tabDiv.title = tab.url;
+				tabDiv.title = `${tab.title || 'New Tab'} (${tab.url})`;
 				tabDiv.onclick = (e) => {
 					if (!e.target.closest(".close-btn")) {
 						switchTab(tab.id);
+					}
+				};
+				tabDiv.onauxclick = (e) => {
+					if (e.button === 1) {
+						e.preventDefault();
+						closeTab(tab.id, e);
 					}
 				};
 
@@ -3201,12 +3429,14 @@ window.addEventListener("load", async () => {
 				globeSpan.innerHTML = getIconFromUrl(tab.url);
 
 				const titleSpan = document.createElement("span");
-				titleSpan.className = "truncate flex-1";
+				titleSpan.className = "truncate flex-1 text-xs";
 				titleSpan.textContent = tab.title || "New Tab";
 
 				const closeBtnEl = document.createElement("button");
-				closeBtnEl.className = "close-btn w-4 h-4 rounded-full hover:bg-white/20 text-neutral-400 hover:text-white flex items-center justify-center text-[10px] transition-colors shrink-0";
-				closeBtnEl.title = "Close tab";
+				closeBtnEl.className = `close-btn w-4 h-4 rounded-full text-neutral-400 hover:text-white hover:bg-white/20 flex items-center justify-center text-[10px] transition-all shrink-0 cursor-pointer ${
+					isActive ? 'opacity-80 hover:opacity-100' : 'opacity-0 group-hover:opacity-80 hover:!opacity-100'
+				}`;
+				closeBtnEl.title = "Close tab (or middle-click)";
 				closeBtnEl.innerHTML = '<i class="fa-solid fa-xmark"></i>';
 				closeBtnEl.onclick = (e) => {
 					closeTab(tab.id, e);
@@ -3219,10 +3449,10 @@ window.addEventListener("load", async () => {
 			});
 
 			const newTabBtn = document.createElement("button");
-			newTabBtn.className = "w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0 ml-1";
-			newTabBtn.title = "Open new tab";
+			newTabBtn.className = "w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer shrink-0 ml-1 active:scale-95";
+			newTabBtn.title = "New Tab";
 			newTabBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
-			newTabBtn.onclick = () => createNewTab("https://google.com");
+			newTabBtn.onclick = () => createNewTab("onyx://newtab");
 			tabsListContainer.appendChild(newTabBtn);
 			updateTopRightButtonsState();
 		};
@@ -4046,6 +4276,10 @@ window.addEventListener("load", async () => {
 			if (active && active.frameObj) active.frameObj.reload();
 		};
 
+		homeBtn.onclick = () => {
+			handleNav("onyx://newtab");
+		};
+
 		const toggleBookmark = (title, url) => {
 			if (!url) return;
 			const list = Array.isArray(store.bookmarks) ? [...store.bookmarks] : [];
@@ -4111,7 +4345,7 @@ window.addEventListener("load", async () => {
 
 		// Initial tab if empty
 		if (win.customState.tabs.length === 0) {
-			const defaultTab = createTab(store.url || "https://google.com");
+			const defaultTab = createTab(store.url || "onyx://newtab");
 			win.customState.tabs.push(defaultTab);
 			win.customState.activeTabId = defaultTab.id;
 		}
@@ -4121,6 +4355,7 @@ window.addEventListener("load", async () => {
 		renderQuickBookmarks();
 		renderDrawer();
 
+		win.customState.rootEl = browserRoot;
 		return browserRoot;
 	}
 
