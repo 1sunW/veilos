@@ -756,15 +756,15 @@ window.addEventListener("load", async () => {
 	connection = new BareMux.BareMuxConnection("/baremux/worker.js");
 	await applyTransport(store.transport || "/baremod/index.mjs", store.wispurl, store.bareurl);
 
-	// Definition of Apps in VeilOS - Onyx Browser, Onyx AI, Helium Vault, SSV Movies, Pulse Games, Cloud Gaming, and Onyx Chat
+	// Definition of Apps in VeilOS - Onyx Browser, Onyx Chat, Onyx AI, SSV Movies, Helium Vault, Pulse Games, and Cloud Gaming
 	const APPS = [
-		{ id: "browser", name: "Onyx Browser", icon: "🌐", desc: "Proxy Web Browser with tabs & search", category: "Internet", defaultW: 980, defaultH: 640 },
-		{ id: "ai", name: "Onyx AI", icon: "✨", desc: "Onyx AI Assistant Web Application", category: "Productivity", defaultW: 1040, defaultH: 700 },
-		{ id: "vault", name: "Helium Vault", icon: "📺", desc: "Curated Movies, TV Shows, Anime & Direct Streams", category: "Entertainment", defaultW: 1120, defaultH: 740 },
-		{ id: "movies", name: "SSV Movies", icon: "🎬", desc: "Proxied movies, TV shows, and streaming player", category: "Entertainment", defaultW: 1080, defaultH: 720 },
-		{ id: "games", name: "Pulse Games", icon: "🕹️", desc: "Unblocked arcade with 8 providers & 1,000+ games", category: "Gaming", defaultW: 1080, defaultH: 720 },
-		{ id: "cloudgaming", name: "Cloud Gaming", icon: "🎮", desc: "Play cloud games directly at nowgg.fun", category: "Gaming", defaultW: 1040, defaultH: 700 },
-		{ id: "chat", name: "Onyx Chat", icon: "💬", desc: "Multi-channel community chat room", category: "Social", defaultW: 860, defaultH: 580 }
+		{ id: "browser", name: "Onyx Browser", iconClass: "fa-solid fa-compass", iconColor: "text-sky-400", dockGradient: "from-blue-500 to-indigo-600", desc: "Proxy Web Browser with tabs & search", category: "Internet", defaultW: 980, defaultH: 640 },
+		{ id: "chat", name: "Onyx Chat", iconClass: "fa-solid fa-comments", iconColor: "text-emerald-400", dockGradient: "from-emerald-500 to-teal-600", desc: "Multi-channel community chat room", category: "Social", defaultW: 860, defaultH: 580 },
+		{ id: "ai", name: "Onyx AI", iconClass: "fa-solid fa-wand-magic-sparkles", iconColor: "text-purple-400", dockGradient: "from-indigo-600 via-purple-600 to-pink-500", desc: "Onyx AI Assistant Web Application", category: "Productivity", defaultW: 1040, defaultH: 700 },
+		{ id: "movies", name: "SSV Movies", iconClass: "fa-solid fa-film", iconColor: "text-pink-400", dockGradient: "from-pink-600 via-purple-700 to-indigo-800", desc: "Proxied movies, TV shows, and streaming player", category: "Entertainment", defaultW: 1080, defaultH: 720 },
+		{ id: "vault", name: "Helium Vault", iconClass: "fa-solid fa-tv", iconColor: "text-cyan-400", dockGradient: "from-rose-500 via-indigo-600 to-cyan-500", desc: "Curated Movies, TV Shows, Anime & Direct Streams", category: "Entertainment", defaultW: 1120, defaultH: 740 },
+		{ id: "games", name: "Pulse Games", iconClass: "fa-solid fa-gamepad", iconColor: "text-violet-400", dockGradient: "from-violet-600 to-purple-800", desc: "Unblocked arcade with 8 providers & 1,000+ games", category: "Gaming", defaultW: 1080, defaultH: 720 },
+		{ id: "cloudgaming", name: "Cloud Gaming", iconClass: "fa-solid fa-cloud", iconColor: "text-indigo-400", dockGradient: "from-purple-600 to-indigo-700", desc: "Play cloud games directly at nowgg.fun", category: "Gaming", defaultW: 1040, defaultH: 700 }
 	];
 
 	// Main VeilOS Desktop Component
@@ -776,7 +776,12 @@ window.addEventListener("load", async () => {
 		this.startMenuOpen = false;
 		this.dockOpen = true;
 		this.controlCenterOpen = false;
-		this.isLocked = false;
+		this.isLocked = true; // Login screen on launch
+
+		this.unlockOS = () => {
+			this.isLocked = false;
+			this.windows = [...this.windows];
+		};
 
 		// Stable persistent DOM container for all OS windows to prevent iframe unmounting/reloading
 		this.windowsContainer = document.createElement("div");
@@ -810,6 +815,10 @@ window.addEventListener("load", async () => {
 
 		// Global Keydown Listener for commands, Escape key exit, & ⌘K search shortcut
 		window.addEventListener("keydown", (e) => {
+			if (this.isLocked && (e.key === "Enter" || e.key === " " || e.key === "Spacebar")) {
+				this.unlockOS();
+				return;
+			}
 			if (e.key === "Escape") {
 				if (this.appsMenuOpen || this.startMenuOpen || this.controlCenterOpen) {
 					this.appsMenuOpen = false;
@@ -878,7 +887,8 @@ window.addEventListener("load", async () => {
 				id: winId,
 				appId: appId,
 				title: customTitle || appDef.name,
-				icon: appDef.icon,
+				iconClass: appDef.iconClass || "fa-solid fa-window-maximize",
+				iconColor: appDef.iconColor || "text-neutral-400",
 				x: offsetX,
 				y: offsetY,
 				w: defaultW,
@@ -1186,13 +1196,46 @@ window.addEventListener("load", async () => {
 							<div class="w-6 h-6 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs text-indigo-300">
 								<i class="fa-solid fa-shapes"></i>
 							</div>
-							<span class="text-xs font-bold text-white tracking-tight uppercase">Applications</span>
+							<span class="text-xs font-bold text-white tracking-tight uppercase">Apps Bar</span>
 						</div>
 						<button class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-400 hover:text-white text-xs flex items-center justify-center cursor-pointer transition-colors"
 							on:click=${(e) => { e.stopPropagation(); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Close">
 							<i class="fa-solid fa-xmark"></i>
 						</button>
 					</div>
+
+					<!-- Other Apps Quick Launch Bar -->
+					${use(this.searchQuery, (q) => {
+						if (q && q.trim()) return null;
+						return html`
+							<div class="flex flex-col gap-1.5 pt-0.5">
+								<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-1">Other Apps</div>
+								<div class="grid grid-cols-3 gap-1.5">
+									<button class="p-2 bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/20 rounded-2xl flex flex-col items-center gap-1.5 transition-all cursor-pointer group"
+										on:click=${() => { this.openApp("vault"); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Helium Vault">
+										<div class="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-500/20 via-indigo-600/20 to-cyan-500/20 flex items-center justify-center">
+											<i class="fa-solid fa-tv text-lg text-cyan-400 drop-shadow group-hover:scale-110 transition-transform"></i>
+										</div>
+										<span class="text-[10px] font-semibold text-neutral-300 group-hover:text-white truncate w-full text-center">Helium Vault</span>
+									</button>
+									<button class="p-2 bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/20 rounded-2xl flex flex-col items-center gap-1.5 transition-all cursor-pointer group"
+										on:click=${() => { this.openApp("games"); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Pulse Games">
+										<div class="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600/20 to-purple-800/20 flex items-center justify-center">
+											<i class="fa-solid fa-gamepad text-lg text-violet-400 drop-shadow group-hover:scale-110 transition-transform"></i>
+										</div>
+										<span class="text-[10px] font-semibold text-neutral-300 group-hover:text-white truncate w-full text-center">Pulse Games</span>
+									</button>
+									<button class="p-2 bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/20 rounded-2xl flex flex-col items-center gap-1.5 transition-all cursor-pointer group"
+										on:click=${() => { this.openApp("cloudgaming"); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Cloud Gaming">
+										<div class="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600/20 to-indigo-700/20 flex items-center justify-center">
+											<i class="fa-solid fa-cloud text-lg text-indigo-400 drop-shadow group-hover:scale-110 transition-transform"></i>
+										</div>
+										<span class="text-[10px] font-semibold text-neutral-300 group-hover:text-white truncate w-full text-center">Cloud Gaming</span>
+									</button>
+								</div>
+							</div>
+						`;
+					})}
 
 					<!-- Search input with real-time app filtering -->
 					<div class="relative w-full">
@@ -1216,7 +1259,7 @@ window.addEventListener("load", async () => {
 					</div>
 
 					<!-- APPLICATIONS LIST -->
-					<div class="flex flex-col gap-1 overflow-y-auto max-h-60 pr-1 custom-scrollbar">
+					<div class="flex flex-col gap-1 overflow-y-auto max-h-52 pr-1 custom-scrollbar">
 						${use(this.windows, () => {
 							const q = (this.searchQuery || "").toLowerCase().trim();
 							const filteredApps = APPS.filter(a => !q || a.name.toLowerCase().includes(q));
@@ -1236,8 +1279,8 @@ window.addEventListener("load", async () => {
 										this.appsMenuOpen = false;
 										this.windows = [...this.windows];
 									}}>
-									<div class="w-8 h-8 rounded-xl bg-white/5 group-hover:bg-white/15 border border-white/10 flex items-center justify-center text-base shrink-0 transition-colors shadow-sm">
-										${app.icon}
+									<div class="w-8 h-8 rounded-xl bg-white/5 group-hover:bg-white/15 border border-white/10 flex items-center justify-center text-sm shrink-0 transition-colors shadow-sm">
+										<i class="${app.iconClass} ${app.iconColor}"></i>
 									</div>
 									<div class="flex items-center min-w-0 flex-1">
 										<span class="text-xs font-medium text-neutral-200 truncate group-hover:text-white transition-colors">${app.name}</span>
@@ -1256,7 +1299,7 @@ window.addEventListener("load", async () => {
 						return this.dockOpen ? "display: flex;" : "display: none;";
 					})}>
 					
-					<!-- Left Apps Button -> Dedicated Applications Menu -->
+					<!-- Left Apps Button -> Dedicated Applications Bar / Menu -->
 					<button class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center text-sm font-bold text-white cursor-pointer shrink-0"
 						on:click=${(e) => {
 							e.stopPropagation();
@@ -1266,62 +1309,65 @@ window.addEventListener("load", async () => {
 								this.controlCenterOpen = false;
 							}
 							this.windows = [...this.windows];
-						}} title="Applications">
+						}} title="Apps Bar">
 						<i class="fa-solid fa-shapes text-xs"></i>
 					</button>
 
 					<div class="w-px h-6 bg-white/15 shrink-0"></div>
 
-					<!-- Dock Application Badges -->
+					<!-- Dock Application Badges (Default 4 Apps) -->
 					<div class="flex items-center gap-2 shrink-0">
-						<!-- Onyx Browser Badge -->
+						<!-- 1. Onyx Browser Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=${() => this.openApp("browser")} title="Onyx Browser">
-							<span class="text-xl drop-shadow-md">🌐</span>
+							<i class="fa-solid fa-compass text-lg text-white drop-shadow-md"></i>
 							${use(this.windows, (winList) => winList.some(w => w.appId === "browser") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
 						</div>
 
-						<!-- Onyx AI Badge -->
+						<!-- 2. Onyx Chat Badge -->
+						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
+							on:click=${() => this.openApp("chat")} title="Onyx Chat">
+							<i class="fa-solid fa-comments text-lg text-white drop-shadow-md"></i>
+							${use(this.windows, (winList) => winList.some(w => w.appId === "chat") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
+						</div>
+
+						<!-- 3. Onyx AI Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=${() => this.openApp("ai")} title="Onyx AI">
-							<span class="text-xl drop-shadow-md">✨</span>
+							<i class="fa-solid fa-wand-magic-sparkles text-lg text-white drop-shadow-md"></i>
 							${use(this.windows, (winList) => winList.some(w => w.appId === "ai") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
 						</div>
 
-						<!-- Helium Vault Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-rose-500 via-indigo-600 to-cyan-500 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
-							on:click=${() => this.openApp("vault")} title="Helium Vault (Movies, TV & Anime Streams)">
-							<span class="text-xl drop-shadow-md">📺</span>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "vault") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
-						</div>
-
-						<!-- SSV Movies Badge -->
+						<!-- 4. SSV Movies Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-600 via-purple-700 to-indigo-800 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=${() => this.openApp("movies")} title="SSV Movies & TV (Proxied)">
-							<span class="text-xl drop-shadow-md">🎬</span>
+							<i class="fa-solid fa-film text-lg text-white drop-shadow-md"></i>
 							${use(this.windows, (winList) => winList.some(w => w.appId === "movies") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
 						</div>
 
-						<!-- Pulse Games Arcade Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-800 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
-							on:click=${() => this.openApp("games")} title="Pulse Games Arcade">
-							<span class="text-xl drop-shadow-md">🕹️</span>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "games") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
-						</div>
-
-						<!-- Cloud Gaming Hub Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-700 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
-							on:click=${() => this.openApp("cloudgaming")} title="Cloud Gaming (nowgg.fun)">
-							<span class="text-xl drop-shadow-md">🎮</span>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "cloudgaming") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
-						</div>
-
-						<!-- Onyx Chat Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
-							on:click=${() => this.openApp("chat")} title="Onyx Chat">
-							<span class="text-xl drop-shadow-md">💬</span>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "chat") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
-						</div>
+						<!-- Other Running Apps Dynamically Displayed in Bar When Open -->
+						${use(this.windows, (winList) => {
+							const otherRunning = ["vault", "games", "cloudgaming"].filter(id => winList.some(w => w.appId === id));
+							if (otherRunning.length === 0) return null;
+							return html`
+								<div class="w-px h-5 bg-white/15 mx-0.5 shrink-0"></div>
+								${otherRunning.map(appId => {
+									const appMeta = APPS.find(a => a.id === appId);
+									if (!appMeta) return null;
+									let grad = "from-neutral-700 to-neutral-800";
+									if (appId === "vault") grad = "from-rose-500 via-indigo-600 to-cyan-500";
+									if (appId === "games") grad = "from-violet-600 to-purple-800";
+									if (appId === "cloudgaming") grad = "from-purple-600 to-indigo-700";
+									return html`
+										<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br ${grad} hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20 animate-fade"
+											on:click=${() => this.openApp(appId)} title="${appMeta.name}">
+											<i class="${appMeta.iconClass} text-lg text-white drop-shadow-md"></i>
+											<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>
+										</div>
+									`;
+								})}
+							`;
+						})}
 					</div>
 
 					<div class="w-px h-6 bg-white/15 shrink-0"></div>
@@ -1397,39 +1443,59 @@ window.addEventListener("load", async () => {
 					</button>
 				</div>
 
-				<!-- LOCK SCREEN (No password requirement - one-click unlock) -->
-				<div class="fixed inset-0 z-50 bg-black/85 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-white font-sans animate-fade select-none"
+				<!-- LOGIN / LOCK SCREEN (Shown on launch & when system locked) -->
+				<div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-between p-6 sm:p-10 text-white font-sans animate-fade select-none overflow-y-auto"
 					style=${use(this.isLocked, (locked) => locked ? "display: flex;" : "display: none;")}>
-					
-					<div class="text-center flex flex-col items-center gap-5 max-w-sm w-full bg-white/[0.04] border border-white/10 p-8 rounded-3xl backdrop-blur-2xl shadow-2xl">
-						<div class="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-3xl shadow-xl border-2 border-white/20">
-							<i class="fa-solid fa-user-astronaut text-white"></i>
-						</div>
 
-						<div class="flex flex-col items-center gap-1">
-							<h2 class="text-xl font-bold tracking-tight text-white">VeilOS User</h2>
-							<span class="text-xs text-neutral-400">Welcome to VeilOS</span>
-						</div>
-
-						<div class="text-center my-1">
-							<div class="text-4xl font-extralight tracking-[0.2em] text-white/90 uppercase font-sans">
-								${use(this.dockTimeStr)}
+					<div class="w-full flex-1 flex flex-col items-center justify-center">
+						<!-- Center Card: Large Clock, Date, Avatar, and Sign In -->
+						<div class="flex flex-col items-center gap-6 max-w-sm w-full my-auto py-6">
+							<!-- Lock Screen Clock & Date -->
+							<div class="text-center">
+								<div class="text-5xl sm:text-6xl font-extralight tracking-[0.15em] text-white/95 uppercase font-sans drop-shadow-lg">
+									${use(this.dockTimeStr)}
+								</div>
+								<div class="text-xs sm:text-sm text-neutral-400 font-medium mt-1.5 tracking-wide">
+									${use(this.dockDateStr)}
+								</div>
 							</div>
-							<div class="text-xs text-neutral-400 font-medium mt-1">
-								${use(this.dockDateStr)}
+
+							<!-- User Profile & Sign-In Card -->
+							<div class="w-full bg-white/[0.05] border border-white/15 p-7 rounded-3xl backdrop-blur-2xl shadow-2xl flex flex-col items-center gap-4">
+								<div class="relative">
+									<div class="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-3xl shadow-xl border-2 border-white/30">
+										<i class="fa-solid fa-user-astronaut text-white"></i>
+									</div>
+									<div class="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-black flex items-center justify-center text-[10px] text-white shadow-sm" title="Online">
+										<i class="fa-solid fa-check"></i>
+									</div>
+								</div>
+
+								<div class="flex flex-col items-center gap-0.5 text-center">
+									<h2 class="text-lg font-bold tracking-tight text-white">${use(this.windows, () => (store && store.osUsername) ? store.osUsername : "Veil User")}</h2>
+									<span class="text-xs text-neutral-400">VeilOS Web Operating System</span>
+								</div>
+
+								<!-- Sign In Button (no PIN requirement) -->
+								<div class="w-full mt-2">
+									<button type="button"
+										class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs tracking-wide transition-all shadow-lg hover:shadow-indigo-500/25 active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+										on:click=${() => this.unlockOS()}>
+										<span>Sign In</span>
+										<i class="fa-solid fa-arrow-right text-xs"></i>
+									</button>
+								</div>
 							</div>
 						</div>
+					</div>
 
-						<div class="w-full flex flex-col gap-3 mt-2">
-							<button class="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs transition-all shadow-lg hover:shadow-indigo-500/25 active:scale-98 cursor-pointer flex items-center justify-center gap-2"
-								on:click=${() => {
-									this.isLocked = false;
-									this.windows = [...this.windows];
-								}}>
-								<span>Unlock VeilOS</span>
-								<i class="fa-solid fa-arrow-right text-xs"></i>
-							</button>
-						</div>
+					<!-- Bottom Status / Restart Controls -->
+					<div class="w-full flex items-center justify-center gap-6 pb-2 text-xs text-neutral-400 max-w-4xl shrink-0">
+						<button class="flex items-center gap-2 hover:text-white transition-colors cursor-pointer text-xs"
+							on:click=${() => location.reload()}>
+							<i class="fa-solid fa-rotate-right text-xs"></i>
+							<span>Restart VeilOS</span>
+						</button>
 					</div>
 				</div>
 
@@ -1532,7 +1598,7 @@ window.addEventListener("load", async () => {
 
 					<!-- Window Title -->
 					<div class="flex items-center gap-2 text-xs font-semibold text-neutral-300 truncate max-w-[280px]">
-						<span>${win.icon}</span>
+						<i class="${win.iconClass || 'fa-solid fa-window-maximize'} ${win.iconColor || 'text-neutral-400'} text-xs"></i>
 						<span>${win.title}</span>
 					</div>
 
@@ -2078,35 +2144,6 @@ window.addEventListener("load", async () => {
 
 				homeWrap.appendChild(searchCard);
 
-				// 3 Action Buttons below: bookmarks, chat, settings (matching Image 2)
-				const btnRow = document.createElement("div");
-				btnRow.className = "flex items-center justify-center gap-3 w-full";
-
-				const bookmarksBtn = document.createElement("button");
-				bookmarksBtn.className = "px-7 py-2 rounded-2xl bg-[#13141b] hover:bg-[#1c1d25] border border-white/10 hover:border-white/25 text-xs font-medium text-neutral-300 hover:text-white transition-all cursor-pointer select-none";
-				bookmarksBtn.textContent = "bookmarks";
-				bookmarksBtn.onclick = () => handleNav("onyx://bookmarks");
-				btnRow.appendChild(bookmarksBtn);
-
-				const chatBtn = document.createElement("button");
-				chatBtn.className = "px-7 py-2 rounded-2xl bg-[#13141b] hover:bg-[#1c1d25] border border-indigo-500/40 hover:border-indigo-400 text-xs font-medium text-indigo-200 hover:text-white transition-all cursor-pointer select-none shadow-sm";
-				chatBtn.textContent = "chat";
-				chatBtn.onclick = () => {
-					if (window.osGlobalInstance && typeof window.osGlobalInstance.openApp === "function") {
-						window.osGlobalInstance.openApp("chat");
-					} else {
-						handleNav("onyx://chat");
-					}
-				};
-				btnRow.appendChild(chatBtn);
-
-				const settingsBtn = document.createElement("button");
-				settingsBtn.className = "px-7 py-2 rounded-2xl bg-[#13141b] hover:bg-[#1c1d25] border border-white/10 hover:border-white/25 text-xs font-medium text-neutral-300 hover:text-white transition-all cursor-pointer select-none";
-				settingsBtn.textContent = "settings";
-				settingsBtn.onclick = () => handleNav("onyx://settings");
-				btnRow.appendChild(settingsBtn);
-
-				homeWrap.appendChild(btnRow);
 				homeContainer.appendChild(homeWrap);
 				container.appendChild(homeContainer);
 				return;
