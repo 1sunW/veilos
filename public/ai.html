@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Onyx AI - Powered by GLM 5.3 & Emis API</title>
+  <title>Scenario - Powered by GLM 5.3 & Emis API</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   
   <!-- FontAwesome Icons & fallback styles -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  
 
   <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -117,6 +117,7 @@
       font-weight: 600;
     }
   </style>
+  <script src="lucide.min.js"></script>
 </head>
 <body class="flex flex-col h-screen w-screen bg-[#09090d] text-slate-100 select-none">
 
@@ -129,7 +130,7 @@
       </div>
       <div class="flex flex-col">
         <div class="flex items-center gap-2">
-          <span class="font-bold text-sm text-white tracking-tight">Onyx AI</span>
+          <span class="font-bold text-sm text-white tracking-tight">Scenario</span>
           <button id="openModelModalBtn" class="flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer group shadow-sm">
             <span id="headerModelBadge">GLM 5.3</span>
             <span class="text-[9px] text-indigo-400 group-hover:translate-y-0.5 transition-transform">▼</span>
@@ -247,7 +248,7 @@
         <textarea
           id="messageInput"
           rows="1"
-          placeholder="Ask Onyx AI anything... (Shift+Enter for newline)"
+          placeholder="Ask Scenario anything... (Shift+Enter for newline)"
           class="flex-1 bg-transparent border-0 outline-none text-sm text-white placeholder-neutral-500 px-3 py-1.5 resize-none max-h-36 overflow-y-auto font-sans"
         ></textarea>
 
@@ -481,7 +482,7 @@
     });
 
     const PERSONA_PROMPTS = {
-      general: "You are Onyx AI, an intelligent, fast, and helpful assistant built into VeilOS. You assist with coding, web navigation, research, creative writing, and problem solving. Provide accurate, clear markdown formatted responses.",
+      general: "You are Scenario, an intelligent, fast, and helpful assistant built into VeilOS. You assist with coding, web navigation, research, creative writing, and problem solving. Provide accurate, clear markdown formatted responses.",
       code: "You are an elite software engineer and coding assistant. Provide clean, secure, production-ready code with concise explanations, types, error handling, and best practices.",
       research: "You are an academic researcher and fact-based analyst. Break down complex topics into clear executive summaries, detailed analysis, and key takeaways with rigorous clarity.",
       creative: "You are a creative writer and storytelling companion. Write engaging, vivid, expressive, and compelling prose."
@@ -796,7 +797,7 @@
           </div>
           <div class="flex flex-col max-w-[88%] sm:max-w-[80%]">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-bold text-white">Onyx AI</span>
+              <span class="text-xs font-bold text-white">Scenario</span>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">${modelName || currentModelId}</span>
               <span class="text-[10px] text-neutral-500 font-mono">${timeStr}</span>
             </div>
@@ -884,21 +885,22 @@
         alert("No messages to export yet.");
         return;
       }
-      let mdContent = `# Onyx AI Chat Export (${currentModelId})\n*Exported on ${new Date().toLocaleString()}*\n\n---\n\n`;
+      let mdContent = `# Scenario Chat Export (${currentModelId})\n*Exported on ${new Date().toLocaleString()}*\n\n---\n\n`;
       chatHistory.forEach(msg => {
-        mdContent += `### ${msg.role === 'user' ? '👤 User' : '🤖 Onyx AI'}\n\n${msg.content}\n\n---\n\n`;
+        mdContent += `### ${msg.role === 'user' ? '👤 User' : '🤖 Scenario'}\n\n${msg.content}\n\n---\n\n`;
       });
 
       const blob = new Blob([mdContent], { type: "text/markdown;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `onyx_ai_chat_${Date.now()}.md`;
+      a.download = `scenario_chat_${Date.now()}.md`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     });
   </script>
+  <script>if (window.lucide) { window.lucide.createIcons(); }</script>
 </body>
 </html>

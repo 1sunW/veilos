@@ -41,7 +41,7 @@ const getLocalBare = () => {
 
 const defaultWisp = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.wispurl) ||
 	(typeof window !== "undefined" && window._CONFIG && window._CONFIG.wispurl) ||
-	"wss://copium-wisp-9514419.onrender.com/wisp/";
+	"wss://fern.best/wisp";
 
 const defaultBare = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.bareurl) ||
 	(typeof window !== "undefined" && window._CONFIG && window._CONFIG.bareurl) ||

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
 <style>
   :root {
     --bg: #090814;
@@ -468,6 +468,7 @@
     flex-shrink: 0;
   }
 </style>
+  <script src="lucide.min.js"></script>
 </head>
 <body>
 
@@ -480,7 +481,7 @@
   <div id="themePopup" class="theme-popup">
     <div class="theme-popup-header">
       <span>Color Theme</span>
-      <i class="fa-solid fa-wand-magic-sparkles"></i>
+      <i data-lucide="sparkles"></i>
     </div>
     <button class="theme-option-item" onclick="pickTheme('default')">
       <span class="theme-color-preview" style="background: #8b5cf6;"></span>
@@ -587,7 +588,7 @@
   </select>
 
   <div id="gameCountBadge" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.9rem; background: rgba(122, 92, 255, 0.12); border: 1px solid rgba(122, 92, 255, 0.25); border-radius: 12px; color: var(--text); font-size: 0.85rem; font-weight: 600; white-space: nowrap;">
-    <i class="fas fa-gamepad" style="color: var(--accent);"></i>
+    <i data-lucide="gamepad-2" style="color: var(--accent);"></i>
     <span id="gameCountText">Loading...</span>
   </div>
 </div>
@@ -599,10 +600,10 @@
     <div id="fullscreenHeader">
       <h2 id="gameTitle">Game Title</h2>
       <div class="header-controls">
-        <button id="blankBtn" class="header-btn" title="Open in about:blank tab"><i class="fa-solid fa-up-right-from-square"></i></button>
-        <button id="downloadBtn" class="header-btn" title="Download Game"><i class="fas fa-download"></i></button>
-        <button id="fullscreenBtn" class="header-btn" title="Fullscreen"><i class="fas fa-expand"></i></button>
-        <button id="closeFullscreen" class="header-btn" title="Close"><i class="fas fa-times"></i></button>
+        <button id="blankBtn" class="header-btn" title="Open in about:blank tab"><i data-lucide="external-link"></i></button>
+        <button id="downloadBtn" class="header-btn" title="Download Game"><i data-lucide="download"></i></button>
+        <button id="fullscreenBtn" class="header-btn" title="Fullscreen"><i data-lucide="maximize-2"></i></button>
+        <button id="closeFullscreen" class="header-btn" title="Close"><i data-lucide="x"></i></button>
       </div>
     </div>
     <iframe id="zoneFullscreenFrame" allow="autoplay; fullscreen; gamepad; focus-without-user-activation *;" allowfullscreen="true"></iframe>
@@ -613,14 +614,14 @@
   <div class="alert-modal">
     <h3>!Notice!</h3>
     <p>I do not own these links; they belong to the truffled community. Please don't get pissed off, if you want a link removed, dm me on discord (<strong>dominus.elitus</strong>). Y'all should support fr support them tho :)</p>
-    <a href="https://discord.gg/vVqY36mzvj" target="_blank" class="discord-link"><i class="fab fa-discord"></i> Truffled Discord</a>
+    <a href="https://discord.gg/vVqY36mzvj" target="_blank" class="discord-link"><i data-lucide="message-circle"></i> Truffled Discord</a>
     <button id="noticeContinueBtn" class="primary-btn">Continue</button>
   </div>
 </div>
 
 <div id="blockedModal" class="alert-backdrop">
   <div class="alert-modal">
-    <h3 style="color: #ff4444;"><i class="fas fa-ban"></i> Link Blocked!</h3>
+    <h3 style="color: #ff4444;"><i data-lucide="slash"></i> Link Blocked!</h3>
     <p>This truffled link appears to be blocked by your network. Please try selecting another one from the dropdown!</p>
     <button onclick="document.getElementById('blockedModal').style.display='none'" class="primary-btn">Got it</button>
   </div>
@@ -730,7 +731,7 @@ document.getElementById('noticeContinueBtn').onclick = () => {
 };
 
 async function loadGames() {
-  container.innerHTML = '<div style="width:100%; text-align:center; padding: 3rem 1rem; color: var(--blue); font-size: 1.2rem;"><i class="fas fa-circle-notch fa-spin"></i> Fetching library games...</div>';
+  container.innerHTML = '<div style="width:100%; text-align:center; padding: 3rem 1rem; color: var(--blue); font-size: 1.2rem;"><i data-lucide="loader-2"></i> Fetching library games...</div>';
   gameCountText.textContent = 'Loading...';
   allGames = [];
   const provider = providerSelect.value;
@@ -1127,7 +1128,7 @@ async function loadGames() {
 
   } catch (e) {
     console.error("Game loading failed:", e);
-    container.innerHTML = '<div style="width:100%; text-align:center; padding: 2.5rem; color: #ff5555; background: rgba(255,0,0,0.06); border-radius: 16px; border: 1px solid rgba(255,0,0,0.2);"><i class="fas fa-triangle-exclamation" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i><br>Failed to fetch games from this provider. Please try another provider from the dropdown.</div>';
+    container.innerHTML = '<div style="width:100%; text-align:center; padding: 2.5rem; color: #ff5555; background: rgba(255,0,0,0.06); border-radius: 16px; border: 1px solid rgba(255,0,0,0.2);"><i data-lucide="alert-triangle" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i><br>Failed to fetch games from this provider. Please try another provider from the dropdown.</div>';
     gameCountText.textContent = '0 Games';
   }
 }
@@ -1157,7 +1158,7 @@ function applyFilters() {
 function displayGames(games) {
   container.innerHTML = '';
   if (games.length === 0) {
-    container.innerHTML = '<div style="width:100%; grid-column: 1 / -1; text-align:center; padding: 3rem; color: var(--text); opacity: 0.7; font-size: 1.1rem;"><i class="fas fa-search" style="font-size: 1.8rem; margin-bottom: 0.8rem; display:block; opacity: 0.4;"></i>No games found matching your search.</div>';
+    container.innerHTML = '<div style="width:100%; grid-column: 1 / -1; text-align:center; padding: 3rem; color: var(--text); opacity: 0.7; font-size: 1.1rem;"><i data-lucide="search" style="font-size: 1.8rem; margin-bottom: 0.8rem; display:block; opacity: 0.4;"></i>No games found matching your search.</div>';
     return;
   }
 
@@ -1275,7 +1276,8 @@ downloadBtn.onclick = async () => {
     if (!response.ok) throw new Error("CORS or Network Error");
     fileContent = await response.text();
   } catch (error) {
-    fileContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${currentGame.name}</title><style>body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; } iframe { width: 100%; height: 100%; border: none; }</style></head><body><iframe src="${fullUrl}" allowfullscreen="true"></iframe></body></html>`;
+    fileContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${currentGame.name}</title><style>body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; } iframe { width: 100%; height: 100%; border: none; }</style></head><body><iframe src="${fullUrl}" allowfullscreen="true"></iframe>  <script>if (window.lucide) { window.lucide.createIcons(); }</script>
+</body></html>`;
   }
 
   const blob = new Blob([fileContent], { type: 'text/html' });

@@ -20,7 +20,7 @@ if (!store) {
 		url: "https://google.com",
 		wispurl: (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.wispurl) ||
 			(typeof window !== "undefined" && window._CONFIG && window._CONFIG.wispurl) ||
-			"wss://copium-wisp-9514419.onrender.com/wisp/",
+			"wss://fern.best/wisp",
 		bareurl: (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.bareurl) ||
 			(typeof window !== "undefined" && window._CONFIG && window._CONFIG.bareurl) ||
 			"https://fern.best/bare/",
@@ -115,7 +115,11 @@ const applyTransport = async (transport, wispurl, bareurl) => {
 		if (transport === "/baremod/index.mjs") {
 			await connection.setTransport("/baremod/index.mjs", [bareurl || store.bareurl]);
 		} else {
-			await connection.setTransport(transport, [{ wisp: wispurl || store.wispurl }]);
+			let targetWisp = wispurl || store.wispurl;
+			if (targetWisp && !targetWisp.endsWith("/")) {
+				targetWisp += "/";
+			}
+			await connection.setTransport(transport, [{ wisp: targetWisp }]);
 		}
 	} catch (err) {
 		console.warn("Failed to set transport " + transport + ", falling back to Bare 3:", err);
@@ -348,11 +352,11 @@ function Config() {
   `;
 
 	function handleModalClose(modal) {
-		modal.style.opacity = 0;
+		modal.classList.add("animate-fade-out");
 		setTimeout(() => {
 			modal.close();
-			modal.style.opacity = 1;
-		}, 250);
+			modal.classList.remove("animate-fade-out");
+		}, 200);
 	}
 
 	return html`
@@ -756,11 +760,11 @@ window.addEventListener("load", async () => {
 	connection = new BareMux.BareMuxConnection("/baremux/worker.js");
 	await applyTransport(store.transport || "/baremod/index.mjs", store.wispurl, store.bareurl);
 
-	// Definition of Apps in VeilOS - Onyx Browser, Onyx Chat, Onyx AI, SSV Movies, Helium Vault, Pulse Games, and Cloud Gaming
+	// Definition of Apps in VeilOS - Onyx Browser, Onyx Chat, Scenario, SSV Movies, Helium Vault, Pulse Games, and Cloud Gaming
 	const APPS = [
 		{ id: "browser", name: "Onyx Browser", iconClass: "fa-solid fa-compass", iconColor: "text-sky-400", dockGradient: "from-blue-500 to-indigo-600", desc: "Proxy Web Browser with tabs & search", category: "Internet", defaultW: 980, defaultH: 640 },
 		{ id: "chat", name: "Onyx Chat", iconClass: "fa-solid fa-comments", iconColor: "text-emerald-400", dockGradient: "from-emerald-500 to-teal-600", desc: "Multi-channel community chat room", category: "Social", defaultW: 860, defaultH: 580 },
-		{ id: "ai", name: "Onyx AI", iconClass: "fa-solid fa-wand-magic-sparkles", iconColor: "text-purple-400", dockGradient: "from-indigo-600 via-purple-600 to-pink-500", desc: "Onyx AI Assistant Web Application", category: "Productivity", defaultW: 1040, defaultH: 700 },
+		{ id: "ai", name: "Scenario", iconClass: "fa-solid fa-wand-magic-sparkles", iconColor: "text-purple-400", dockGradient: "from-indigo-600 via-purple-600 to-pink-500", desc: "Scenario AI Assistant Web Application", category: "Productivity", defaultW: 1040, defaultH: 700 },
 		{ id: "movies", name: "SSV Movies", iconClass: "fa-solid fa-film", iconColor: "text-pink-400", dockGradient: "from-pink-600 via-purple-700 to-indigo-800", desc: "Proxied movies, TV shows, and streaming player", category: "Entertainment", defaultW: 1080, defaultH: 720 },
 		{ id: "vault", name: "Helium Vault", iconClass: "fa-solid fa-tv", iconColor: "text-cyan-400", dockGradient: "from-rose-500 via-indigo-600 to-cyan-500", desc: "Curated Movies, TV Shows, Anime & Direct Streams", category: "Entertainment", defaultW: 1120, defaultH: 740 },
 		{ id: "games", name: "Pulse Games", iconClass: "fa-solid fa-gamepad", iconColor: "text-violet-400", dockGradient: "from-violet-600 to-purple-800", desc: "Unblocked arcade with 8 providers & 1,000+ games", category: "Gaming", defaultW: 1080, defaultH: 720 },
@@ -779,8 +783,22 @@ window.addEventListener("load", async () => {
 		this.isLocked = true; // Login screen on launch
 
 		this.unlockOS = () => {
-			this.isLocked = false;
-			this.windows = [...this.windows];
+			if (this.isUnlocking) return;
+			this.isUnlocking = true;
+			const lockEl = document.getElementById("veil-lock-screen");
+			if (lockEl) {
+				lockEl.classList.add("animate-lock-unlock");
+				setTimeout(() => {
+					this.isLocked = false;
+					this.isUnlocking = false;
+					lockEl.classList.remove("animate-lock-unlock");
+					this.windows = [...this.windows];
+				}, 380);
+			} else {
+				this.isLocked = false;
+				this.isUnlocking = false;
+				this.windows = [...this.windows];
+			}
 		};
 
 		// Stable persistent DOM container for all OS windows to prevent iframe unmounting/reloading
@@ -923,7 +941,18 @@ window.addEventListener("load", async () => {
 					clearInterval(win.customState.urlPollTimer);
 				}
 				if (win.domEl) {
-					try { win.domEl.remove(); } catch (err) {}
+					win.domEl.classList.add("animate-window-close");
+					setTimeout(() => {
+						try { win.domEl.remove(); } catch (err) {}
+						this.windows = this.windows.filter(w => w.id !== winId);
+						if (this.activeWinId === winId) {
+							const remaining = this.windows.filter(w => !w.isMinimized);
+							this.activeWinId = remaining.length ? remaining[remaining.length - 1].id : null;
+						}
+						this.windows.forEach(w => updateWindowStyle(w, this.activeWinId === w.id));
+						this.windows = [...this.windows];
+					}, 200);
+					return;
 				}
 			}
 			this.windows = this.windows.filter(w => w.id !== winId);
@@ -1083,14 +1112,14 @@ window.addEventListener("load", async () => {
 				</button>
 
 				<!-- LEFT FLYOUT SIDEBAR MENU / HAMBURGER MENU -->
-				<div class="fixed bottom-16 left-4 z-50 w-72 max-h-[80vh] bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-fade overflow-hidden"
+				<div class="fixed bottom-16 left-4 z-50 w-72 max-h-[80vh] bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu overflow-hidden"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
 						const disp = this.startMenuOpen ? "display: flex;" : "display: none;";
 						return `${disp} font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;`;
 					})}>
-					
+
 					<!-- Header: Branding & Title -->
 					<div class="flex items-center justify-between px-1 pb-1 border-b border-white/10">
 						<div class="flex items-center gap-2">
@@ -1126,7 +1155,7 @@ window.addEventListener("load", async () => {
 
 					<!-- Action Menu Items -->
 					<div class="grid grid-cols-2 gap-2 pt-1">
-						<button class="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all"
+						<button class="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
 							on:click=${() => {
 								this.controlCenterOpen = !this.controlCenterOpen;
 								this.startMenuOpen = false;
@@ -1136,7 +1165,7 @@ window.addEventListener("load", async () => {
 							<span class="text-xs font-medium">Controls</span>
 						</button>
 
-						<button class="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all"
+						<button class="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
 							on:click=${() => {
 								this.startMenuOpen = false;
 								this.windows = [...this.windows];
@@ -1149,12 +1178,12 @@ window.addEventListener("load", async () => {
 
 					<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-1 pt-1">Cloak Launchers</div>
 					<div class="grid grid-cols-2 gap-1.5">
-						<button class="py-2 px-2 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+						<button class="py-2 px-2 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
 							on:click=${() => { if (window.openAboutBlankCloak) window.openAboutBlankCloak(); }}>
 							<i class="fa-solid fa-arrow-up-right-from-square"></i>
 							<span>About:Blank</span>
 						</button>
-						<button class="py-2 px-2 bg-teal-950/60 hover:bg-teal-900/80 border border-teal-500/40 rounded-xl text-teal-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+						<button class="py-2 px-2 bg-teal-950/60 hover:bg-teal-900/80 border border-teal-500/40 rounded-xl text-teal-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
 							on:click=${() => { if (window.openBlobCloak) window.openBlobCloak(); }}>
 							<i class="fa-solid fa-cube"></i>
 							<span>Blob Cloak</span>
@@ -1164,7 +1193,7 @@ window.addEventListener("load", async () => {
 					<div class="h-px bg-white/10 my-0.5"></div>
 
 					<div class="grid grid-cols-2 gap-1.5">
-						<button class="py-2 px-2 bg-white/5 hover:bg-white/15 border border-white/10 rounded-xl text-neutral-300 hover:text-white text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+						<button class="py-2 px-2 bg-white/5 hover:bg-white/15 border border-white/10 rounded-xl text-neutral-300 hover:text-white text-[11px] font-medium flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
 							on:click=${() => {
 								this.isLocked = true;
 								this.startMenuOpen = false;
@@ -1173,7 +1202,7 @@ window.addEventListener("load", async () => {
 							<i class="fa-solid fa-lock text-rose-400"></i>
 							<span>Lock</span>
 						</button>
-						<button class="py-2 px-2 bg-rose-950/50 hover:bg-rose-900/70 border border-rose-800/40 rounded-xl text-rose-300 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+						<button class="py-2 px-2 bg-rose-950/50 hover:bg-rose-900/70 border border-rose-800/40 rounded-xl text-rose-300 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
 							on:click=${() => location.reload()}>
 							<i class="fa-solid fa-rotate-right"></i>
 							<span>Restart</span>
@@ -1182,21 +1211,24 @@ window.addEventListener("load", async () => {
 				</div>
 
 				<!-- APPS MENU (Dedicated menu with apps, opened from the Apps Dock Button) -->
-				<div class="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 w-80 max-w-[92vw] max-h-[75vh] bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-fade overflow-hidden"
+				<div class="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 w-96 max-w-[92vw] max-h-[78vh] bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu overflow-hidden"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
 						const disp = this.appsMenuOpen ? "display: flex;" : "display: none;";
 						return `${disp} font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;`;
 					})}>
-					
+
 					<!-- Header: Title & Close Button -->
 					<div class="flex items-center justify-between px-1 pb-1 border-b border-white/10">
 						<div class="flex items-center gap-2">
-							<div class="w-6 h-6 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs text-indigo-300">
+							<div class="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 border border-indigo-400/40 flex items-center justify-center text-xs text-white shadow-sm">
 								<i class="fa-solid fa-shapes"></i>
 							</div>
-							<span class="text-xs font-bold text-white tracking-tight uppercase">Apps Bar</span>
+							<div class="flex flex-col">
+								<span class="text-xs font-bold text-white tracking-tight uppercase">Apps Bar</span>
+								<span class="text-[10px] text-neutral-400 font-medium">System Applications & Tools</span>
+							</div>
 						</div>
 						<button class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-400 hover:text-white text-xs flex items-center justify-center cursor-pointer transition-colors"
 							on:click=${(e) => { e.stopPropagation(); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Close">
@@ -1204,34 +1236,26 @@ window.addEventListener("load", async () => {
 						</button>
 					</div>
 
-					<!-- Other Apps Quick Launch Bar -->
+					<!-- Quick App Launcher Grid -->
 					${use(this.searchQuery, (q) => {
 						if (q && q.trim()) return null;
 						return html`
-							<div class="flex flex-col gap-1.5 pt-0.5">
-								<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-1">Other Apps</div>
-								<div class="grid grid-cols-3 gap-1.5">
-									<button class="p-2 bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/20 rounded-2xl flex flex-col items-center gap-1.5 transition-all cursor-pointer group"
-										on:click=${() => { this.openApp("vault"); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Helium Vault">
-										<div class="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-500/20 via-indigo-600/20 to-cyan-500/20 flex items-center justify-center">
-											<i class="fa-solid fa-tv text-lg text-cyan-400 drop-shadow group-hover:scale-110 transition-transform"></i>
-										</div>
-										<span class="text-[10px] font-semibold text-neutral-300 group-hover:text-white truncate w-full text-center">Helium Vault</span>
-									</button>
-									<button class="p-2 bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/20 rounded-2xl flex flex-col items-center gap-1.5 transition-all cursor-pointer group"
-										on:click=${() => { this.openApp("games"); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Pulse Games">
-										<div class="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600/20 to-purple-800/20 flex items-center justify-center">
-											<i class="fa-solid fa-gamepad text-lg text-violet-400 drop-shadow group-hover:scale-110 transition-transform"></i>
-										</div>
-										<span class="text-[10px] font-semibold text-neutral-300 group-hover:text-white truncate w-full text-center">Pulse Games</span>
-									</button>
-									<button class="p-2 bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/20 rounded-2xl flex flex-col items-center gap-1.5 transition-all cursor-pointer group"
-										on:click=${() => { this.openApp("cloudgaming"); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Cloud Gaming">
-										<div class="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600/20 to-indigo-700/20 flex items-center justify-center">
-											<i class="fa-solid fa-cloud text-lg text-indigo-400 drop-shadow group-hover:scale-110 transition-transform"></i>
-										</div>
-										<span class="text-[10px] font-semibold text-neutral-300 group-hover:text-white truncate w-full text-center">Cloud Gaming</span>
-									</button>
+							<div class="flex flex-col gap-2 pt-0.5">
+								<div class="flex items-center justify-between px-1">
+									<span class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Quick Launcher</span>
+									<span class="text-[9px] font-semibold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full border border-indigo-500/30">${APPS.length} Apps</span>
+								</div>
+								<div class="grid grid-cols-4 gap-2">
+									${APPS.map(app => html`
+										<button class="p-2 bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/25 rounded-2xl flex flex-col items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer group relative"
+											on:click=${() => { this.openApp(app.id); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="${app.name} - ${app.desc}">
+											<div class="w-10 h-10 rounded-2xl bg-gradient-to-br ${app.dockGradient} flex items-center justify-center shadow-md border border-white/20 group-hover:shadow-indigo-500/25 group-hover:scale-105 transition-all">
+												<i class="${app.iconClass} text-lg text-white drop-shadow-md"></i>
+											</div>
+											<span class="text-[10px] font-semibold text-neutral-300 group-hover:text-white truncate w-full text-center leading-tight">${app.name}</span>
+											${use(this.windows, (winList) => winList.some(w => w.appId === app.id) ? html`<div class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-neutral-950 animate-pulse"></div>` : null)}
+										</button>
+									`)}
 								</div>
 							</div>
 						`;
@@ -1239,14 +1263,14 @@ window.addEventListener("load", async () => {
 
 					<!-- Search input with real-time app filtering -->
 					<div class="relative w-full">
-						<input class="w-full bg-white/5 border border-white/10 rounded-2xl pl-8 pr-12 py-2 text-xs text-white placeholder-neutral-400 outline-none focus:border-indigo-400 font-sans transition-colors"
-							placeholder="Search applications..."
+						<input class="w-full bg-white/5 border border-white/10 rounded-2xl pl-8 pr-12 py-2 text-xs text-white placeholder-neutral-400 outline-none focus:border-indigo-400 font-sans transition-all"
+							placeholder="Search applications by name or category..."
 							bind:value=${use(this.searchQuery)}
 							on:input=${(e) => { this.searchQuery = e.target.value; this.windows = [...this.windows]; }}
 							on:keydown=${(e) => {
 								if (e.key === "Enter") {
 									const q = (this.searchQuery || "").toLowerCase().trim();
-									const match = APPS.find(a => a.name.toLowerCase().includes(q)) || APPS[0];
+									const match = APPS.find(a => a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)) || APPS[0];
 									if (match) {
 										this.openApp(match.id);
 										this.appsMenuOpen = false;
@@ -1258,35 +1282,50 @@ window.addEventListener("load", async () => {
 						<span class="absolute right-3 top-2 text-[10px] text-neutral-400 bg-white/10 px-1.5 py-0.5 rounded-md font-mono">↵</span>
 					</div>
 
-					<!-- APPLICATIONS LIST -->
-					<div class="flex flex-col gap-1 overflow-y-auto max-h-52 pr-1 custom-scrollbar">
+					<!-- ALL APPLICATIONS DETAILED LIST -->
+					<div class="flex flex-col gap-1.5 overflow-y-auto max-h-52 pr-1 custom-scrollbar">
 						${use(this.windows, () => {
 							const q = (this.searchQuery || "").toLowerCase().trim();
-							const filteredApps = APPS.filter(a => !q || a.name.toLowerCase().includes(q));
+							const filteredApps = APPS.filter(a => !q || a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q) || a.category.toLowerCase().includes(q));
 							
 							if (filteredApps.length === 0) {
 								return html`
-									<div class="py-4 text-center text-xs text-neutral-500">
-										No applications matching "${this.searchQuery}"
+									<div class="py-6 text-center text-xs text-neutral-400 flex flex-col items-center gap-1">
+										<i class="fa-solid fa-magnifying-glass text-lg opacity-40"></i>
+										<span>No applications matching "${this.searchQuery}"</span>
 									</div>
 								`;
 							}
 
-							return filteredApps.map(app => html`
-								<div class="flex items-center gap-3 px-3 py-2 rounded-2xl hover:bg-white/10 active:scale-[0.99] cursor-pointer transition-all border border-transparent hover:border-white/10 group"
-									on:click=${() => {
-										this.openApp(app.id);
-										this.appsMenuOpen = false;
-										this.windows = [...this.windows];
-									}}>
-									<div class="w-8 h-8 rounded-xl bg-white/5 group-hover:bg-white/15 border border-white/10 flex items-center justify-center text-sm shrink-0 transition-colors shadow-sm">
-										<i class="${app.iconClass} ${app.iconColor}"></i>
+							return filteredApps.map(app => {
+								const isOpen = this.windows.some(w => w.appId === app.id);
+								return html`
+									<div class="flex items-center gap-3 p-2 rounded-2xl hover:bg-white/10 active:scale-[0.99] cursor-pointer transition-all border border-transparent hover:border-white/10 group"
+										on:click=${() => {
+											this.openApp(app.id);
+											this.appsMenuOpen = false;
+											this.windows = [...this.windows];
+										}}>
+										<div class="w-9 h-9 rounded-xl bg-gradient-to-br ${app.dockGradient} border border-white/20 flex items-center justify-center text-base shrink-0 transition-all group-hover:scale-110 shadow-md">
+											<i class="${app.iconClass} text-white drop-shadow-md"></i>
+										</div>
+										<div class="flex flex-col min-w-0 flex-1">
+											<div class="flex items-center justify-between gap-1">
+												<span class="text-xs font-semibold text-neutral-100 truncate group-hover:text-white transition-colors">${app.name}</span>
+												<span class="text-[9px] font-medium text-neutral-400 bg-white/5 px-1.5 py-0.5 rounded-md shrink-0 border border-white/5">${app.category}</span>
+											</div>
+											<span class="text-[10px] text-neutral-400 truncate mt-0.5">${app.desc}</span>
+										</div>
+										<div class="shrink-0 flex items-center pr-1">
+											${isOpen ? html`
+												<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-sm animate-pulse" title="Running"></span>
+											` : html`
+												<i class="fa-solid fa-chevron-right text-[10px] text-neutral-500 group-hover:text-neutral-300 group-hover:translate-x-0.5 transition-all"></i>
+											`}
+										</div>
 									</div>
-									<div class="flex items-center min-w-0 flex-1">
-										<span class="text-xs font-medium text-neutral-200 truncate group-hover:text-white transition-colors">${app.name}</span>
-									</div>
-								</div>
-							`);
+								`;
+							});
 						})}
 					</div>
 				</div>
@@ -1298,9 +1337,9 @@ window.addEventListener("load", async () => {
 						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
 						return this.dockOpen ? "display: flex;" : "display: none;";
 					})}>
-					
+
 					<!-- Left Apps Button -> Dedicated Applications Bar / Menu -->
-					<button class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center text-sm font-bold text-white cursor-pointer shrink-0"
+					<button class="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500/80 to-purple-600/80 border border-indigo-400/40 hover:from-indigo-500 hover:to-purple-600 active:scale-95 transition-all flex items-center justify-center text-sm font-bold text-white cursor-pointer shrink-0 dock-icon-anim shadow-md group"
 						on:click=${(e) => {
 							e.stopPropagation();
 							this.appsMenuOpen = !this.appsMenuOpen;
@@ -1310,7 +1349,7 @@ window.addEventListener("load", async () => {
 							}
 							this.windows = [...this.windows];
 						}} title="Apps Bar">
-						<i class="fa-solid fa-shapes text-xs"></i>
+						<i class="fa-solid fa-shapes text-sm group-hover:rotate-12 transition-transform"></i>
 					</button>
 
 					<div class="w-px h-6 bg-white/15 shrink-0"></div>
@@ -1318,31 +1357,31 @@ window.addEventListener("load", async () => {
 					<!-- Dock Application Badges (Default 4 Apps) -->
 					<div class="flex items-center gap-2 shrink-0">
 						<!-- 1. Onyx Browser Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
+						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=${() => this.openApp("browser")} title="Onyx Browser">
 							<i class="fa-solid fa-compass text-lg text-white drop-shadow-md"></i>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "browser") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
+							${use(this.windows, (winList) => winList.some(w => w.appId === "browser") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm animate-pulse"></div>` : null)}
 						</div>
 
 						<!-- 2. Onyx Chat Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
+						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=${() => this.openApp("chat")} title="Onyx Chat">
 							<i class="fa-solid fa-comments text-lg text-white drop-shadow-md"></i>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "chat") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
+							${use(this.windows, (winList) => winList.some(w => w.appId === "chat") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm animate-pulse"></div>` : null)}
 						</div>
 
-						<!-- 3. Onyx AI Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
-							on:click=${() => this.openApp("ai")} title="Onyx AI">
+						<!-- 3. Scenario Badge -->
+						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20"
+							on:click=${() => this.openApp("ai")} title="Scenario">
 							<i class="fa-solid fa-wand-magic-sparkles text-lg text-white drop-shadow-md"></i>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "ai") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
+							${use(this.windows, (winList) => winList.some(w => w.appId === "ai") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm animate-pulse"></div>` : null)}
 						</div>
 
 						<!-- 4. SSV Movies Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-600 via-purple-700 to-indigo-800 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
+						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-600 via-purple-700 to-indigo-800 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=${() => this.openApp("movies")} title="SSV Movies & TV (Proxied)">
 							<i class="fa-solid fa-film text-lg text-white drop-shadow-md"></i>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "movies") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>` : null)}
+							${use(this.windows, (winList) => winList.some(w => w.appId === "movies") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm animate-pulse"></div>` : null)}
 						</div>
 
 						<!-- Other Running Apps Dynamically Displayed in Bar When Open -->
@@ -1359,10 +1398,10 @@ window.addEventListener("load", async () => {
 									if (appId === "games") grad = "from-violet-600 to-purple-800";
 									if (appId === "cloudgaming") grad = "from-purple-600 to-indigo-700";
 									return html`
-										<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br ${grad} hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20 animate-fade"
+										<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br ${grad} dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20 animate-fade"
 											on:click=${() => this.openApp(appId)} title="${appMeta.name}">
 											<i class="${appMeta.iconClass} text-lg text-white drop-shadow-md"></i>
-											<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>
+											<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm animate-pulse"></div>
 										</div>
 									`;
 								})}
@@ -1380,7 +1419,7 @@ window.addEventListener("load", async () => {
 				</div>
 
 				<!-- CONTROL CENTER FLYOUT POPUP (Clean: No fake CPU/RAM usage) -->
-				<div class="fixed bottom-16 right-6 z-50 w-72 bg-neutral-950/92 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-fade"
+				<div class="fixed bottom-16 right-6 z-50 w-72 bg-neutral-950/92 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu"
 					style=${use(this.controlCenterOpen, (open) => open ? "display: flex;" : "display: none;")}>
 					<div class="flex items-center justify-between">
 						<div class="text-xs font-bold text-neutral-200 uppercase tracking-wider flex items-center gap-1.5">
@@ -1444,15 +1483,20 @@ window.addEventListener("load", async () => {
 				</div>
 
 				<!-- LOGIN / LOCK SCREEN (Shown on launch & when system locked) -->
-				<div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-between p-6 sm:p-10 text-white font-sans animate-fade select-none overflow-y-auto"
+				<div id="veil-lock-screen" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-between p-6 sm:p-10 text-white font-sans animate-fade select-none overflow-hidden"
 					style=${use(this.isLocked, (locked) => locked ? "display: flex;" : "display: none;")}>
 
-					<div class="w-full flex-1 flex flex-col items-center justify-center">
+					<!-- Ambient Animated Background Lights -->
+					<div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none animate-orb-1"></div>
+					<div class="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-purple-600/20 blur-3xl pointer-events-none animate-orb-2"></div>
+					<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-pink-600/10 blur-[120px] pointer-events-none"></div>
+
+					<div class="w-full flex-1 flex flex-col items-center justify-center relative z-10">
 						<!-- Center Card: Large Clock, Date, Avatar, and Sign In -->
-						<div class="flex flex-col items-center gap-6 max-w-sm w-full my-auto py-6">
+						<div class="flex flex-col items-center gap-6 max-w-sm w-full my-auto py-6 animate-card-entrance">
 							<!-- Lock Screen Clock & Date -->
 							<div class="text-center">
-								<div class="text-5xl sm:text-6xl font-extralight tracking-[0.15em] text-white/95 uppercase font-sans drop-shadow-lg">
+								<div class="text-5xl sm:text-6xl font-extralight tracking-[0.15em] text-white/95 uppercase font-sans drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]">
 									${use(this.dockTimeStr)}
 								</div>
 								<div class="text-xs sm:text-sm text-neutral-400 font-medium mt-1.5 tracking-wide">
@@ -1461,28 +1505,30 @@ window.addEventListener("load", async () => {
 							</div>
 
 							<!-- User Profile & Sign-In Card -->
-							<div class="w-full bg-white/[0.05] border border-white/15 p-7 rounded-3xl backdrop-blur-2xl shadow-2xl flex flex-col items-center gap-4">
-								<div class="relative">
-									<div class="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-3xl shadow-xl border-2 border-white/30">
-										<i class="fa-solid fa-user-astronaut text-white"></i>
+							<div class="w-full bg-white/[0.05] border border-white/15 p-7 rounded-3xl backdrop-blur-2xl shadow-2xl flex flex-col items-center gap-4 transition-all duration-300 hover:border-indigo-500/40 hover:shadow-indigo-500/10">
+								<div class="relative group">
+									<!-- Pulsing halo behind avatar -->
+									<div class="absolute -inset-1.5 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-75 blur-md animate-veil-glow"></div>
+									<div class="relative w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center shadow-xl border-2 border-white/40 overflow-hidden animate-veil-float p-1 shrink-0">
+										<img src="https://raw.githubusercontent.com/1sunW/ICONS-FOR-LINKS/refs/heads/main/the-veil-icon-1024.png" alt="Veil OS" class="w-full h-full object-contain rounded-full transition-transform duration-500 group-hover:scale-110 drop-shadow-md" />
 									</div>
-									<div class="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-black flex items-center justify-center text-[10px] text-white shadow-sm" title="Online">
+									<div class="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-black flex items-center justify-center text-[10px] text-white shadow-md animate-pulse" title="Online">
 										<i class="fa-solid fa-check"></i>
 									</div>
 								</div>
 
 								<div class="flex flex-col items-center gap-0.5 text-center">
 									<h2 class="text-lg font-bold tracking-tight text-white">${use(this.windows, () => (store && store.osUsername) ? store.osUsername : "Veil User")}</h2>
-									<span class="text-xs text-neutral-400">VeilOS Web Operating System</span>
+									<span class="text-xs text-neutral-400 font-medium">VeilOS Web Operating System</span>
 								</div>
 
 								<!-- Sign In Button (no PIN requirement) -->
 								<div class="w-full mt-2">
 									<button type="button"
-										class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs tracking-wide transition-all shadow-lg hover:shadow-indigo-500/25 active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+										class="group relative w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs tracking-wide transition-all duration-300 shadow-xl hover:shadow-indigo-500/35 active:scale-95 cursor-pointer flex items-center justify-center gap-2.5 overflow-hidden shimmer-btn"
 										on:click=${() => this.unlockOS()}>
-										<span>Sign In</span>
-										<i class="fa-solid fa-arrow-right text-xs"></i>
+										<span class="relative z-10">Sign In</span>
+										<i class="fa-solid fa-arrow-right text-xs relative z-10 transition-transform duration-300 group-hover:translate-x-1.5"></i>
 									</button>
 								</div>
 							</div>
@@ -1490,10 +1536,10 @@ window.addEventListener("load", async () => {
 					</div>
 
 					<!-- Bottom Status / Restart Controls -->
-					<div class="w-full flex items-center justify-center gap-6 pb-2 text-xs text-neutral-400 max-w-4xl shrink-0">
-						<button class="flex items-center gap-2 hover:text-white transition-colors cursor-pointer text-xs"
+					<div class="w-full flex items-center justify-center gap-6 pb-2 text-xs text-neutral-400 max-w-4xl shrink-0 relative z-10">
+						<button class="flex items-center gap-2 hover:text-white transition-colors cursor-pointer text-xs group"
 							on:click=${() => location.reload()}>
-							<i class="fa-solid fa-rotate-right text-xs"></i>
+							<i class="fa-solid fa-rotate-right text-xs transition-transform duration-500 group-hover:rotate-180"></i>
 							<span>Restart VeilOS</span>
 						</button>
 					</div>
@@ -1647,7 +1693,7 @@ window.addEventListener("load", async () => {
 		return el;
 	}
 
-	// 2. Onyx AI App Renderer (Proxied full-window Onyx AI web application)
+	// 2. Scenario App Renderer (Proxied full-window Scenario web application)
 	function renderOnyxAIApp(win, scramjet, osInstance) {
 		if (!win.customState) {
 			win.customState = {};

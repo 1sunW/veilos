@@ -583,7 +583,7 @@ fastify.post("/api/llm/chat", async (request, reply) => {
 			return reply.code(400).send({ error: "Messages or prompt required." });
 		}
 
-		const defaultSystem = systemInstruction || "You are Onyx AI, a powerful, fast, and helpful assistant built into VeilOS. You assist with coding, web navigation, research, creative writing, and problem solving. Provide accurate, clear markdown formatted responses.";
+		const defaultSystem = systemInstruction || "You are Scenario, a powerful, fast, and helpful assistant built into VeilOS. You assist with coding, web navigation, research, creative writing, and problem solving. Provide accurate, clear markdown formatted responses.";
 
 		// Primary attempt: Emis OpenAI-compatible endpoint
 		try {

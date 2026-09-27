@@ -9,7 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Lucide Icons (lucide.dev) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script src="/safe-postmessage.js"></script>
     <script src="/baremux/index.js"></script>
     <script src="/scram/scramjet.all.js"></script>
@@ -1027,11 +1028,11 @@
 
         <div class="topbar-nav">
             <button class="secondary" onclick="launch('movies')" title="Search and Browse Movies">
-                <i class="fa-solid fa-film"></i>
+                <i data-lucide="film"></i>
                 <span class="hide-mobile">Browse</span>
             </button>
             <button class="secondary" onclick="launch('settings')" title="Theme & Settings">
-                <i class="fa-solid fa-palette"></i>
+                <i data-lucide="palette"></i>
             </button>
         </div>
     </div>
@@ -1042,11 +1043,11 @@
         <p id="splash">loading...</p>
         <div class="home-buttons">
             <button class="home-btn primary" onclick="launch('movies')">
-                <i class="fa-solid fa-play"></i>
+                <i data-lucide="play"></i>
                 <span>movies & shows</span>
             </button>
             <button class="home-btn" onclick="launch('settings')">
-                <i class="fa-solid fa-gear"></i>
+                <i data-lucide="settings"></i>
                 <span>settings</span>
             </button>
         </div>
@@ -1058,21 +1059,21 @@
         <div class="popup-chrome">
             <div class="popup-title">
                 <h2 id="popupTitle">
-                    <i class="fa-solid fa-film" style="color: var(--accent);"></i>
+                    <i data-lucide="film" style="color: var(--accent);"></i>
                     <span>movies</span>
                 </h2>
                 <p id="popupSubtitle">proxied stream</p>
             </div>
             <div class="popup-actions">
                 <button class="outline" id="popupBackBtn" style="display: none;" onclick="returnToCatalog()" title="Back to catalog">
-                    <i class="fa-solid fa-arrow-left"></i>
+                    <i data-lucide="arrow-left"></i>
                     <span>back</span>
                 </button>
                 <button class="outline" id="popupFullscreenBtn" onclick="toggleWindowFullscreen()" title="Toggle full window">
-                    <i class="fa-solid fa-expand"></i>
+                    <i data-lucide="maximize"></i>
                 </button>
                 <button class="outline" onclick="closePopup()" title="Close popup">
-                    <i class="fa-solid fa-xmark"></i>
+                    <i data-lucide="x"></i>
                 </button>
             </div>
         </div>
@@ -1364,8 +1365,9 @@
             $("#popupWindow").classList.toggle("fullscreen-mode");
             const isFull = $("#popupWindow").classList.contains("fullscreen-mode");
             $("#popupFullscreenBtn").innerHTML = isFull
-                ? '<i class="fa-solid fa-compress"></i>'
-                : '<i class="fa-solid fa-expand"></i>';
+                ? '<i data-lucide="minimize"></i>'
+                : '<i data-lucide="maximize"></i>';
+            if (window.lucide) lucide.createIcons();
         }
 
         function applyTheme(theme) {
@@ -1411,7 +1413,7 @@
         // ==========================================
         function renderMoviesView() {
             popupState.activeSection = "movies";
-            $("#popupTitle").innerHTML = '<i class="fa-solid fa-film" style="color: var(--accent);"></i> <span>movies & shows</span>';
+            $("#popupTitle").innerHTML = '<i data-lucide="film" style="color: var(--accent);"></i> <span>movies & shows</span>';
             $("#popupSubtitle").textContent = "search and browse";
             $("#popupBackBtn").style.display = "none";
 
@@ -1419,21 +1421,21 @@
             body.innerHTML = `
                 <div class="movie-toolbar">
                     <div class="search-row">
-                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <i data-lucide="search" class="search-icon"></i>
                         <input class="mini-input" id="movieSearch" placeholder="what are we watching today?" value="${popupState.searchQuery || ""}">
                     </div>
                     <div class="filter-row">
                         <div class="tab-pills">
                             <button class="movie-pill ${popupState.currentTab === "movies" ? "active" : ""}" id="tabMoviesBtn">
-                                <i class="fa-solid fa-clapperboard"></i>
+                                <i data-lucide="clapperboard"></i>
                                 <span>movies</span>
                             </button>
                             <button class="movie-pill ${popupState.currentTab === "shows" ? "active" : ""}" id="tabShowsBtn">
-                                <i class="fa-solid fa-tv"></i>
+                                <i data-lucide="tv"></i>
                                 <span>tv shows</span>
                             </button>
                             <button class="movie-pill ${popupState.currentTab === "anime" ? "active" : ""}" id="tabAnimeBtn">
-                                <i class="fa-solid fa-bolt"></i>
+                                <i data-lucide="zap"></i>
                                 <span>anime</span>
                             </button>
                         </div>
@@ -1445,16 +1447,17 @@
 
                 <div class="pagination-bar">
                     <button class="movie-pill" id="prevPageBtn">
-                        <i class="fa-solid fa-chevron-left"></i>
+                        <i data-lucide="chevron-left"></i>
                         <span>previous</span>
                     </button>
                     <div class="movie-pill active" id="pageLabel" style="cursor: default;">page ${popupState.currentPage}</div>
                     <button class="movie-pill" id="nextPageBtn">
                         <span>next</span>
-                        <i class="fa-solid fa-chevron-right"></i>
+                        <i data-lucide="chevron-right"></i>
                     </button>
                 </div>
             `;
+            if (window.lucide) lucide.createIcons();
 
             // Bind Event Listeners
             const searchInput = $("#movieSearch");
@@ -1530,7 +1533,8 @@
             if (!resultsContainer || !statusEl) return;
 
             pageLabel.textContent = `page ${popupState.currentPage}`;
-            statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>fetching content...</span>`;
+            statusEl.innerHTML = `<i data-lucide="loader-2" class="spin-anim" style="animation: spin 1s linear infinite; display: inline-block; width: 14px; height: 14px; vertical-align: middle;"></i> <span>fetching content...</span>`;
+            if (window.lucide) lucide.createIcons();
 
             const tab = popupState.currentTab;
             const isMovie = tab === "movies";
@@ -1594,9 +1598,9 @@
                     card.className = "movie-card";
                     card.innerHTML = `
                         <div class="movie-card-thumb">
-                            ${poster ? `<img src="${poster}" alt="${title.replace(/"/g, '&quot;')}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=60'">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-2);"><i class="fa-solid fa-film fa-2x"></i></div>`}
+                            ${poster ? `<img src="${poster}" alt="${title.replace(/"/g, '&quot;')}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=60'">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-2);"><i data-lucide="film" style="width: 2rem; height: 2rem;"></i></div>`}
                             <div class="movie-type-badge">${itemType}</div>
-                            ${rating ? `<div class="movie-rating-badge"><i class="fa-solid fa-star"></i> <span>${rating}</span></div>` : ""}
+                            ${rating ? `<div class="movie-rating-badge"><i data-lucide="star" style="width: 12px; height: 12px; display: inline-block;"></i> <span>${rating}</span></div>` : ""}
                         </div>
                         <div class="movie-card-info">
                             <div class="movie-card-title">${title}</div>
@@ -1611,9 +1615,12 @@
                     resultsContainer.appendChild(card);
                 });
 
+                if (window.lucide) lucide.createIcons();
+
             } catch (err) {
                 console.error("Catalog fetch error:", err);
-                statusEl.innerHTML = `<span style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> network error. Click retry.</span>`;
+                statusEl.innerHTML = `<span style="color:#ef4444; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="triangle-alert" style="width: 14px; height: 14px;"></i> network error. Click retry.</span>`;
+                if (window.lucide) lucide.createIcons();
             }
         }
 
@@ -1627,7 +1634,7 @@
             popupState.selectedSeason = 1;
             popupState.selectedEpisode = 1;
 
-            $("#popupTitle").innerHTML = `<i class="fa-solid fa-play" style="color: var(--accent);"></i> <span>${fallbackTitle || "watch stream"}</span>`;
+            $("#popupTitle").innerHTML = `<i data-lucide="play" style="color: var(--accent);"></i> <span>${fallbackTitle || "watch stream"}</span>`;
             $("#popupSubtitle").textContent = `${contentType.toUpperCase()} • PROXIED`;
             $("#popupBackBtn").style.display = "inline-flex";
 
@@ -1640,18 +1647,18 @@
                             <p id="watchMeta">
                                 <span>${fallbackYear || ""}</span>
                                 <span class="proxy-status-pill" style="font-size: 10px; padding: 2px 7px;">
-                                    <i class="fa-solid fa-shield-halved"></i>
+                                    <i data-lucide="shield-check"></i>
                                     <span>Scramjet Proxied Link</span>
                                 </span>
                             </p>
                         </div>
                         <div style="display: flex; gap: 8px;">
                             <button class="outline" onclick="triggerPlayerFullscreen()" title="Fullscreen Video Player">
-                                <i class="fa-solid fa-expand"></i>
+                                <i data-lucide="maximize"></i>
                                 <span>player fullscreen</span>
                             </button>
                             <button class="outline" onclick="reloadStream()" title="Reload Proxied Stream">
-                                <i class="fa-solid fa-rotate-right"></i>
+                                <i data-lucide="rotate-cw"></i>
                             </button>
                         </div>
                     </div>
@@ -1669,18 +1676,18 @@
                     <div class="watch-controls-bar" style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center;">
                         <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
                             <div class="source-selector-wrap">
-                                <label for="sourceSelect"><i class="fa-solid fa-server"></i> Mirror:</label>
+                                <label for="sourceSelect"><i data-lucide="server"></i> Mirror:</label>
                                 <select class="custom-select" id="sourceSelect"></select>
                             </div>
                             <div class="source-selector-wrap">
-                                <label for="proxyModeSelect"><i class="fa-solid fa-shield-halved"></i> Mode:</label>
+                                <label for="proxyModeSelect"><i data-lucide="shield-check"></i> Mode:</label>
                                 <select class="custom-select" id="proxyModeSelect">
                                     <option value="scramjet">Scramjet Proxy</option>
                                     <option value="direct">Direct Embed</option>
                                 </select>
                             </div>
                             <button class="outline" onclick="cycleMirror()" title="Switch to Next Mirror" style="padding: 6px 10px; font-size: 11px; border-radius: 8px;">
-                                <i class="fa-solid fa-shuffle"></i> <span>Next Mirror</span>
+                                <i data-lucide="shuffle"></i> <span>Next Mirror</span>
                             </button>
                         </div>
                         <div style="font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 8px;">
@@ -1689,7 +1696,7 @@
                                 <span id="proxyLiveLabel">Proxied • Scramjet</span>
                             </div>
                             <button class="outline" onclick="openStreamInNewTab()" title="Open Proxied Video in New Tab" style="padding: 6px 10px; font-size: 11px; border-radius: 8px;">
-                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                <i data-lucide="external-link"></i>
                             </button>
                         </div>
                     </div>
@@ -1709,6 +1716,7 @@
                     </div>
                 </div>
             `;
+            if (window.lucide) lucide.createIcons();
 
             // Populate source dropdown
             const sourceSelect = $("#sourceSelect");
@@ -1743,7 +1751,7 @@
 
                 const fullTitle = content.title || content.name || fallbackTitle || "Watch";
                 $("#watchTitle").textContent = fullTitle;
-                $("#popupTitle").innerHTML = `<i class="fa-solid fa-play" style="color: var(--accent);"></i> <span>${fullTitle}</span>`;
+                $("#popupTitle").innerHTML = `<i data-lucide="play" style="color: var(--accent);"></i> <span>${fullTitle}</span>`;
                 $("#watchOverview").textContent = content.overview || "No overview available for this title.";
 
                 const yearVal = content.release_date || content.first_air_date || fallbackYear;
@@ -1754,10 +1762,11 @@
                     ${genres ? `<span>•</span> <span>${genres}</span>` : ""}
                     ${content.runtime ? `<span>•</span> <span>${content.runtime} min</span>` : ""}
                     <span class="proxy-status-pill" style="font-size: 10px; padding: 2px 7px;">
-                        <i class="fa-solid fa-shield-halved"></i>
+                        <i data-lucide="shield-check"></i>
                         <span>Scramjet Proxied</span>
                     </span>
                 `;
+                if (window.lucide) lucide.createIcons();
 
                 if (contentType === "tv") {
                     setupTvControls(content);
@@ -1926,7 +1935,7 @@
         // ==========================================
         function renderSettingsView() {
             popupState.activeSection = "settings";
-            $("#popupTitle").innerHTML = '<i class="fa-solid fa-palette" style="color: var(--accent);"></i> <span>settings</span>';
+            $("#popupTitle").innerHTML = '<i data-lucide="palette" style="color: var(--accent);"></i> <span>settings</span>';
             $("#popupSubtitle").textContent = "themes and tab cloaking";
             $("#popupBackBtn").style.display = "none";
 
@@ -1956,16 +1965,16 @@
                         
                         <div class="cloak-presets" style="margin-bottom: 12px;">
                             <button class="movie-pill" onclick="presetCloak('Google Docs', 'https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico')">
-                                <i class="fa-solid fa-file-word" style="color:#3b82f6;"></i> Google Docs
+                                <i data-lucide="file-text" style="color:#3b82f6;"></i> Google Docs
                             </button>
                             <button class="movie-pill" onclick="presetCloak('Google Classroom', 'https://ssl.gstatic.com/classroom/favicon.png')">
-                                <i class="fa-solid fa-graduation-cap" style="color:#22c55e;"></i> Classroom
+                                <i data-lucide="graduation-cap" style="color:#22c55e;"></i> Classroom
                             </button>
                             <button class="movie-pill" onclick="presetCloak('Google Drive', 'https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_32dp.png')">
-                                <i class="fa-brands fa-google-drive" style="color:#f59e0b;"></i> Drive
+                                <i data-lucide="hard-drive" style="color:#f59e0b;"></i> Drive
                             </button>
                             <button class="movie-pill" onclick="presetCloak('Canvas LMS', 'https://du11hjcvx0uqb.cloudfront.net/br/dist/images/favicon-e10d6477a4.ico')">
-                                <i class="fa-solid fa-compass" style="color:#ef4444;"></i> Canvas
+                                <i data-lucide="compass" style="color:#ef4444;"></i> Canvas
                             </button>
                         </div>
 
@@ -1993,6 +2002,7 @@
                     </div>
                 </div>
             `;
+            if (window.lucide) lucide.createIcons();
 
             $("#tabTitleInput").value = localStorage.getItem("SSV-tab-title") || localStorage.getItem("KAMAT-tab-title") || "";
             $("#tabFaviconInput").value = localStorage.getItem("SSV-tab-favicon") || localStorage.getItem("KAMAT-tab-favicon") || "";
@@ -2024,6 +2034,7 @@
             } else if (key === "settings") {
                 renderSettingsView();
             }
+            if (window.lucide) lucide.createIcons();
         }
 
         // Global ESC key to close
@@ -2052,6 +2063,7 @@
             // Auto open movies view immediately for maximum user delight
             launch("movies");
         }
+        if (window.lucide) lucide.createIcons();
     </script>
 </body>
 
