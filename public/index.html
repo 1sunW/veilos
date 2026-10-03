@@ -304,6 +304,80 @@
 				border: 1px solid #ffffff !important;
 				box-shadow: 0 0 12px rgba(255, 255, 255, 0.25) !important;
 			}
+
+			/* Spotlight & Overlay Keyframes */
+			@keyframes spotlightIn {
+				0% {
+					opacity: 0;
+					transform: scale(0.96) translateY(-8px);
+					filter: blur(8px);
+				}
+				100% {
+					opacity: 1;
+					transform: scale(1) translateY(0);
+					filter: blur(0);
+				}
+			}
+
+			@keyframes toastSlideIn {
+				0% {
+					opacity: 0;
+					transform: translateX(45px) scale(0.92);
+				}
+				100% {
+					opacity: 1;
+					transform: translateX(0) scale(1);
+				}
+			}
+
+			@keyframes contextPopIn {
+				0% {
+					opacity: 0;
+					transform: scale(0.92) translateY(-4px);
+					filter: blur(4px);
+				}
+				100% {
+					opacity: 1;
+					transform: scale(1) translateY(0);
+					filter: blur(0);
+				}
+			}
+
+			.animate-spotlight {
+				animation: spotlightIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+			}
+
+			.animate-toast {
+				animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+			}
+
+			.animate-context-menu {
+				animation: contextPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+			}
+
+			.resize-grip {
+				position: absolute;
+				bottom: 0;
+				right: 0;
+				width: 16px;
+				height: 16px;
+				cursor: se-resize;
+				z-index: 50;
+			}
+			.resize-grip::after {
+				content: '';
+				position: absolute;
+				right: 3px;
+				bottom: 3px;
+				width: 8px;
+				height: 8px;
+				border-right: 2px solid rgba(255, 255, 255, 0.35);
+				border-bottom: 2px solid rgba(255, 255, 255, 0.35);
+				transition: border-color 0.2s;
+			}
+			.resize-grip:hover::after {
+				border-color: rgba(255, 255, 255, 0.85);
+			}
 		</style>
 		<script
 			defer
@@ -332,6 +406,7 @@
 
 	<body>
 		<div id="app"></div>
+		<script src="veil-apps.js"></script>
 		<script src="ui.js"></script>
 	</body>
 </html>

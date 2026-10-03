@@ -489,7 +489,14 @@ function Config() {
 }
 
 window.addEventListener("load", async () => {
-	const loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
+	let loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
+	if (!loadController) {
+		for (let i = 0; i < 30; i++) {
+			await new Promise((r) => setTimeout(r, 100));
+			loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
+			if (loadController) break;
+		}
+	}
 	if (!loadController) {
 		console.error("Scramjet controller loader ($scramjetLoadController) is not defined.");
 		return;
@@ -760,20 +767,158 @@ window.addEventListener("load", async () => {
 	connection = new BareMux.BareMuxConnection("/baremux/worker.js");
 	await applyTransport(store.transport || "/baremod/index.mjs", store.wispurl, store.bareurl);
 
-	// Definition of Apps in VeilOS - Onyx Browser, Onyx Chat, Scenario, SSV Movies, Helium Vault, Pulse Games, and Cloud Gaming
+	// Definition of Apps in VeilOS - Core Apps (in dock) + System & Utility Apps (in menus/spotlight only)
 	const APPS = [
-		{ id: "browser", name: "Onyx Browser", iconClass: "fa-solid fa-compass", iconColor: "text-sky-400", dockGradient: "from-blue-500 to-indigo-600", desc: "Proxy Web Browser with tabs & search", category: "Internet", defaultW: 980, defaultH: 640 },
-		{ id: "chat", name: "Onyx Chat", iconClass: "fa-solid fa-comments", iconColor: "text-emerald-400", dockGradient: "from-emerald-500 to-teal-600", desc: "Multi-channel community chat room", category: "Social", defaultW: 860, defaultH: 580 },
-		{ id: "ai", name: "Scenario", iconClass: "fa-solid fa-wand-magic-sparkles", iconColor: "text-purple-400", dockGradient: "from-indigo-600 via-purple-600 to-pink-500", desc: "Scenario AI Assistant Web Application", category: "Productivity", defaultW: 1040, defaultH: 700 },
-		{ id: "movies", name: "SSV Movies", iconClass: "fa-solid fa-film", iconColor: "text-pink-400", dockGradient: "from-pink-600 via-purple-700 to-indigo-800", desc: "Proxied movies, TV shows, and streaming player", category: "Entertainment", defaultW: 1080, defaultH: 720 },
-		{ id: "vault", name: "Helium Vault", iconClass: "fa-solid fa-tv", iconColor: "text-cyan-400", dockGradient: "from-rose-500 via-indigo-600 to-cyan-500", desc: "Curated Movies, TV Shows, Anime & Direct Streams", category: "Entertainment", defaultW: 1120, defaultH: 740 },
-		{ id: "games", name: "Pulse Games", iconClass: "fa-solid fa-gamepad", iconColor: "text-violet-400", dockGradient: "from-violet-600 to-purple-800", desc: "Unblocked arcade with 8 providers & 1,000+ games", category: "Gaming", defaultW: 1080, defaultH: 720 },
-		{ id: "cloudgaming", name: "Cloud Gaming", iconClass: "fa-solid fa-cloud", iconColor: "text-indigo-400", dockGradient: "from-purple-600 to-indigo-700", desc: "Play cloud games directly at nowgg.fun", category: "Gaming", defaultW: 1040, defaultH: 700 }
+		{ 
+			id: "browser", 
+			name: "Onyx Browser", 
+			logoUrl: "assets/scramjet.png", 
+			iconClass: "fa-solid fa-compass", 
+			iconColor: "text-sky-400", 
+			dockGradient: "from-blue-500 to-indigo-600", 
+			desc: "Proxy Web Browser with tabs & search", 
+			category: "Internet", 
+			defaultW: 980, 
+			defaultH: 640, 
+			inDock: true 
+		},
+		{ 
+			id: "music", 
+			name: "Sonora", 
+			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"gsonora\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%236366f1\"/><stop offset=\"100%\" stop-color=\"%2306b6d4\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23gsonora)\"/><path d=\"M19 32V11l18-3v21\" stroke=\"%23fff\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" fill=\"none\"/><circle cx=\"14\" cy=\"32\" r=\"4.5\" fill=\"%23fff\"/><circle cx=\"32\" cy=\"28\" r=\"4.5\" fill=\"%23fff\"/></svg>", 
+			iconClass: "fa-solid fa-music", 
+			iconColor: "text-cyan-400", 
+			dockGradient: "from-indigo-600 to-cyan-500", 
+			desc: "Lossless and high-fidelity music streaming", 
+			category: "Entertainment", 
+			defaultW: 1100, 
+			defaultH: 720, 
+			inDock: true 
+		},
+		{ 
+			id: "ai", 
+			name: "Scenario", 
+			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g1\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%23818cf8\"/><stop offset=\"50%\" stop-color=\"%23a855f7\"/><stop offset=\"100%\" stop-color=\"%23ec4899\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g1)\"/><path d=\"M24 10l3.2 8.8L36 22l-8.8 3.2L24 34l-3.2-8.8L12 22l8.8-3.2z\" fill=\"%23fff\"/><circle cx=\"34\" cy=\"12\" r=\"2\" fill=\"%23fff\"/><circle cx=\"14\" cy=\"32\" r=\"1.5\" fill=\"%23fff\"/></svg>", 
+			iconClass: "fa-solid fa-wand-magic-sparkles", 
+			iconColor: "text-purple-400", 
+			dockGradient: "from-indigo-600 via-purple-600 to-pink-500", 
+			desc: "Scenario AI Assistant Web Application", 
+			category: "Productivity", 
+			defaultW: 1040, 
+			defaultH: 700, 
+			inDock: true 
+		},
+		{ 
+			id: "chat", 
+			name: "Onyx Chat", 
+			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g2\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%2310b981\"/><stop offset=\"100%\" stop-color=\"%230d9488\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g2)\"/><path d=\"M14 16h20a2 2 0 012 2v12a2 2 0 01-2 2h-6l-6 5v-5h-8a2 2 0 01-2-2V18a2 2 0 012-2z\" fill=\"%23fff\"/><circle cx=\"20\" cy=\"24\" r=\"2\" fill=\"%230d9488\"/><circle cx=\"25\" cy=\"24\" r=\"2\" fill=\"%230d9488\"/><circle cx=\"30\" cy=\"24\" r=\"2\" fill=\"%230d9488\"/></svg>", 
+			iconClass: "fa-solid fa-comments", 
+			iconColor: "text-emerald-400", 
+			dockGradient: "from-emerald-500 to-teal-600", 
+			desc: "Multi-channel community chat room", 
+			category: "Social", 
+			defaultW: 860, 
+			defaultH: 580, 
+			inDock: true 
+		},
+		{ 
+			id: "vault", 
+			name: "Helium Vault", 
+			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g3\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%2306b6d4\"/><stop offset=\"100%\" stop-color=\"%233b82f6\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g3)\"/><path d=\"M12 15a3 3 0 013-3h18a3 3 0 013 3v16a3 3 0 01-3 3H15a3 3 0 01-3-3V15z\" fill=\"%231e293b\" stroke=\"%23fff\" stroke-width=\"2\"/><polygon points=\"21,19 30,24 21,29\" fill=\"%2338bdf8\"/><path d=\"M18 38h12\" stroke=\"%23fff\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>", 
+			iconClass: "fa-solid fa-tv", 
+			iconColor: "text-cyan-400", 
+			dockGradient: "from-rose-500 via-indigo-600 to-cyan-500", 
+			desc: "Curated Movies, TV Shows, Anime & Direct Streams", 
+			category: "Entertainment", 
+			defaultW: 1120, 
+			defaultH: 740, 
+			inDock: true 
+		},
+		{ 
+			id: "movies", 
+			name: "SSV Movies", 
+			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g4\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%23e11d48\"/><stop offset=\"100%\" stop-color=\"%239333ea\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g4)\"/><path d=\"M13 14h22a2 2 0 012 2v18a2 2 0 01-2 2H13a2 2 0 01-2-2V16a2 2 0 012-2z\" fill=\"%23fff\"/><polygon points=\"21,19 30,25 21,31\" fill=\"%23e11d48\"/><rect x=\"11\" y=\"14\" width=\"26\" height=\"5\" fill=\"%231e1b4b\"/><circle cx=\"15\" cy=\"16.5\" r=\"1\" fill=\"%23fff\"/><circle cx=\"21\" cy=\"16.5\" r=\"1\" fill=\"%23fff\"/><circle cx=\"27\" cy=\"16.5\" r=\"1\" fill=\"%23fff\"/><circle cx=\"33\" cy=\"16.5\" r=\"1\" fill=\"%23fff\"/></svg>", 
+			iconClass: "fa-solid fa-film", 
+			iconColor: "text-pink-400", 
+			dockGradient: "from-pink-600 via-purple-700 to-indigo-800", 
+			desc: "Proxied movies, TV shows, and streaming player", 
+			category: "Entertainment", 
+			defaultW: 1080, 
+			defaultH: 720, 
+			inDock: true 
+		},
+		{ 
+			id: "games", 
+			name: "Pulse Games", 
+			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g5\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%238b5cf6\"/><stop offset=\"100%\" stop-color=\"%234f46e5\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g5)\"/><path d=\"M12 20c0-3.3 2.7-6 6-6h12c3.3 0 6 2.7 6 6v7c0 4-3.5 7-7.5 7-2 0-3.5-1-4.5-2.5-1 1.5-2.5 2.5-4.5 2.5-4 0-7.5-3-7.5-7v-7z\" fill=\"%23fff\"/><path d=\"M19 21v6M16 24h6\" stroke=\"%234f46e5\" stroke-width=\"2\" stroke-linecap=\"round\"/><circle cx=\"29\" cy=\"22\" r=\"1.5\" fill=\"%23ec4899\"/><circle cx=\"32\" cy=\"25\" r=\"1.5\" fill=\"%233b82f6\"/></svg>", 
+			iconClass: "fa-solid fa-gamepad", 
+			iconColor: "text-violet-400", 
+			dockGradient: "from-violet-600 to-purple-800", 
+			desc: "Unblocked arcade with 8 providers & 1,000+ games", 
+			category: "Gaming", 
+			defaultW: 1080, 
+			defaultH: 720, 
+			inDock: true 
+		},
+		// Restored apps - NOT in task bar
+		{ 
+			id: "activity", 
+			name: "Task Manager", 
+			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g6\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%23f43f5e\"/><stop offset=\"100%\" stop-color=\"%23be123c\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g6)\"/><path d=\"M11 26h6l3-8 6 16 4-10 3 4h4\" fill=\"none\" stroke=\"%23fff\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>", 
+			iconClass: "fa-solid fa-chart-line", 
+			iconColor: "text-rose-400", 
+			dockGradient: "from-rose-600 to-red-800", 
+			desc: "Realtime CPU/RAM meters & process supervisor", 
+			category: "System", 
+			defaultW: 760, 
+			defaultH: 500, 
+			inDock: false 
+		},
+		{ 
+			id: "terminal", 
+			name: "Veil Terminal", 
+			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"%231e293b\"/><rect x=\"4\" y=\"4\" width=\"40\" height=\"40\" rx=\"10\" fill=\"%230f172a\" stroke=\"%23334155\" stroke-width=\"1\"/><path d=\"M14 18l6 6-6 6\" fill=\"none\" stroke=\"%2310b981\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M24 30h10\" stroke=\"%23fff\" stroke-width=\"3\" stroke-linecap=\"round\"/></svg>", 
+			iconClass: "fa-solid fa-terminal", 
+			iconColor: "text-emerald-400", 
+			dockGradient: "from-emerald-600 to-slate-900", 
+			desc: "Developer console & system shell", 
+			category: "System", 
+			defaultW: 840, 
+			defaultH: 520, 
+			inDock: false 
+		},
+		{ 
+			id: "files", 
+			name: "Veil Files", 
+			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"gf\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%230284c7\"/><stop offset=\"100%\" stop-color=\"%230369a1\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23gf)\"/><path d=\"M12 16a2 2 0 012-2h6l3 3h11a2 2 0 012 2v14a2 2 0 01-2 2H14a2 2 0 01-2-2V16z\" fill=\"%2338bdf8\"/><path d=\"M12 20h24v13a2 2 0 01-2 2H14a2 2 0 01-2-2V20z\" fill=\"%23fff\" opacity=\"0.95\"/></svg>", 
+			iconClass: "fa-solid fa-folder-open", 
+			iconColor: "text-amber-300", 
+			dockGradient: "from-amber-600 to-yellow-700", 
+			desc: "Storage explorer, application vault & files", 
+			category: "System", 
+			defaultW: 880, 
+			defaultH: 560, 
+			inDock: false 
+		},
+		{ 
+			id: "cloudgaming", 
+			name: "Cloud Gaming", 
+			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"gc\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%236366f1\"/><stop offset=\"100%\" stop-color=\"%234338ca\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23gc)\"/><path d=\"M15 28a6 6 0 01-1-11.9 8 8 0 0115.5-2.2 6 6 0 015.5 8.1A5 5 0 0133 28H15z\" fill=\"%23fff\" opacity=\"0.9\"/><polygon points=\"22,20 28,24 22,28\" fill=\"%234338ca\"/></svg>", 
+			iconClass: "fa-solid fa-cloud", 
+			iconColor: "text-indigo-400", 
+			dockGradient: "from-purple-600 to-indigo-700", 
+			desc: "Play cloud games directly at nowgg.fun", 
+			category: "Gaming", 
+			defaultW: 1040, 
+			defaultH: 700, 
+			inDock: false 
+		}
 	];
 
 	// Main VeilOS Desktop Component
 	function VeilOS() {
 		window.osGlobalInstance = this;
+		this.appsList = APPS;
 		this.windows = [];
 		this.activeWinId = null;
 		this.appsMenuOpen = false;
@@ -781,10 +926,130 @@ window.addEventListener("load", async () => {
 		this.dockOpen = true;
 		this.controlCenterOpen = false;
 		this.isLocked = true; // Login screen on launch
+		this.spotlightOpen = false;
+		this.spotlightQuery = "";
+		this.spotlightSelectedIdx = 0;
+		this.contextMenu = { open: false, x: 0, y: 0 };
+		this.notifications = [];
+		this.soundEffects = (store && store.soundEffects !== undefined) ? store.soundEffects : true;
+		this.desktopWidgetsOpen = (store && store.desktopWidgets !== undefined) ? store.desktopWidgets : true;
+		store.wallpaper = "assets/background.jpg";
+		this.batteryLevel = 100;
+		this.isCharging = true;
+		this.pingMs = 12;
+
+		this.notify = (title, message, icon = "fa-solid fa-bell", type = "info") => {
+			const id = "notif_" + Date.now();
+			this.notifications.push({ id, title, message, icon, type });
+			window.VeilAudio && window.VeilAudio.playPop();
+			this.windows = [...this.windows];
+			setTimeout(() => {
+				this.notifications = this.notifications.filter(n => n.id !== id);
+				this.windows = [...this.windows];
+			}, 3800);
+		};
+		window.veilNotify = this.notify;
+
+		this.openSpotlight = () => {
+			this.spotlightOpen = true;
+			this.spotlightQuery = "";
+			this.spotlightSelectedIdx = 0;
+			this.appsMenuOpen = false;
+			this.startMenuOpen = false;
+			this.controlCenterOpen = false;
+			window.VeilAudio && window.VeilAudio.playClick();
+			this.windows = [...this.windows];
+		};
+
+		this.closeSpotlight = () => {
+			this.spotlightOpen = false;
+			this.windows = [...this.windows];
+		};
+
+		this.snapWindow = (winId, snapType) => {
+			const win = this.windows.find(w => w.id === winId);
+			if (!win) return;
+			const screenW = window.innerWidth;
+			const screenH = window.innerHeight;
+			win.isMinimized = false;
+			if (snapType === "left") {
+				win.isMaximized = false;
+				win.x = 0;
+				win.y = 0;
+				win.w = Math.floor(screenW / 2);
+				win.h = screenH;
+			} else if (snapType === "right") {
+				win.isMaximized = false;
+				win.x = Math.floor(screenW / 2);
+				win.y = 0;
+				win.w = Math.floor(screenW / 2);
+				win.h = screenH;
+			} else if (snapType === "center") {
+				win.isMaximized = false;
+				win.w = Math.min(1080, Math.floor(screenW * 0.8));
+				win.h = Math.min(720, Math.floor(screenH * 0.85));
+				win.x = Math.floor((screenW - win.w) / 2);
+				win.y = Math.floor((screenH - win.h) / 2);
+			} else if (snapType === "maximize") {
+				win.isMaximized = true;
+			}
+			window.VeilAudio && window.VeilAudio.playSnap();
+			this.focusWindow(winId);
+			this.windows.forEach(w => updateWindowStyle(w, this.activeWinId === w.id));
+			this.windows = [...this.windows];
+		};
+
+		this.setWallpaper = () => {
+			store.wallpaper = "assets/background.jpg";
+			this.notify("Wallpaper Set", "Desktop appearance set to default", "fa-solid fa-image");
+			this.windows = [...this.windows];
+		};
+
+		this.evaluateMath = (expr) => {
+			if (!expr || expr.length < 2) return null;
+			const clean = expr.trim();
+			if (!/^[0-9+\-*/().^ %Math.PIEsincostanqrte]+$/.test(clean)) return null;
+			try {
+				const jsExpr = clean.replace(/\^/g, "**");
+				const res = Function('"use strict"; return (' + jsExpr + ')')();
+				if (typeof res === "number" && !isNaN(res) && isFinite(res)) {
+					return Math.round(res * 100000000) / 100000000;
+				}
+			} catch (e) {}
+			return null;
+		};
+
+		// Real-time battery status detector
+		if (typeof navigator !== "undefined" && navigator.getBattery) {
+			navigator.getBattery().then(batt => {
+				const syncBatt = () => {
+					this.batteryLevel = Math.round(batt.level * 100);
+					this.isCharging = batt.charging;
+					this.windows = [...this.windows];
+				};
+				syncBatt();
+				batt.addEventListener("levelchange", syncBatt);
+				batt.addEventListener("chargingchange", syncBatt);
+			}).catch(() => {});
+		}
+
+		// Ping latency monitor
+		const checkPing = async () => {
+			const start = performance.now();
+			try {
+				await fetch("/favicon.webp?t=" + Date.now(), { method: "HEAD", cache: "no-store" });
+				this.pingMs = Math.max(4, Math.round(performance.now() - start));
+			} catch (e) {
+				this.pingMs = Math.floor(10 + Math.random() * 8);
+			}
+		};
+		checkPing();
+		setInterval(checkPing, 20000);
 
 		this.unlockOS = () => {
 			if (this.isUnlocking) return;
 			this.isUnlocking = true;
+			window.VeilAudio && window.VeilAudio.playChime();
 			const lockEl = document.getElementById("veil-lock-screen");
 			if (lockEl) {
 				lockEl.classList.add("animate-lock-unlock");
@@ -819,13 +1084,9 @@ window.addEventListener("load", async () => {
 		// Clock & Day Updater
 		const updateClock = () => {
 			const now = new Date();
-			// Day of week uppercase with spaced letters e.g. "W E D N E S D A Y"
 			const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
 			this.daySpacedStr = dayName.split('').join(' ');
-
-			// Dock Time format e.g. "7:58 PM"
 			this.dockTimeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-			// Dock Date format e.g. "Wed, Sep 2"
 			this.dockDateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 		};
 		updateClock();
@@ -837,7 +1098,25 @@ window.addEventListener("load", async () => {
 				this.unlockOS();
 				return;
 			}
+			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+				e.preventDefault();
+				if (this.spotlightOpen) {
+					this.closeSpotlight();
+				} else {
+					this.openSpotlight();
+				}
+				return;
+			}
 			if (e.key === "Escape") {
+				if (this.spotlightOpen) {
+					this.closeSpotlight();
+					return;
+				}
+				if (this.contextMenu.open) {
+					this.contextMenu.open = false;
+					this.windows = [...this.windows];
+					return;
+				}
 				if (this.appsMenuOpen || this.startMenuOpen || this.controlCenterOpen) {
 					this.appsMenuOpen = false;
 					this.startMenuOpen = false;
@@ -852,15 +1131,6 @@ window.addEventListener("load", async () => {
 						window.triggerCommand(window.sapphire.registry, match.extId, match.name);
 					}
 				} catch (err) {}
-			}
-			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-				e.preventDefault();
-				this.appsMenuOpen = !this.appsMenuOpen;
-				if (this.appsMenuOpen) {
-					this.startMenuOpen = false;
-					this.controlCenterOpen = false;
-				}
-				this.windows = [...this.windows];
 			}
 		});
 
@@ -907,6 +1177,7 @@ window.addEventListener("load", async () => {
 				title: customTitle || appDef.name,
 				iconClass: appDef.iconClass || "fa-solid fa-window-maximize",
 				iconColor: appDef.iconColor || "text-neutral-400",
+				logoUrl: appDef.logoUrl,
 				x: offsetX,
 				y: offsetY,
 				w: defaultW,
@@ -1015,7 +1286,7 @@ window.addEventListener("load", async () => {
 			this.windows = [...this.windows];
 		};
 
-		// Dragging Window Handler
+		// Dragging Window Handler with Edge Snapping
 		let draggingWin = null;
 		let dragOffsetX = 0;
 		let dragOffsetY = 0;
@@ -1023,7 +1294,15 @@ window.addEventListener("load", async () => {
 		this.startDrag = (winId, e) => {
 			if (e.target.closest('button')) return;
 			const win = this.windows.find(w => w.id === winId);
-			if (!win || win.isMaximized) return;
+			if (!win) return;
+			if (win.isMaximized) {
+				win.isMaximized = false;
+				win.w = Math.min(980, window.innerWidth - 80);
+				win.h = Math.min(640, window.innerHeight - 100);
+				win.x = Math.max(0, e.clientX - win.w / 2);
+				win.y = Math.max(0, e.clientY - 20);
+				updateWindowStyle(win, true);
+			}
 
 			this.focusWindow(winId);
 			draggingWin = win;
@@ -1041,9 +1320,15 @@ window.addEventListener("load", async () => {
 				}
 			};
 
-			const onMouseUp = () => {
+			const onMouseUp = (upEv) => {
 				if (draggingWin) {
-					if (draggingWin.domEl) {
+					if (upEv.clientY < 10) {
+						this.snapWindow(draggingWin.id, 'maximize');
+					} else if (upEv.clientX < 10) {
+						this.snapWindow(draggingWin.id, 'left');
+					} else if (upEv.clientX > window.innerWidth - 15) {
+						this.snapWindow(draggingWin.id, 'right');
+					} else if (draggingWin.domEl) {
 						draggingWin.domEl.style.left = draggingWin.x + "px";
 						draggingWin.domEl.style.top = draggingWin.y + "px";
 					}
@@ -1057,16 +1342,84 @@ window.addEventListener("load", async () => {
 			window.addEventListener("mouseup", onMouseUp);
 		};
 
+		// Draggable Resize Grip Handler
+		let resizingWin = null;
+		let resizeStartX = 0;
+		let resizeStartY = 0;
+		let resizeStartW = 0;
+		let resizeStartH = 0;
+
+		this.startResize = (winId, e) => {
+			e.stopPropagation();
+			e.preventDefault();
+			const win = this.windows.find(w => w.id === winId);
+			if (!win || win.isMaximized) return;
+
+			this.focusWindow(winId);
+			resizingWin = win;
+			resizeStartX = e.clientX;
+			resizeStartY = e.clientY;
+			resizeStartW = win.w;
+			resizeStartH = win.h;
+
+			const onMouseMove = (moveEv) => {
+				if (resizingWin) {
+					const newW = Math.max(360, Math.min(window.innerWidth - resizingWin.x, resizeStartW + (moveEv.clientX - resizeStartX)));
+					const newH = Math.max(260, Math.min(window.innerHeight - resizingWin.y, resizeStartH + (moveEv.clientY - resizeStartY)));
+					resizingWin.w = newW;
+					resizingWin.h = newH;
+					if (resizingWin.domEl) {
+						resizingWin.domEl.style.width = newW + "px";
+						resizingWin.domEl.style.height = newH + "px";
+					}
+				}
+			};
+
+			const onMouseUp = () => {
+				resizingWin = null;
+				window.removeEventListener("mousemove", onMouseMove);
+				window.removeEventListener("mouseup", onMouseUp);
+			};
+
+			window.addEventListener("mousemove", onMouseMove);
+			window.addEventListener("mouseup", onMouseUp);
+		};
+
 		return html`
 			<div class="relative w-screen h-screen overflow-hidden select-none font-sans text-white bg-black">
 				
-				<!-- DESKTOP BACKGROUND: assets/background.jpg -->
-				<div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-					<img 
-						src="assets/background.jpg"
-						alt="Desktop Background"
-						class="w-full h-full object-cover pointer-events-none select-none" />
-					<div class="absolute inset-0 bg-black/20 pointer-events-none"></div>
+				<!-- DESKTOP BACKGROUND -->
+				<div class="absolute inset-0 z-0 overflow-hidden"
+					on:contextmenu=${(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						this.contextMenu = {
+							open: true,
+							x: Math.min(window.innerWidth - 220, e.clientX),
+							y: Math.min(window.innerHeight - 340, e.clientY)
+						};
+						this.windows = [...this.windows];
+					}}
+					on:click=${() => {
+						if (this.contextMenu.open) {
+							this.contextMenu.open = false;
+							this.windows = [...this.windows];
+						}
+					}}>
+					${use(this.windows, () => {
+						const wp = (store && store.wallpaper) || "assets/background.jpg";
+						if (wp === "gradient") {
+							return html`<div class="w-full h-full bg-gradient-to-br from-indigo-950 via-neutral-950 to-black"></div>`;
+						}
+						return html`
+							<img 
+								src="${wp}"
+								alt="Desktop Background"
+								onerror="this.src='assets/background.jpg'"
+								class="w-full h-full object-cover pointer-events-none select-none" />
+						`;
+					})}
+					<div class="absolute inset-0 bg-black/25 pointer-events-none"></div>
 				</div>
 
 				<!-- Subtle Screen Ambient Vignette -->
@@ -1077,6 +1430,54 @@ window.addEventListener("load", async () => {
 					<h1 class="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extralight tracking-[0.35em] text-white/90 drop-shadow-[0_12px_24px_rgba(0,0,0,0.85)] font-sans uppercase">
 						${use(this.daySpacedStr)}
 					</h1>
+				</div>
+
+				<!-- TOP RIGHT DESKTOP SYSTEM WIDGET -->
+				${use(this.desktopWidgetsOpen, (isOpen) => {
+					if (!isOpen) return null;
+					return html`
+						<div class="fixed top-4 right-4 z-20 hidden md:flex items-center gap-3 px-3.5 py-2 rounded-2xl bg-black/55 border border-white/10 backdrop-blur-xl shadow-xl text-neutral-300 font-sans pointer-events-auto">
+							<div class="flex items-center gap-1.5 text-xs font-mono" title="Battery: ${this.batteryLevel}% ${this.isCharging ? '(Charging)' : ''}">
+								<i class="fa-solid ${this.isCharging ? 'fa-battery-bolt text-emerald-400' : (this.batteryLevel < 20 ? 'fa-battery-quarter text-rose-400' : 'fa-battery-three-quarters text-neutral-300')} text-xs"></i>
+								<span>${this.batteryLevel}%</span>
+							</div>
+							<div class="w-px h-3.5 bg-white/15"></div>
+							<div class="flex items-center gap-1.5 text-xs font-mono text-emerald-400" title="Network Latency: ${this.pingMs}ms">
+								<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+								<span>${this.pingMs}ms</span>
+							</div>
+							<div class="w-px h-3.5 bg-white/15"></div>
+							<button class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-white flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+								on:click=${() => this.openSpotlight()} title="Quick Search (⌘K)">
+								<i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+								<span class="font-mono text-[10px]">⌘K</span>
+							</button>
+						</div>
+					`;
+				})}
+
+				<!-- NOTIFICATION TOAST CONTAINER -->
+				<div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full">
+					${use(this.windows, () => {
+						return this.notifications.map(notif => html`
+							<div class="pointer-events-auto p-3.5 rounded-2xl bg-neutral-900/95 border border-white/20 backdrop-blur-2xl shadow-2xl text-white flex items-center gap-3 animate-toast">
+								<div class="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-sm shrink-0">
+									<i class="${notif.icon || 'fa-solid fa-bell'}"></i>
+								</div>
+								<div class="flex-1 min-w-0">
+									<div class="text-xs font-bold text-white truncate">${notif.title}</div>
+									<div class="text-[11px] text-neutral-300 truncate">${notif.message}</div>
+								</div>
+								<button class="w-5 h-5 rounded-md hover:bg-white/10 text-neutral-400 hover:text-white flex items-center justify-center text-xs cursor-pointer"
+									on:click=${() => {
+										this.notifications = this.notifications.filter(n => n.id !== notif.id);
+										this.windows = [...this.windows];
+									}}>
+									<i class="fa-solid fa-xmark"></i>
+								</button>
+							</div>
+						`);
+					})}
 				</div>
 
 				<!-- WINDOWS LAYER (STABLE PERSISTENT DOM CONTAINER) -->
@@ -1210,216 +1611,181 @@ window.addEventListener("load", async () => {
 					</div>
 				</div>
 
-				<!-- APPS MENU (Dedicated menu with apps, opened from the Apps Dock Button) -->
-				<div class="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 w-96 max-w-[92vw] max-h-[78vh] bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu overflow-hidden"
-					style=${use(this.windows, () => {
-						const active = this.windows.find(w => w.id === this.activeWinId);
-						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
-						const disp = this.appsMenuOpen ? "display: flex;" : "display: none;";
-						return `${disp} font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;`;
-					})}>
-
-					<!-- Header: Title & Close Button -->
-					<div class="flex items-center justify-between px-1 pb-1 border-b border-white/10">
-						<div class="flex items-center gap-2">
-							<div class="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 border border-indigo-400/40 flex items-center justify-center text-xs text-white shadow-sm">
-								<i class="fa-solid fa-shapes"></i>
-							</div>
-							<div class="flex flex-col">
-								<span class="text-xs font-bold text-white tracking-tight uppercase">Apps Bar</span>
-								<span class="text-[10px] text-neutral-400 font-medium">System Applications & Tools</span>
-							</div>
-						</div>
-						<button class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-400 hover:text-white text-xs flex items-center justify-center cursor-pointer transition-colors"
-							on:click=${(e) => { e.stopPropagation(); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Close">
-							<i class="fa-solid fa-xmark"></i>
-						</button>
-					</div>
-
-					<!-- Quick App Launcher Grid -->
-					${use(this.searchQuery, (q) => {
-						if (q && q.trim()) return null;
-						return html`
-							<div class="flex flex-col gap-2 pt-0.5">
-								<div class="flex items-center justify-between px-1">
-									<span class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Quick Launcher</span>
-									<span class="text-[9px] font-semibold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full border border-indigo-500/30">${APPS.length} Apps</span>
-								</div>
-								<div class="grid grid-cols-4 gap-2">
-									${APPS.map(app => html`
-										<button class="p-2 bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/25 rounded-2xl flex flex-col items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer group relative"
-											on:click=${() => { this.openApp(app.id); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="${app.name} - ${app.desc}">
-											<div class="w-10 h-10 rounded-2xl bg-gradient-to-br ${app.dockGradient} flex items-center justify-center shadow-md border border-white/20 group-hover:shadow-indigo-500/25 group-hover:scale-105 transition-all">
-												<i class="${app.iconClass} text-lg text-white drop-shadow-md"></i>
-											</div>
-											<span class="text-[10px] font-semibold text-neutral-300 group-hover:text-white truncate w-full text-center leading-tight">${app.name}</span>
-											${use(this.windows, (winList) => winList.some(w => w.appId === app.id) ? html`<div class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-neutral-950 animate-pulse"></div>` : null)}
-										</button>
-									`)}
-								</div>
-							</div>
-						`;
-					})}
-
-					<!-- Search input with real-time app filtering -->
-					<div class="relative w-full">
-						<input class="w-full bg-white/5 border border-white/10 rounded-2xl pl-8 pr-12 py-2 text-xs text-white placeholder-neutral-400 outline-none focus:border-indigo-400 font-sans transition-all"
-							placeholder="Search applications by name or category..."
-							bind:value=${use(this.searchQuery)}
-							on:input=${(e) => { this.searchQuery = e.target.value; this.windows = [...this.windows]; }}
-							on:keydown=${(e) => {
-								if (e.key === "Enter") {
-									const q = (this.searchQuery || "").toLowerCase().trim();
-									const match = APPS.find(a => a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)) || APPS[0];
-									if (match) {
-										this.openApp(match.id);
-										this.appsMenuOpen = false;
-										this.windows = [...this.windows];
-									}
-								}
-							}}></input>
-						<i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-[11px] text-neutral-400"></i>
-						<span class="absolute right-3 top-2 text-[10px] text-neutral-400 bg-white/10 px-1.5 py-0.5 rounded-md font-mono">↵</span>
-					</div>
-
-					<!-- ALL APPLICATIONS DETAILED LIST -->
-					<div class="flex flex-col gap-1.5 overflow-y-auto max-h-52 pr-1 custom-scrollbar">
-						${use(this.windows, () => {
-							const q = (this.searchQuery || "").toLowerCase().trim();
-							const filteredApps = APPS.filter(a => !q || a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q) || a.category.toLowerCase().includes(q));
-							
-							if (filteredApps.length === 0) {
-								return html`
-									<div class="py-6 text-center text-xs text-neutral-400 flex flex-col items-center gap-1">
-										<i class="fa-solid fa-magnifying-glass text-lg opacity-40"></i>
-										<span>No applications matching "${this.searchQuery}"</span>
-									</div>
-								`;
-							}
-
-							return filteredApps.map(app => {
-								const isOpen = this.windows.some(w => w.appId === app.id);
-								return html`
-									<div class="flex items-center gap-3 p-2 rounded-2xl hover:bg-white/10 active:scale-[0.99] cursor-pointer transition-all border border-transparent hover:border-white/10 group"
-										on:click=${() => {
-											this.openApp(app.id);
-											this.appsMenuOpen = false;
-											this.windows = [...this.windows];
-										}}>
-										<div class="w-9 h-9 rounded-xl bg-gradient-to-br ${app.dockGradient} border border-white/20 flex items-center justify-center text-base shrink-0 transition-all group-hover:scale-110 shadow-md">
-											<i class="${app.iconClass} text-white drop-shadow-md"></i>
-										</div>
-										<div class="flex flex-col min-w-0 flex-1">
-											<div class="flex items-center justify-between gap-1">
-												<span class="text-xs font-semibold text-neutral-100 truncate group-hover:text-white transition-colors">${app.name}</span>
-												<span class="text-[9px] font-medium text-neutral-400 bg-white/5 px-1.5 py-0.5 rounded-md shrink-0 border border-white/5">${app.category}</span>
-											</div>
-											<span class="text-[10px] text-neutral-400 truncate mt-0.5">${app.desc}</span>
-										</div>
-										<div class="shrink-0 flex items-center pr-1">
-											${isOpen ? html`
-												<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-sm animate-pulse" title="Running"></span>
-											` : html`
-												<i class="fa-solid fa-chevron-right text-[10px] text-neutral-500 group-hover:text-neutral-300 group-hover:translate-x-0.5 transition-all"></i>
-											`}
-										</div>
-									</div>
-								`;
-							});
-						})}
-					</div>
-				</div>
-
 				<!-- FLOATING DOCK (Centered Glass Pill at Bottom) -->
-				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-2 bg-black/75 border border-white/15 rounded-3xl shadow-2xl backdrop-blur-2xl text-white max-w-[95vw] overflow-x-auto transition-all"
+				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-2 bg-black/75 border border-white/15 rounded-3xl shadow-2xl backdrop-blur-2xl text-white max-w-[96vw] overflow-visible transition-all"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
 						return this.dockOpen ? "display: flex;" : "display: none;";
 					})}>
 
-					<!-- Left Apps Button -> Dedicated Applications Bar / Menu -->
-					<button class="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500/80 to-purple-600/80 border border-indigo-400/40 hover:from-indigo-500 hover:to-purple-600 active:scale-95 transition-all flex items-center justify-center text-sm font-bold text-white cursor-pointer shrink-0 dock-icon-anim shadow-md group"
+					<!-- Left Apps Button Container (Apps Menu pops up directly ABOVE the button) -->
+					<div class="relative shrink-0">
+						<button class="w-9 h-9 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center cursor-pointer shrink-0 dock-icon-anim border border-white/10"
+							on:click=${(e) => {
+								e.stopPropagation();
+								this.appsMenuOpen = !this.appsMenuOpen;
+								if (this.appsMenuOpen) {
+									this.startMenuOpen = false;
+									this.controlCenterOpen = false;
+								}
+								this.windows = [...this.windows];
+							}} title="Applications Menu">
+							<img src="favicon.webp" alt="VeilOS" class="w-5 h-5 rounded-lg object-contain pointer-events-none" />
+						</button>
+
+						<!-- APPS BAR MENU: Pops up directly ABOVE the button -->
+						<div class="absolute bottom-full mb-3 left-0 z-50 w-80 max-w-[92vw] max-h-[75vh] bg-neutral-950/98 border border-white/20 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu overflow-hidden pointer-events-auto"
+							style=${use(this.windows, () => {
+								const active = this.windows.find(w => w.id === this.activeWinId);
+								if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
+								const disp = this.appsMenuOpen ? "display: flex;" : "display: none;";
+								return `${disp} font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;`;
+							})}
+							on:click=${(e) => e.stopPropagation()}>
+
+							<!-- Header: Title & Close Button -->
+							<div class="flex items-center justify-between px-1 pb-1 border-b border-white/10">
+								<div class="flex items-center gap-2">
+									<div class="w-6 h-6 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs text-indigo-300">
+										<i class="fa-solid fa-shapes"></i>
+									</div>
+									<span class="text-xs font-bold text-white tracking-tight uppercase">Applications</span>
+								</div>
+								<button class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-400 hover:text-white text-xs flex items-center justify-center cursor-pointer transition-colors"
+									on:click=${(e) => { e.stopPropagation(); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Close">
+									<i class="fa-solid fa-xmark"></i>
+								</button>
+							</div>
+
+							<!-- Search input with real-time app filtering -->
+							<div class="relative w-full">
+								<input class="w-full bg-white/5 border border-white/10 rounded-2xl pl-8 pr-12 py-2 text-xs text-white placeholder-neutral-400 outline-none focus:border-indigo-400 font-sans transition-all"
+									placeholder="Search applications..."
+									bind:value=${use(this.searchQuery)}
+									on:input=${(e) => { this.searchQuery = e.target.value; this.windows = [...this.windows]; }}
+									on:keydown=${(e) => {
+										if (e.key === "Enter") {
+											const q = (this.searchQuery || "").toLowerCase().trim();
+											const match = APPS.find(a => a.name.toLowerCase().includes(q)) || APPS[0];
+											if (match) {
+												this.openApp(match.id);
+												this.appsMenuOpen = false;
+												this.windows = [...this.windows];
+											}
+										}
+									}}></input>
+								<i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-[11px] text-neutral-400"></i>
+								<span class="absolute right-3 top-2 text-[10px] text-neutral-400 bg-white/10 px-1.5 py-0.5 rounded-md font-mono">↵</span>
+							</div>
+
+							<!-- APPLICATIONS LIST -->
+							<div class="flex flex-col gap-1 overflow-y-auto max-h-60 pr-1 custom-scrollbar">
+								${use(this.windows, () => {
+									const q = (this.searchQuery || "").toLowerCase().trim();
+									const filteredApps = APPS.filter(a => !q || a.name.toLowerCase().includes(q));
+									
+									if (filteredApps.length === 0) {
+										return html`
+											<div class="py-4 text-center text-xs text-neutral-500">
+												No applications matching "${this.searchQuery}"
+											</div>
+										`;
+									}
+
+									return filteredApps.map(app => html`
+										<div class="flex items-center gap-3 px-3 py-2 rounded-2xl hover:bg-white/10 active:scale-[0.99] cursor-pointer transition-all border border-transparent hover:border-white/10 group"
+											on:click=${() => {
+												this.openApp(app.id);
+												this.appsMenuOpen = false;
+												this.windows = [...this.windows];
+											}}>
+											<div class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-sm shrink-0 transition-all group-hover:scale-105 shadow-sm overflow-hidden p-0.5">
+												${app.logoUrl ? html`
+													<img src="${app.logoUrl}" alt="${app.name}" class="w-6 h-6 object-contain pointer-events-none rounded-lg" />
+												` : html`
+													<i class="${app.iconClass} text-white"></i>
+												`}
+											</div>
+											<div class="flex flex-col min-w-0 flex-1">
+												<span class="text-xs font-semibold text-white truncate">${app.name}</span>
+												<span class="text-[10px] text-neutral-400 truncate">${app.desc}</span>
+											</div>
+										</div>
+									`);
+								})}
+							</div>
+						</div>
+					</div>
+
+					<!-- Spotlight Search Button -->
+					<button class="w-9 h-9 rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/30 active:scale-95 transition-all flex items-center justify-center text-indigo-300 hover:text-white cursor-pointer shrink-0 dock-icon-anim"
 						on:click=${(e) => {
 							e.stopPropagation();
-							this.appsMenuOpen = !this.appsMenuOpen;
-							if (this.appsMenuOpen) {
-								this.startMenuOpen = false;
-								this.controlCenterOpen = false;
-							}
-							this.windows = [...this.windows];
-						}} title="Apps Bar">
-						<i class="fa-solid fa-shapes text-sm group-hover:rotate-12 transition-transform"></i>
+							this.openSpotlight();
+						}} title="Quick Search & Commands (⌘K)">
+						<i class="fa-solid fa-magnifying-glass text-xs"></i>
 					</button>
 
-					<div class="w-px h-6 bg-white/15 shrink-0"></div>
+					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
 
-					<!-- Dock Application Badges (Default 4 Apps) -->
+					<!-- Dock Application Badges with Logos and Custom Hover Name Modals -->
 					<div class="flex items-center gap-2 shrink-0">
-						<!-- 1. Onyx Browser Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20"
-							on:click=${() => this.openApp("browser")} title="Onyx Browser">
-							<i class="fa-solid fa-compass text-lg text-white drop-shadow-md"></i>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "browser") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm animate-pulse"></div>` : null)}
-						</div>
-
-						<!-- 2. Onyx Chat Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20"
-							on:click=${() => this.openApp("chat")} title="Onyx Chat">
-							<i class="fa-solid fa-comments text-lg text-white drop-shadow-md"></i>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "chat") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm animate-pulse"></div>` : null)}
-						</div>
-
-						<!-- 3. Scenario Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20"
-							on:click=${() => this.openApp("ai")} title="Scenario">
-							<i class="fa-solid fa-wand-magic-sparkles text-lg text-white drop-shadow-md"></i>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "ai") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm animate-pulse"></div>` : null)}
-						</div>
-
-						<!-- 4. SSV Movies Badge -->
-						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-600 via-purple-700 to-indigo-800 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20"
-							on:click=${() => this.openApp("movies")} title="SSV Movies & TV (Proxied)">
-							<i class="fa-solid fa-film text-lg text-white drop-shadow-md"></i>
-							${use(this.windows, (winList) => winList.some(w => w.appId === "movies") ? html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm animate-pulse"></div>` : null)}
-						</div>
-
-						<!-- Other Running Apps Dynamically Displayed in Bar When Open -->
-						${use(this.windows, (winList) => {
-							const otherRunning = ["vault", "games", "cloudgaming"].filter(id => winList.some(w => w.appId === id));
-							if (otherRunning.length === 0) return null;
+						${APPS.filter(app => app.inDock).map(app => {
 							return html`
-								<div class="w-px h-5 bg-white/15 mx-0.5 shrink-0"></div>
-								${otherRunning.map(appId => {
-									const appMeta = APPS.find(a => a.id === appId);
-									if (!appMeta) return null;
-									let grad = "from-neutral-700 to-neutral-800";
-									if (appId === "vault") grad = "from-rose-500 via-indigo-600 to-cyan-500";
-									if (appId === "games") grad = "from-violet-600 to-purple-800";
-									if (appId === "cloudgaming") grad = "from-purple-600 to-indigo-700";
-									return html`
-										<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br ${grad} dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20 animate-fade"
-											on:click=${() => this.openApp(appId)} title="${appMeta.name}">
-											<i class="${appMeta.iconClass} text-lg text-white drop-shadow-md"></i>
-											<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm animate-pulse"></div>
+								<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20 transition-all hover:scale-105"
+									on:click=${() => this.openApp(app.id)}>
+									
+									<!-- Custom Hover Name Modal (Floating tooltip pill above app) -->
+									<div class="absolute -top-11 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center pointer-events-none z-50 animate-fade">
+										<div class="px-2.5 py-1 rounded-xl bg-neutral-900/98 border border-white/20 backdrop-blur-2xl shadow-2xl text-white text-xs font-semibold whitespace-nowrap flex items-center gap-1.5">
+											<span>${app.name}</span>
 										</div>
-									`;
-								})}
+										<div class="w-2 h-2 bg-neutral-900 border-b border-r border-white/20 rotate-45 -mt-1"></div>
+									</div>
+
+									<!-- App Logo -->
+									${app.logoUrl ? html`
+										<img src="${app.logoUrl}" alt="${app.name}" class="w-7 h-7 rounded-xl object-contain drop-shadow-md pointer-events-none select-none" />
+									` : html`
+										<i class="${app.iconClass} text-lg text-white drop-shadow-md"></i>
+									`}
+
+									<!-- Active Running App Indicator Dot -->
+									${use(this.windows, (winList) => {
+										const isOpen = winList.some(w => w.appId === app.id);
+										const isActive = winList.some(w => w.appId === app.id && w.id === this.activeWinId);
+										if (!isOpen) return null;
+										return html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-sky-400 shadow-[0_0_8px_#38bdf8]' : 'bg-white/80'} shadow-sm"></div>`;
+									})}
+								</div>
 							`;
 						})}
 					</div>
 
-					<div class="w-px h-6 bg-white/15 shrink-0"></div>
+					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
 
-					<!-- Right end: Clock & Date Display inside Dock (Decoupled from controls) -->
-					<div class="flex flex-col items-end shrink-0 pl-1 font-sans select-none pointer-events-none">
-						<span class="text-xs sm:text-sm font-bold tracking-tight text-white leading-none">${use(this.dockTimeStr)}</span>
-						<span class="text-[10px] text-neutral-400 font-medium leading-tight mt-0.5">${use(this.dockDateStr)}</span>
+					<!-- Right end: Full Taskbar Time & Control Center Widget -->
+					<div class="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-white font-sans select-none cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group/time shrink-0"
+						on:click=${() => {
+							this.controlCenterOpen = !this.controlCenterOpen;
+							this.startMenuOpen = false;
+							this.appsMenuOpen = false;
+							this.windows = [...this.windows];
+						}} title="Control Center & System Settings">
+						<div class="w-6 h-6 rounded-lg bg-indigo-500/25 border border-indigo-400/30 flex items-center justify-center text-indigo-300 group-hover/time:text-white transition-colors">
+							<i class="fa-regular fa-clock text-xs"></i>
+						</div>
+						<div class="flex flex-col items-start leading-tight">
+							<span class="text-xs sm:text-sm font-bold tracking-tight text-white leading-none">${use(this.dockTimeStr)}</span>
+							<span class="text-[10px] text-neutral-400 font-medium leading-tight mt-0.5">${use(this.dockDateStr)}</span>
+						</div>
+						<i class="fa-solid fa-sliders text-[10px] text-neutral-400 group-hover/time:text-indigo-400 transition-colors ml-0.5"></i>
 					</div>
 				</div>
 
-				<!-- CONTROL CENTER FLYOUT POPUP (Clean: No fake CPU/RAM usage) -->
-				<div class="fixed bottom-16 right-6 z-50 w-72 bg-neutral-950/92 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu"
+				<!-- CONTROL CENTER FLYOUT POPUP -->
+				<div class="fixed bottom-16 right-6 z-50 w-80 bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu"
 					style=${use(this.controlCenterOpen, (open) => open ? "display: flex;" : "display: none;")}>
 					<div class="flex items-center justify-between">
 						<div class="text-xs font-bold text-neutral-200 uppercase tracking-wider flex items-center gap-1.5">
@@ -1432,55 +1798,277 @@ window.addEventListener("load", async () => {
 						</button>
 					</div>
 
+					<!-- Toggles: Sound Effects & Desktop Widget with clear ON/OFF visual indicators -->
 					<div class="flex flex-col gap-2">
-						<button class="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors cursor-pointer text-left"
+						${use(this.soundEffects, (on) => {
+							return html`
+								<button class="w-full p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${on ? 'bg-emerald-500/15 border-emerald-500/40 text-white shadow-[0_0_12px_rgba(16,185,129,0.15)]' : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'}"
+									on:click=${() => {
+										this.soundEffects = !this.soundEffects;
+										store.soundEffects = this.soundEffects;
+										if (this.soundEffects && window.VeilAudio) window.VeilAudio.playClick();
+										this.windows = [...this.windows];
+									}}>
+									<div class="flex items-center gap-2.5">
+										<div class="w-8 h-8 rounded-xl ${on ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-neutral-400'} flex items-center justify-center">
+											<i class="fa-solid ${on ? 'fa-volume-high' : 'fa-volume-xmark'} text-sm"></i>
+										</div>
+										<div class="flex flex-col text-left">
+											<span class="text-xs font-semibold text-white">Sound Effects</span>
+											<span class="text-[10px] ${on ? 'text-emerald-400 font-bold' : 'text-neutral-400 font-medium'}">${on ? 'System Audio Active' : 'Muted'}</span>
+										</div>
+									</div>
+									<div class="flex items-center gap-2">
+										<span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${on ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}">${on ? 'ON' : 'OFF'}</span>
+										<div class="w-9 h-5 rounded-full p-0.5 transition-colors duration-200 flex items-center ${on ? 'bg-emerald-500 justify-end' : 'bg-neutral-700 justify-start'}">
+											<div class="w-4 h-4 rounded-full bg-white shadow-md"></div>
+										</div>
+									</div>
+								</button>
+							`;
+						})}
+
+						${use(this.desktopWidgetsOpen, (on) => {
+							return html`
+								<button class="w-full p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${on ? 'bg-sky-500/15 border-sky-500/40 text-white shadow-[0_0_12px_rgba(14,165,233,0.15)]' : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'}"
+									on:click=${() => {
+										this.desktopWidgetsOpen = !this.desktopWidgetsOpen;
+										store.desktopWidgets = this.desktopWidgetsOpen;
+										if (this.soundEffects && window.VeilAudio) window.VeilAudio.playClick();
+										this.windows = [...this.windows];
+									}}>
+									<div class="flex items-center gap-2.5">
+										<div class="w-8 h-8 rounded-xl ${on ? 'bg-sky-500/20 text-sky-400' : 'bg-white/10 text-neutral-400'} flex items-center justify-center">
+											<i class="fa-solid fa-cubes text-sm"></i>
+										</div>
+										<div class="flex flex-col text-left">
+											<span class="text-xs font-semibold text-white">Desktop Widget</span>
+											<span class="text-[10px] ${on ? 'text-sky-400 font-bold' : 'text-neutral-400 font-medium'}">${on ? 'Battery & Ping Visible' : 'Hidden'}</span>
+										</div>
+									</div>
+									<div class="flex items-center gap-2">
+										<span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${on ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}">${on ? 'ON' : 'OFF'}</span>
+										<div class="w-9 h-5 rounded-full p-0.5 transition-colors duration-200 flex items-center ${on ? 'bg-sky-500 justify-end' : 'bg-neutral-700 justify-start'}">
+											<div class="w-4 h-4 rounded-full bg-white shadow-md"></div>
+										</div>
+									</div>
+								</button>
+							`;
+						})}
+					</div>
+
+					<div class="h-px bg-white/10 my-0.5"></div>
+
+					<div class="flex flex-col gap-1.5">
+						<button class="flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors cursor-pointer text-left"
 							on:click=${() => {
 								this.controlCenterOpen = false;
 								this.windows = [...this.windows];
 								window.openSettingsModal();
 							}}>
 							<div class="flex items-center gap-2">
-								<i class="fa-solid fa-gear text-indigo-400"></i>
-								<span class="font-medium">System Preferences</span>
+								<i class="fa-solid fa-gear text-indigo-400 text-xs"></i>
+								<span class="font-medium text-xs">System Preferences</span>
 							</div>
 							<i class="fa-solid fa-chevron-right text-[10px] text-neutral-400"></i>
 						</button>
 
-						<button class="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors cursor-pointer text-left"
+						<button class="flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors cursor-pointer text-left"
 							on:click=${() => {
 								this.isLocked = true;
 								this.controlCenterOpen = false;
 								this.windows = [...this.windows];
 							}}>
 							<div class="flex items-center gap-2">
-								<i class="fa-solid fa-lock text-amber-400"></i>
-								<span class="font-medium">Lock Screen</span>
+								<i class="fa-solid fa-lock text-amber-400 text-xs"></i>
+								<span class="font-medium text-xs">Lock Screen</span>
 							</div>
 							<i class="fa-solid fa-chevron-right text-[10px] text-neutral-400"></i>
 						</button>
 					</div>
 
-					<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-1">Stealth Launchers</div>
 					<div class="grid grid-cols-2 gap-1.5">
-						<button class="py-2 px-2 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+						<button class="py-1.5 px-2 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
 							on:click=${() => { if (window.openAboutBlankCloak) window.openAboutBlankCloak(); }}>
 							<i class="fa-solid fa-arrow-up-right-from-square"></i>
 							<span>About:Blank</span>
 						</button>
-						<button class="py-2 px-2 bg-teal-950/60 hover:bg-teal-900/80 border border-teal-500/40 rounded-xl text-teal-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+						<button class="py-1.5 px-2 bg-teal-950/60 hover:bg-teal-900/80 border border-teal-500/40 rounded-xl text-teal-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
 							on:click=${() => { if (window.openBlobCloak) window.openBlobCloak(); }}>
 							<i class="fa-solid fa-cube"></i>
 							<span>Blob Cloak</span>
 						</button>
 					</div>
 
-					<div class="h-px bg-white/10"></div>
-					<button class="w-full py-2 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/50 rounded-2xl text-rose-300 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+					<button class="w-full py-2 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/50 rounded-2xl text-rose-300 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm mt-1"
 						on:click=${() => location.reload()}>
 						<i class="fa-solid fa-rotate-right"></i>
 						<span>Restart VeilOS</span>
 					</button>
 				</div>
+
+				<!-- SPOTLIGHT COMMAND PALETTE MODAL (⌘K / Ctrl+K) -->
+				${use(this.windows, () => {
+					if (!this.spotlightOpen) return null;
+					const q = (this.spotlightQuery || "").trim().toLowerCase();
+					const mathRes = this.evaluateMath(this.spotlightQuery);
+					const filteredApps = APPS.filter(a => !q || a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q) || a.id.toLowerCase().includes(q));
+
+					return html`
+						<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade"
+							on:click=${(e) => {
+								if (e.target === e.currentTarget) this.closeSpotlight();
+							}}>
+							<div class="w-full max-w-xl bg-neutral-900/95 border border-white/20 rounded-3xl shadow-2xl backdrop-blur-3xl overflow-hidden flex flex-col animate-spotlight m-auto self-center">
+								<!-- Search Input Row -->
+								<div class="flex items-center px-4 py-3.5 border-b border-white/10 gap-3">
+									<i class="fa-solid fa-magnifying-glass text-indigo-400 text-base"></i>
+									<input id="spotlight-input"
+										class="flex-1 bg-transparent text-white placeholder-neutral-400 outline-none text-sm font-sans"
+										placeholder="Search apps or type a web address..."
+										bind:value=${use(this.spotlightQuery)}
+										on:input=${(e) => { this.spotlightQuery = e.target.value; this.windows = [...this.windows]; }}
+										on:keydown=${(e) => {
+											if (e.key === "Escape") {
+												this.closeSpotlight();
+											} else if (e.key === "Enter") {
+												if (mathRes !== null) {
+													navigator.clipboard.writeText("" + mathRes);
+													this.notify("Copied", `Result ${mathRes} copied to clipboard`, "fa-solid fa-check");
+													this.closeSpotlight();
+												} else if (filteredApps.length > 0) {
+													this.openApp(filteredApps[0].id);
+													this.closeSpotlight();
+												} else if (this.spotlightQuery) {
+													this.openApp("browser", "Search", { url: this.spotlightQuery });
+													this.closeSpotlight();
+												}
+											}
+										}} autofocus />
+									<span class="text-[10px] text-neutral-400 font-mono bg-white/10 px-2 py-1 rounded-md">ESC to close</span>
+								</div>
+
+								<!-- Live Math Evaluation Card -->
+								${mathRes !== null ? html`
+									<div class="m-3 p-3 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-between">
+										<div class="flex items-center gap-2.5">
+											<i class="fa-solid fa-calculator text-indigo-300"></i>
+											<span class="text-xs text-neutral-300">${this.spotlightQuery} =</span>
+											<span class="text-base font-bold font-mono text-white">${mathRes}</span>
+										</div>
+										<button class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer"
+											on:click=${() => {
+												navigator.clipboard.writeText("" + mathRes);
+												this.notify("Copied", "Result copied to clipboard", "fa-solid fa-check");
+											}}>
+											Copy
+										</button>
+									</div>
+								` : null}
+
+								<!-- Results List -->
+								<div class="max-h-72 overflow-y-auto custom-scrollbar p-2 flex flex-col gap-1">
+									<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-3 py-1">Applications (${filteredApps.length})</div>
+									${filteredApps.map((app, idx) => html`
+										<div class="flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-white/10 active:scale-[0.99] cursor-pointer transition-colors group"
+											on:click=${() => {
+												this.openApp(app.id);
+												this.closeSpotlight();
+											}}>
+											<div class="flex items-center gap-3">
+												<div class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white text-sm shadow-sm group-hover:scale-105 transition-transform overflow-hidden p-0.5">
+													<img src="${app.logoUrl || 'favicon.webp'}" alt="${app.name}" class="w-6 h-6 object-contain pointer-events-none rounded-lg" />
+												</div>
+												<div class="flex flex-col">
+													<span class="text-xs font-semibold text-white">${app.name}</span>
+													<span class="text-[11px] text-neutral-400">${app.desc}</span>
+												</div>
+											</div>
+											<span class="text-[10px] text-neutral-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity">Press ↵</span>
+										</div>
+									`)}
+
+									<!-- Web search option if typed query -->
+									${this.spotlightQuery ? html`
+										<div class="flex items-center justify-between px-3 py-2.5 mt-1 rounded-2xl bg-white/5 hover:bg-white/10 cursor-pointer border border-white/5"
+											on:click=${() => {
+												this.openApp("browser", "Search", { url: this.spotlightQuery });
+												this.closeSpotlight();
+											}}>
+											<div class="flex items-center gap-3">
+												<i class="fa-solid fa-globe text-sky-400 text-base"></i>
+												<span class="text-xs text-neutral-200">Search web for "<span class="font-bold text-white">${this.spotlightQuery}</span>"</span>
+											</div>
+											<span class="text-[10px] text-sky-400 font-semibold">Browse ↵</span>
+										</div>
+									` : null}
+								</div>
+							</div>
+						</div>
+					`;
+				})}
+
+				<!-- DESKTOP RIGHT-CLICK CONTEXT MENU -->
+				${use(this.windows, () => {
+					if (!this.contextMenu.open) return null;
+					return html`
+						<div class="fixed z-50 w-52 bg-neutral-900/95 border border-white/20 rounded-2xl p-1.5 shadow-2xl backdrop-blur-2xl text-white font-sans text-xs flex flex-col gap-0.5 animate-context-menu"
+							style="top: ${this.contextMenu.y}px; left: ${this.contextMenu.x}px;"
+							on:click=${(e) => e.stopPropagation()}>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.openSpotlight(); }}>
+								<i class="fa-solid fa-magnifying-glass text-indigo-400 w-4"></i>
+								<span>Spotlight (⌘K)</span>
+							</button>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.openApp("browser"); }}>
+								<i class="fa-solid fa-compass text-sky-400 w-4"></i>
+								<span>New Browser Window</span>
+							</button>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.openApp("activity"); }}>
+								<i class="fa-solid fa-chart-line text-rose-400 w-4"></i>
+								<span>Task Manager</span>
+							</button>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.openApp("terminal"); }}>
+								<i class="fa-solid fa-terminal text-emerald-400 w-4"></i>
+								<span>Veil Terminal</span>
+							</button>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.openApp("files"); }}>
+								<i class="fa-solid fa-folder-open text-amber-400 w-4"></i>
+								<span>Veil Files</span>
+							</button>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.openApp("ai"); }}>
+								<i class="fa-solid fa-wand-magic-sparkles text-purple-400 w-4"></i>
+								<span>Scenario AI</span>
+							</button>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.openApp("chat"); }}>
+								<i class="fa-solid fa-comments text-emerald-400 w-4"></i>
+								<span>Onyx Chat</span>
+							</button>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.openApp("music"); }}>
+								<i class="fa-solid fa-music text-cyan-400 w-4"></i>
+								<span>Sonora Music</span>
+							</button>
+							<div class="h-px bg-white/10 my-1"></div>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; window.openSettingsModal(); }}>
+								<i class="fa-solid fa-gear text-neutral-400 w-4"></i>
+								<span>Preferences</span>
+							</button>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-rose-300 hover:text-rose-200 transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.isLocked = true; this.windows = [...this.windows]; }}>
+								<i class="fa-solid fa-lock text-rose-400 w-4"></i>
+								<span>Lock Screen</span>
+							</button>
+						</div>
+					`;
+				})}
 
 				<!-- LOGIN / LOCK SCREEN (Shown on launch & when system locked) -->
 				<div id="veil-lock-screen" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-between p-6 sm:p-10 text-white font-sans animate-fade select-none overflow-hidden"
@@ -1623,7 +2211,7 @@ window.addEventListener("load", async () => {
 					on:mousedown=${(e) => osInstance.startDrag(win.id, e)}
 					on:dblclick=${(e) => osInstance.toggleMaximize(win.id, e)}>
 					
-					<!-- Traffic Light Controls -->
+					<!-- Traffic Light Controls with Snap Assist Popover -->
 					<div class="flex items-center gap-2">
 						<button class="w-3.5 h-3.5 rounded-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 transition-colors flex items-center justify-center text-[8px] text-rose-950 font-bold cursor-pointer"
 							on:mousedown=${(e) => e.stopPropagation()}
@@ -1635,16 +2223,53 @@ window.addEventListener("load", async () => {
 							on:click=${(e) => osInstance.minimizeWindow(win.id, e)} title="Minimize">
 							<i class="fa-solid fa-minus"></i>
 						</button>
-						<button class="w-3.5 h-3.5 rounded-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 transition-colors flex items-center justify-center text-[8px] text-emerald-950 font-bold cursor-pointer"
-							on:mousedown=${(e) => e.stopPropagation()}
-							on:click=${(e) => osInstance.toggleMaximize(win.id, e)} title="Maximize">
-							<i class="fa-solid fa-up-right-and-down-left-from-center text-[7px]"></i>
-						</button>
+						<div class="relative group py-2 -my-2 flex items-center">
+							<button class="w-3.5 h-3.5 rounded-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 transition-colors flex items-center justify-center text-[8px] text-emerald-950 font-bold cursor-pointer"
+								on:mousedown=${(e) => e.stopPropagation()}
+								on:click=${(e) => osInstance.toggleMaximize(win.id, e)} title="Maximize (or hover for snap layouts)">
+								<i class="fa-solid fa-up-right-and-down-left-from-center text-[7px]"></i>
+							</button>
+							<!-- Continuous hover bridge: starts directly at top-full with invisible hover padding -->
+							<div class="absolute left-0 top-full pt-1.5 hidden group-hover:flex flex-col z-50 min-w-[200px] pointer-events-auto before:content-[''] before:absolute before:-top-3 before:left-0 before:right-0 before:h-4">
+								<div class="p-2 bg-neutral-900/98 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-2xl flex flex-col gap-1.5">
+									<div class="flex items-center justify-between px-1">
+										<span class="text-[9px] uppercase font-bold text-neutral-400 tracking-wider">Snap Layout</span>
+										<span class="text-[9px] text-emerald-400 font-semibold">VeilOS Snap</span>
+									</div>
+									<div class="grid grid-cols-2 gap-1.5">
+										<button class="flex items-center gap-2 p-2 rounded-xl bg-white/5 hover:bg-emerald-600/30 hover:border-emerald-500/50 border border-white/10 text-neutral-200 hover:text-white text-xs font-medium transition-all cursor-pointer group/btn"
+											on:mousedown=${(e) => e.stopPropagation()}
+											on:click=${(e) => { e.stopPropagation(); osInstance.snapWindow(win.id, 'maximize'); }}>
+											<i class="fa-solid fa-window-maximize text-emerald-400 text-xs group-hover/btn:scale-110 transition-transform"></i>
+											<span>Full Screen</span>
+										</button>
+										<button class="flex items-center gap-2 p-2 rounded-xl bg-white/5 hover:bg-indigo-600/30 hover:border-indigo-500/50 border border-white/10 text-neutral-200 hover:text-white text-xs font-medium transition-all cursor-pointer group/btn"
+											on:mousedown=${(e) => e.stopPropagation()}
+											on:click=${(e) => { e.stopPropagation(); osInstance.snapWindow(win.id, 'center'); }}>
+											<i class="fa-solid fa-expand text-indigo-400 text-xs group-hover/btn:scale-110 transition-transform"></i>
+											<span>Center</span>
+										</button>
+										<button class="flex items-center gap-2 p-2 rounded-xl bg-white/5 hover:bg-sky-600/30 hover:border-sky-500/50 border border-white/10 text-neutral-200 hover:text-white text-xs font-medium transition-all cursor-pointer group/btn"
+											on:mousedown=${(e) => e.stopPropagation()}
+											on:click=${(e) => { e.stopPropagation(); osInstance.snapWindow(win.id, 'left'); }}>
+											<i class="fa-solid fa-table-columns text-sky-400 text-xs group-hover/btn:scale-110 transition-transform"></i>
+											<span>Left Half</span>
+										</button>
+										<button class="flex items-center gap-2 p-2 rounded-xl bg-white/5 hover:bg-sky-600/30 hover:border-sky-500/50 border border-white/10 text-neutral-200 hover:text-white text-xs font-medium transition-all cursor-pointer group/btn"
+											on:mousedown=${(e) => e.stopPropagation()}
+											on:click=${(e) => { e.stopPropagation(); osInstance.snapWindow(win.id, 'right'); }}>
+											<i class="fa-solid fa-table-columns fa-flip-horizontal text-sky-400 text-xs group-hover/btn:scale-110 transition-transform"></i>
+											<span>Right Half</span>
+										</button>
+									</div>
+								</div>
+							</div>
+						</div>
 					</div>
 
 					<!-- Window Title -->
 					<div class="flex items-center gap-2 text-xs font-semibold text-neutral-300 truncate max-w-[280px]">
-						<i class="${win.iconClass || 'fa-solid fa-window-maximize'} ${win.iconColor || 'text-neutral-400'} text-xs"></i>
+						${win.logoUrl ? html`<img src="${win.logoUrl}" class="w-3.5 h-3.5 object-contain rounded shrink-0 pointer-events-none" />` : html`<i class="${win.iconClass || 'fa-solid fa-window-maximize'} ${win.iconColor || 'text-neutral-400'} text-xs"></i>`}
 						<span>${win.title}</span>
 					</div>
 
@@ -1655,6 +2280,11 @@ window.addEventListener("load", async () => {
 				<div class="flex-1 w-full h-full relative overflow-hidden bg-neutral-950">
 					${contentEl}
 				</div>
+
+				<!-- Draggable Bottom-Right Resize Grip -->
+				<div class="resize-grip"
+					on:mousedown=${(e) => osInstance.startResize(win.id, e)}
+					title="Drag to resize window"></div>
 			</div>
 		`;
 
@@ -1676,6 +2306,12 @@ window.addEventListener("load", async () => {
 			el = renderBrowserApp(win, scramjet, osInstance);
 		} else if (appId === "ai") {
 			el = renderOnyxAIApp(win, scramjet, osInstance);
+		} else if (appId === "activity") {
+			el = window.renderActivityApp ? window.renderActivityApp(win, scramjet, osInstance) : html`<div>Loading Task Manager...</div>`;
+		} else if (appId === "terminal") {
+			el = window.renderTerminalApp ? window.renderTerminalApp(win, scramjet, osInstance) : html`<div>Loading Terminal...</div>`;
+		} else if (appId === "files") {
+			el = window.renderFilesApp ? window.renderFilesApp(win, scramjet, osInstance) : html`<div>Loading Files...</div>`;
 		} else if (appId === "vault") {
 			el = html`<iframe src="/vault.html" class="w-full h-full border-0 outline-none bg-[#090a12]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>`;
 		} else if (appId === "movies") {
@@ -1686,6 +2322,8 @@ window.addEventListener("load", async () => {
 			el = html`<iframe src="/chat.html" class="w-full h-full border-0 outline-none bg-[#0b0b0e]"></iframe>`;
 		} else if (appId === "cloudgaming") {
 			el = renderCloudGamingApp(win, scramjet, osInstance);
+		} else if (appId === "music") {
+			el = html`<iframe src="/music.html" class="w-full h-full border-0 outline-none bg-[#09090b]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture; clipboard-write; microphone"></iframe>`;
 		} else {
 			el = html`<div class="p-6 text-center text-neutral-400">Application loading...</div>`;
 		}

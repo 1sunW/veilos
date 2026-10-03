@@ -7,8 +7,8 @@
 <title>Pulse Games</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-
+<!-- Lucide Icons (lucide.dev) -->
+<script src="https://unpkg.com/lucide@latest"></script>
 <style>
   :root {
     --bg: #090814;
@@ -468,7 +468,6 @@
     flex-shrink: 0;
   }
 </style>
-  <script src="lucide.min.js"></script>
 </head>
 <body>
 
@@ -588,7 +587,7 @@
   </select>
 
   <div id="gameCountBadge" style="display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.9rem; background: rgba(122, 92, 255, 0.12); border: 1px solid rgba(122, 92, 255, 0.25); border-radius: 12px; color: var(--text); font-size: 0.85rem; font-weight: 600; white-space: nowrap;">
-    <i data-lucide="gamepad-2" style="color: var(--accent);"></i>
+    <i data-lucide="gamepad-2" style="color: var(--accent); width: 16px; height: 16px;"></i>
     <span id="gameCountText">Loading...</span>
   </div>
 </div>
@@ -600,10 +599,10 @@
     <div id="fullscreenHeader">
       <h2 id="gameTitle">Game Title</h2>
       <div class="header-controls">
-        <button id="blankBtn" class="header-btn" title="Open in about:blank tab"><i data-lucide="external-link"></i></button>
-        <button id="downloadBtn" class="header-btn" title="Download Game"><i data-lucide="download"></i></button>
-        <button id="fullscreenBtn" class="header-btn" title="Fullscreen"><i data-lucide="maximize-2"></i></button>
-        <button id="closeFullscreen" class="header-btn" title="Close"><i data-lucide="x"></i></button>
+        <button id="blankBtn" class="header-btn" title="Open in about:blank tab"><i data-lucide="external-link" style="width: 15px; height: 15px;"></i></button>
+        <button id="downloadBtn" class="header-btn" title="Download Game"><i data-lucide="download" style="width: 15px; height: 15px;"></i></button>
+        <button id="fullscreenBtn" class="header-btn" title="Fullscreen"><i data-lucide="maximize-2" style="width: 15px; height: 15px;"></i></button>
+        <button id="closeFullscreen" class="header-btn" title="Close"><i data-lucide="x" style="width: 15px; height: 15px;"></i></button>
       </div>
     </div>
     <iframe id="zoneFullscreenFrame" allow="autoplay; fullscreen; gamepad; focus-without-user-activation *;" allowfullscreen="true"></iframe>
@@ -614,14 +613,14 @@
   <div class="alert-modal">
     <h3>!Notice!</h3>
     <p>I do not own these links; they belong to the truffled community. Please don't get pissed off, if you want a link removed, dm me on discord (<strong>dominus.elitus</strong>). Y'all should support fr support them tho :)</p>
-    <a href="https://discord.gg/vVqY36mzvj" target="_blank" class="discord-link"><i data-lucide="message-circle"></i> Truffled Discord</a>
+    <a href="https://discord.gg/vVqY36mzvj" target="_blank" class="discord-link"><i data-lucide="message-square" style="width: 14px; height: 14px;"></i> Truffled Discord</a>
     <button id="noticeContinueBtn" class="primary-btn">Continue</button>
   </div>
 </div>
 
 <div id="blockedModal" class="alert-backdrop">
   <div class="alert-modal">
-    <h3 style="color: #ff4444;"><i data-lucide="slash"></i> Link Blocked!</h3>
+    <h3 style="color: #ff4444;"><i data-lucide="ban" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle;"></i> Link Blocked!</h3>
     <p>This truffled link appears to be blocked by your network. Please try selecting another one from the dropdown!</p>
     <button onclick="document.getElementById('blockedModal').style.display='none'" class="primary-btn">Got it</button>
   </div>
@@ -731,7 +730,8 @@ document.getElementById('noticeContinueBtn').onclick = () => {
 };
 
 async function loadGames() {
-  container.innerHTML = '<div style="width:100%; text-align:center; padding: 3rem 1rem; color: var(--blue); font-size: 1.2rem;"><i data-lucide="loader-2"></i> Fetching library games...</div>';
+  container.innerHTML = '<div style="width:100%; text-align:center; padding: 3rem 1rem; color: var(--blue); font-size: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"><i data-lucide="loader-2" class="spin-anim" style="animation: spin 1s linear infinite; width: 1.5rem; height: 1.5rem;"></i> <span>Fetching library games...</span></div>';
+  if (window.lucide) lucide.createIcons();
   gameCountText.textContent = 'Loading...';
   allGames = [];
   const provider = providerSelect.value;
@@ -1128,7 +1128,8 @@ async function loadGames() {
 
   } catch (e) {
     console.error("Game loading failed:", e);
-    container.innerHTML = '<div style="width:100%; text-align:center; padding: 2.5rem; color: #ff5555; background: rgba(255,0,0,0.06); border-radius: 16px; border: 1px solid rgba(255,0,0,0.2);"><i data-lucide="alert-triangle" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i><br>Failed to fetch games from this provider. Please try another provider from the dropdown.</div>';
+    container.innerHTML = '<div style="width:100%; text-align:center; padding: 2.5rem; color: #ff5555; background: rgba(255,0,0,0.06); border-radius: 16px; border: 1px solid rgba(255,0,0,0.2);"><i data-lucide="triangle-alert" style="width: 2rem; height: 2rem; margin: 0 auto 0.5rem auto; display: block;"></i>Failed to fetch games from this provider. Please try another provider from the dropdown.</div>';
+    if (window.lucide) lucide.createIcons();
     gameCountText.textContent = '0 Games';
   }
 }
@@ -1158,7 +1159,8 @@ function applyFilters() {
 function displayGames(games) {
   container.innerHTML = '';
   if (games.length === 0) {
-    container.innerHTML = '<div style="width:100%; grid-column: 1 / -1; text-align:center; padding: 3rem; color: var(--text); opacity: 0.7; font-size: 1.1rem;"><i data-lucide="search" style="font-size: 1.8rem; margin-bottom: 0.8rem; display:block; opacity: 0.4;"></i>No games found matching your search.</div>';
+    container.innerHTML = '<div style="width:100%; grid-column: 1 / -1; text-align:center; padding: 3rem; color: var(--text); opacity: 0.7; font-size: 1.1rem;"><i data-lucide="search" style="width: 2.5rem; height: 2.5rem; margin: 0 auto 0.8rem auto; display:block; opacity: 0.4;"></i>No games found matching your search.</div>';
+    if (window.lucide) lucide.createIcons();
     return;
   }
 
@@ -1276,8 +1278,7 @@ downloadBtn.onclick = async () => {
     if (!response.ok) throw new Error("CORS or Network Error");
     fileContent = await response.text();
   } catch (error) {
-    fileContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${currentGame.name}</title><style>body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; } iframe { width: 100%; height: 100%; border: none; }</style></head><body><iframe src="${fullUrl}" allowfullscreen="true"></iframe>  <script>if (window.lucide) { window.lucide.createIcons(); }</script>
-</body></html>`;
+    fileContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${currentGame.name}</title><style>body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; } iframe { width: 100%; height: 100%; border: none; }</style></head><body><iframe src="${fullUrl}" allowfullscreen="true"></iframe></body></html>`;
   }
 
   const blob = new Blob([fileContent], { type: 'text/html' });

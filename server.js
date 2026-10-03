@@ -206,6 +206,40 @@ fastify.get("/data.js", async (request, reply) => {
 	}
 });
 
+// Sonora Music streaming & search proxy endpoint
+fastify.all("/api/music/*", async (request, reply) => {
+	const upstreamUrl = "https://musicv-production.up.railway.app" + request.raw.url;
+	try {
+		const reqHeaders = {
+			"Accept": request.headers["accept"] || "*/*",
+			"User-Agent": request.headers["user-agent"] || "Mozilla/5.0",
+		};
+		if (request.headers["range"]) {
+			reqHeaders["range"] = request.headers["range"];
+		}
+		const upstreamRes = await fetch(upstreamUrl, {
+			method: request.method,
+			headers: reqHeaders,
+			body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
+			redirect: "follow",
+		});
+
+		reply.status(upstreamRes.status);
+		upstreamRes.headers.forEach((val, key) => {
+			const k = key.toLowerCase();
+			if (!["content-encoding", "content-length", "transfer-encoding"].includes(k)) {
+				reply.header(key, val);
+			}
+		});
+
+		const arrayBuffer = await upstreamRes.arrayBuffer();
+		return reply.send(Buffer.from(arrayBuffer));
+	} catch (err) {
+		console.error("Sonora proxy error:", err);
+		return reply.status(502).send({ error: "Failed to connect to music service" });
+	}
+});
+
 // Sapphire Extension bootstrap and fallback routes
 fastify.get("/~/sx/:extId/__bootstrap__", async (request, reply) => {
 	return reply

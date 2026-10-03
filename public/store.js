@@ -95,7 +95,9 @@ const initialSettings = {
 	accentColor: "indigo",
 	notes: defaultNotes,
 	osUsername: "Veil User",
-	dockPosition: "bottom"
+	dockPosition: "bottom",
+	soundEffects: true,
+	desktopWidgets: true
 };
 
 var store;

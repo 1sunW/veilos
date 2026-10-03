@@ -454,22 +454,12 @@ function createAutoStub() {
             if (prop === Symbol.toPrimitive) {
                 return (hint)=>hint === "number" ? 0 : "";
             }
-            if (prop === Symbol.iterator) {
-                return function*() {};
-            }
             if (typeof prop !== "string") return undefined;
             if (prop === "toJSON") return undefined;
             if (prop === "valueOf") return ()=>0;
             if (prop === "toString") return ()=>"";
-            if (prop === "length") return 0;
-            if (prop === "concat") {
-                return (...args)=>[].concat(...args);
-            }
-            if (prop === "slice" || prop === "splice" || prop === "filter" || prop === "map") {
-                return ()=>[];
-            }
             if (prop === "then") {
-                return (resolve)=>resolve?.([]);
+                return (resolve)=>resolve?.(undefined);
             }
             const cached = cache.get(prop);
             if (cached !== undefined) return cached;
@@ -484,12 +474,8 @@ function createAutoStub() {
             const cb = args[args.length - 1];
             if (typeof cb === "function") {
                 try {
-                    cb([]);
-                } catch  {
-                    try {
-                        cb(undefined);
-                    } catch  {}
-                }
+                    cb(undefined);
+                } catch  {}
             }
             return createAutoStub();
         }
@@ -552,26 +538,10 @@ async function startBackground(ext, registry, host, rootEl) {
     };
     if (bgInfo.type === "page") {
         const raw = await (0,_fileStore__rspack_import_1.readExtFileText)(ext.id, bgInfo.page);
-        const html = raw !== null ? await (0,_htmlInject__rspack_import_2.rewriteExtHtml)(ext.id, raw, bgInfo.page) : `<!DOCTYPE html><html><head><base href="${(0,_urlScheme__rspack_import_4.sapphireExtensionBase)(ext.id)}"></head><body></body></html>`;
+        const html = raw !== null ? await (0,_htmlInject__rspack_import_2.rewriteExtHtml)(ext.id, raw, bgInfo.page) : "<!DOCTYPE html><html><head></head><body></body></html>";
         (0,_htmlInject__rspack_import_2.writeDocument)(win, html);
-        (0,_chromeApi__rspack_import_0.installChromeApi)(win, {
-            extId: ext.id,
-            tabId: null,
-            isBackground: true,
-            registry,
-            host,
-            senderUrl: backgroundPath ? (0,_urlScheme__rspack_import_4.chromeExtensionUrl)(ext.id, backgroundPath) : undefined
-        });
     } else {
-        (0,_htmlInject__rspack_import_2.writeDocument)(win, `<!DOCTYPE html><html><head><base href="${(0,_urlScheme__rspack_import_4.sapphireExtensionBase)(ext.id)}"></head><body></body></html>`);
-        (0,_chromeApi__rspack_import_0.installChromeApi)(win, {
-            extId: ext.id,
-            tabId: null,
-            isBackground: true,
-            registry,
-            host,
-            senderUrl: backgroundPath ? (0,_urlScheme__rspack_import_4.chromeExtensionUrl)(ext.id, backgroundPath) : undefined
-        });
+        (0,_htmlInject__rspack_import_2.writeDocument)(win, "<!DOCTYPE html><html><head></head><body></body></html>");
         const scriptPaths = bgInfo.type === "worker" ? [
             bgInfo.script
         ] : bgInfo.scripts;
@@ -2034,61 +2004,6 @@ function installChromeApi(realm, opts) {
     if (!realm.browser) {
         realm.browser = chromeApiWithFallback;
     }
-    try {
-        const origFetch = realm.fetch;
-        if (typeof origFetch === "function" && !origFetch.__sapphire_patched) {
-            const patchedFetch = function(input, init) {
-                try {
-                    let urlStr = typeof input === "string" ? input : input instanceof URL ? input.href : input instanceof Request ? input.url : String(input);
-                    if (urlStr.startsWith("chrome-extension://")) {
-                        const parsed = new URL(urlStr);
-                        const path = parsed.pathname.replace(/^\//, "");
-                        const newUrl = `${realm.location.origin}/~/sx/${parsed.hostname || extId}/${path}`;
-                        if (typeof input === "string") {
-                            input = newUrl;
-                        } else if (input instanceof URL) {
-                            input = new URL(newUrl);
-                        } else if (input instanceof Request) {
-                            input = new Request(newUrl, input);
-                        }
-                    } else if (urlStr.startsWith("/") && !urlStr.startsWith("/~/")) {
-                        const newUrl = `${realm.location.origin}/~/sx/${extId}${urlStr}`;
-                        if (typeof input === "string") {
-                            input = newUrl;
-                        } else if (input instanceof URL) {
-                            input = new URL(newUrl);
-                        } else if (input instanceof Request) {
-                            input = new Request(newUrl, input);
-                        }
-                    }
-                } catch (e) {}
-                return origFetch.call(this, input, init);
-            };
-            patchedFetch.__sapphire_patched = true;
-            realm.fetch = patchedFetch;
-        }
-    } catch (e) {}
-    try {
-        const proto = realm.XMLHttpRequest?.prototype;
-        if (proto && typeof proto.open === "function" && !proto.open.__sapphire_patched) {
-            const origOpen = proto.open;
-            const patchedOpen = function(method, url, ...rest) {
-                try {
-                    let urlStr = typeof url === "string" ? url : url instanceof URL ? url.href : String(url);
-                    if (urlStr.startsWith("chrome-extension://")) {
-                        const parsed = new URL(urlStr);
-                        const path = parsed.pathname.replace(/^\//, "");
-                        url = `${realm.location.origin}/~/sx/${parsed.hostname || extId}/${path}`;
-                    } else if (urlStr.startsWith("/") && !urlStr.startsWith("/~/")) {
-                        url = `${realm.location.origin}/~/sx/${extId}${urlStr}`;
-                    }
-                } catch (e) {}
-                return origOpen.call(this, method, url, ...rest);
-            };
-            patchedOpen.__sapphire_patched = true;
-            proto.open = patchedOpen;
-        }
-    } catch (e) {}
     return events;
 }
 
@@ -2408,14 +2323,7 @@ function recomputeStaticRules(ext) {
     ext.staticRules = [];
     for (const id of ext.enabledRulesetIds){
         const rules = ext.rulesetRules.get(id);
-        const disabledSet = ext.disabledRulesetRuleIds?.get(id);
-        if (rules) {
-            if (disabledSet && disabledSet.size > 0) {
-                ext.staticRules.push(...rules.filter((r)=>!disabledSet.has(r.id)));
-            } else {
-                ext.staticRules.push(...rules);
-            }
-        }
+        if (rules) ext.staticRules.push(...rules);
     }
 }
 function ruleMatchesUrl(rule, requestUrl) {
@@ -2462,7 +2370,6 @@ function checkDeclarativeNetRequest(registry, requestUrl, initiatorUrl, resource
     for (const ext of registry.list()){
         if (!ext.enabled) continue;
         const rules = [
-            ...ext.sessionRules ?? [],
             ...ext.dynamicRules,
             ...ext.staticRules
         ].sort((a, b)=>(b.priority ?? 1) - (a.priority ?? 1));
@@ -2664,8 +2571,7 @@ async function installExtension(buffer, filename, registry, host, backgroundRoot
     } catch (e) {
         throw new Error(`invalid manifest: ${e.message}`);
     }
-    const matchId = filename && filename.match(/^([a-z]{32})(\.crx|\.zip)?$/i);
-    const extId = matchId ? matchId[1].toLowerCase() : (0,_crx__rspack_import_1.generateExtensionId)(manifest.name + (manifest.version ?? ""));
+    const extId = (0,_crx__rspack_import_1.generateExtensionId)(manifest.name + (manifest.version ?? ""));
     const fileOps = [];
     zip.forEach((path, file)=>{
         if (file.dir) return;
@@ -2756,16 +2662,7 @@ async function readExtFile(extId, path) {
 async function readExtFileText(extId, path) {
     const ab = await readExtFile(extId, path);
     if (!ab) return null;
-    let text = new TextDecoder().decode(ab);
-    if (path.endsWith("ruleset-manager.js")) {
-        try {
-            console.log("[Sapphire Patch] Patching ruleset-manager.js inside readExtFileText!");
-            text = text.replaceAll(".concat(", "?.concat(");
-        } catch (e) {
-            console.error("[Sapphire Patch] Failed to patch ruleset-manager.js in readExtFileText:", e);
-        }
-    }
-    return text;
+    return new TextDecoder().decode(ab);
 }
 async function readExtFileURL(extId, path) {
     const ab = await readExtFile(extId, path);
@@ -2800,11 +2697,10 @@ async function rewriteExtHtml(extId, html, pagePath) {
         return `${prefix}${(0,_urlScheme__rspack_import_0.buildExtensionUrl)(extId, (0,_urlScheme__rspack_import_0.resolveExtensionResourcePath)(pageDir, url))}${suffix}`;
     });
     const baseTag = `<base href="${(0,_urlScheme__rspack_import_0.sapphireExtensionBase)(extId)}${pageDir ? `${pageDir}/` : ""}">`;
-    const apiSyncScript = `<script>try{if(window.parent&&window.parent.__sapphire_sync_api__){window.parent.__sapphire_sync_api__(window);}}catch(e){}</script>`;
     if (/<head[^>]*>/i.test(result)) {
-        result = result.replace(/<head([^>]*)>/i, `<head$1>${baseTag}${apiSyncScript}`);
+        result = result.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
     } else {
-        result = result.replace(/<html([^>]*)>/i, `<html$1><head>${baseTag}${apiSyncScript}</head>`);
+        result = result.replace(/<html([^>]*)>/i, `<html$1><head>${baseTag}</head>`);
     }
     return result;
 }
@@ -2821,46 +2717,10 @@ function bootstrapExtensionFrame(frame, extId) {
     });
 }
 function writeDocument(win, html) {
-    const prevChrome = win.chrome;
-    const prevBrowser = win.browser;
-    try {
-        win.document.open();
-    } catch  {}
-    if (prevChrome) {
-        try {
-            win.chrome = prevChrome;
-            Object.assign(win.chrome, prevChrome);
-        } catch  {}
-    }
-    if (prevBrowser) {
-        try {
-            win.browser = prevBrowser;
-        } catch  {}
-    }
-    try {
-        win.document.write(html);
-        win.document.close();
-    } catch  {}
-    if (prevChrome) {
-        try {
-            win.chrome = prevChrome;
-            Object.assign(win.chrome, prevChrome);
-        } catch  {}
-    }
-    if (prevBrowser) {
-        try {
-            win.browser = prevBrowser;
-        } catch  {}
-    }
-    setTimeout(()=>{
-        if (prevChrome) {
-            try {
-                win.chrome = prevChrome;
-                Object.assign(win.chrome, prevChrome);
-            } catch  {}
-        }
-        win.dispatchEvent(new Event("load"));
-    }, 0);
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    setTimeout(()=>win.dispatchEvent(new Event("load")), 0);
 }
 function injectScript(win, code) {
     try {
@@ -3065,17 +2925,6 @@ async function mountExtensionPage(frame, extId, pagePath, tabId, registry, host,
     if (raw === null) return false;
     const html = await (0,_htmlInject__rspack_import_2.rewriteExtHtml)(extId, raw, pagePath);
     (0,_htmlInject__rspack_import_2.writeDocument)(win, html);
-    try {
-        (0,_chromeApi__rspack_import_0.installChromeApi)(win, {
-            extId,
-            tabId,
-            isBackground: false,
-            registry,
-            host,
-            skipTabRegistration,
-            senderUrl: (0,_urlScheme__rspack_import_3.chromeExtensionUrl)(extId, pagePath)
-        });
-    } catch  {}
     return true;
 }
 
@@ -3148,11 +2997,9 @@ class SapphireRegistry {
             filename,
             messages: {},
             dynamicRules: [],
-            sessionRules: [],
             staticRules: [],
             rulesetRules: new Map(),
             enabledRulesetIds: new Set(),
-            disabledRulesetRuleIds: new Map(),
             badgeText: "",
             badgeColor: null,
             iconUrl: null,
@@ -3217,10 +3064,8 @@ __webpack_require__.d(__webpack_exports__, {
 /* import */ var _dnr__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/dnr.ts");
 /* import */ var _extensions__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/extensions.ts");
 /* import */ var _newtab__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/newtab.ts");
-/* import */ var _pageMount__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/pageMount.ts");
-/* import */ var _popup__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/popup.ts");
-/* import */ var _registry__rspack_import_6 = __webpack_require__("./node_modules/@x8r/sapphire/src/registry.ts");
-
+/* import */ var _popup__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/popup.ts");
+/* import */ var _registry__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/registry.ts");
 
 
 
@@ -3228,7 +3073,7 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 class Sapphire {
-    registry = new _registry__rspack_import_6.SapphireRegistry();
+    registry = new _registry__rspack_import_5.SapphireRegistry();
     host;
     backgroundRoot;
     ready = null;
@@ -3255,13 +3100,10 @@ class Sapphire {
         return (0,_extensions__rspack_import_2.getInstalledExtensions)(this.registry);
     }
     getExtensionPopupPage(extId) {
-        return (0,_popup__rspack_import_5.getExtensionPopupPage)(this.registry, extId);
+        return (0,_popup__rspack_import_4.getExtensionPopupPage)(this.registry, extId);
     }
     async mountExtensionPopup(frame, extId, tabId) {
-        return (0,_popup__rspack_import_5.mountExtensionPopup)(frame, extId, tabId, this.registry, this.host);
-    }
-    async mountExtensionPage(frame, extId, page, tabId) {
-        return (0,_pageMount__rspack_import_4.mountExtensionPage)(frame, extId, page, tabId, this.registry, this.host, false);
+        return (0,_popup__rspack_import_4.mountExtensionPopup)(frame, extId, tabId, this.registry, this.host);
     }
     getNewTabOverride() {
         return (0,_newtab__rspack_import_3.getNewTabOverride)(this.registry);
@@ -15750,48 +15592,35 @@ __webpack_require__.d(__webpack_exports__, {
   "default": () => (init),
   initSync: () => (initSync)
 });
-let wasm;
-const encoder = new TextEncoder();
+function initSync(opts) {
+	return {};
+}
 
 class Rewriter {
-	constructor(options) {
-		this.options = options;
+	constructor(scramjet) {
+		this.scramjet = scramjet;
 	}
-	free() {}
-	rewrite_html(html, base, cookie_store) {
-		return html;
-	}
-	rewrite_js(input, base, source, module) {
+	rewrite_js(input, base, source, isModule) {
+		const encoder = new TextEncoder();
 		return {
-			js: typeof input === "string" ? encoder.encode(input) : input,
-			map: null,
-			scramtag: "",
+			js: encoder.encode(input),
+			map: new Uint8Array(),
+			scramtag: "scramtag_" + Math.random().toString(36).slice(2),
 			errors: []
 		};
 	}
-	rewrite_js_bytes(input, base, source, module) {
+	rewrite_js_bytes(input, base, source, isModule) {
 		return {
-			js: input,
-			map: null,
-			scramtag: "",
+			js: input instanceof Uint8Array ? input : new Uint8Array(input),
+			map: new Uint8Array(),
+			scramtag: "scramtag_" + Math.random().toString(36).slice(2),
 			errors: []
 		};
 	}
-	rewrite_css(css, base) {
-		return css;
-	}
 }
 
-function initSync(input) {
-	if (input && input.module) {
-		const instance = new WebAssembly.Instance(input.module, {});
-		wasm = instance.exports;
-	}
-	return wasm;
-}
-
-async function init(input) {
-	return initSync(input);
+function init() {
+	return Promise.resolve({});
 }
 
 
