@@ -36,16 +36,16 @@ const getLocalBare = () => {
 	if (typeof location !== "undefined" && location.host) {
 		return location.origin + "/bare/";
 	}
-	return "https://fern.best/bare";
+	return "/bare/";
 };
 
 const defaultWisp = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.wispurl) ||
 	(typeof window !== "undefined" && window._CONFIG && window._CONFIG.wispurl) ||
-	"wss://fern.best/wisp";
+	getLocalWisp();
 
 const defaultBare = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.bareurl) ||
 	(typeof window !== "undefined" && window._CONFIG && window._CONFIG.bareurl) ||
-	"https://fern.best/bare/";
+	getLocalBare();
 
 const defaultNotes = [
 	{ id: "note_1", title: "Welcome to VeilOS", content: "# VeilOS Web Operating System\n\nWelcome to your new Web OS!\n\nFeatures:\n- Multi-window desktop manager\n- Veil Web Browser with proxy engine & Chrome extensions\n- Tab Cloaking & presets (Classroom, Drive, Canvas, Desmos, etc.)\n- Blob & About:blank Cloaking\n- Search engine choice (DuckDuckGo, Google, Bing, Brave)\n- Games, Movies, Vault & Chat", updatedAt: Date.now() }
@@ -187,12 +187,14 @@ function applyTabCloak(presetId, customTitle, customIcon) {
 
 // Global Cloak Execution Functions
 function openAboutBlankCloak(targetUrl) {
-	const url = targetUrl || (typeof window !== "undefined" ? window.location.href : "/");
+	const currentUrl = targetUrl || (typeof window !== "undefined" ? window.location.href : "/");
+	const separator = currentUrl.includes("?") ? "&" : "?";
+	const frameUrl = currentUrl.includes("cloaked=1") ? currentUrl : `${currentUrl}${separator}cloaked=1`;
 	const cloakInfo = applyTabCloak(store.tabCloak, store.customCloakTitle, store.customCloakIcon);
 	
 	try {
 		const win = window.open("about:blank", "_blank");
-		if (!win) {
+		if (!win || win.closed) {
 			console.warn("[AboutBlank Cloak] Pop-up was blocked by the browser. Please allow pop-ups for this site to use About:Blank Cloak.");
 			return false;
 		}
@@ -208,11 +210,11 @@ function openAboutBlankCloak(targetUrl) {
 	<style>
 		* { box-sizing: border-box; }
 		html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #050505; }
-		iframe { width: 100%; height: 100%; border: none; outline: none; margin: 0; padding: 0; display: block; }
+		iframe { width: 100vw; height: 100vh; border: none; outline: none; margin: 0; padding: 0; display: block; }
 	</style>
 </head>
 <body>
-	<iframe src="${url}" allow="fullscreen; autoplay; encrypted-media; camera; microphone; clipboard-read; clipboard-write; display-capture"></iframe>
+	<iframe name="veil_cloaked_frame" src="${frameUrl}" allow="fullscreen; autoplay; encrypted-media; camera; microphone; clipboard-read; clipboard-write; display-capture; geolocation"></iframe>
 </body>
 </html>`);
 		doc.close();
@@ -224,7 +226,9 @@ function openAboutBlankCloak(targetUrl) {
 }
 
 function openBlobCloak(targetUrl) {
-	const url = targetUrl || (typeof window !== "undefined" ? window.location.href : "/");
+	const currentUrl = targetUrl || (typeof window !== "undefined" ? window.location.href : "/");
+	const separator = currentUrl.includes("?") ? "&" : "?";
+	const frameUrl = currentUrl.includes("cloaked=1") ? currentUrl : `${currentUrl}${separator}cloaked=1`;
 	const cloakInfo = applyTabCloak(store.tabCloak, store.customCloakTitle, store.customCloakIcon);
 
 	try {
@@ -238,11 +242,11 @@ function openBlobCloak(targetUrl) {
 	<style>
 		* { box-sizing: border-box; }
 		html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #050505; }
-		iframe { width: 100%; height: 100%; border: none; outline: none; margin: 0; padding: 0; display: block; }
+		iframe { width: 100vw; height: 100vh; border: none; outline: none; margin: 0; padding: 0; display: block; }
 	</style>
 </head>
 <body>
-	<iframe src="${url}" allow="fullscreen; autoplay; encrypted-media; camera; microphone; clipboard-read; clipboard-write; display-capture"></iframe>
+	<iframe name="veil_cloaked_frame" src="${frameUrl}" allow="fullscreen; autoplay; encrypted-media; camera; microphone; clipboard-read; clipboard-write; display-capture; geolocation"></iframe>
 </body>
 </html>`;
 
@@ -270,17 +274,23 @@ if (typeof window !== "undefined") {
 		applyTabCloak(store.tabCloak, store.customCloakTitle, store.customCloakIcon);
 
 		// Auto About:blank cloak check
-		if (store.autoAboutBlank && window.self === window.top && !window.location.href.startsWith("blob:") && !window.location.href.includes("about:blank")) {
-			try {
-				const cloaked = openAboutBlankCloak(window.location.href);
-				if (cloaked) {
-					console.log("[Auto About:Blank] Launched disguised about:blank window.");
+		const isAuto = Boolean(store.autoAboutBlank) || (typeof localStorage !== "undefined" && localStorage.getItem("veil_auto_about_blank") === "true");
+		if (isAuto) {
+			const currentHref = window.location.href;
+			const isAlreadyInCloak = currentHref.includes("cloaked=1") || window.name === "veil_cloaked_frame" || currentHref.startsWith("blob:") || currentHref.includes("about:blank");
+			if (!isAlreadyInCloak) {
+				try {
+					const cloaked = openAboutBlankCloak(currentHref);
+					if (cloaked) {
+						console.log("[Auto About:Blank] Launched disguised about:blank window.");
+						window.location.replace("https://classroom.google.com");
+					}
+				} catch (err) {
+					console.warn("[Auto About:Blank] trigger error:", err);
 				}
-			} catch (err) {
-				console.warn("[Auto About:Blank] trigger error:", err);
 			}
 		}
-	}, 50);
+	}, 100);
 }
 
 if (typeof window !== "undefined") {

@@ -67,23 +67,26 @@ function guessMime(path) {
 }
 
 let sapphireDbPromise = null;
+function ensureSapphireStores(db) {
+	if (!db.objectStoreNames.contains("extensions")) {
+		db.createObjectStore("extensions", { keyPath: "id" });
+	}
+	if (!db.objectStoreNames.contains("extension_files")) {
+		db.createObjectStore("extension_files");
+	}
+	if (!db.objectStoreNames.contains("extension_storage")) {
+		db.createObjectStore("extension_storage");
+	}
+}
+
 function openSapphireDB() {
 	if (sapphireDbPromise) return sapphireDbPromise;
 	sapphireDbPromise = new Promise((resolve) => {
 		if (typeof indexedDB === "undefined") return resolve(null);
 		try {
-			const req = indexedDB.open("sapphire_extensions", 1);
+			const req = indexedDB.open("sapphire_extensions");
 			req.onupgradeneeded = () => {
-				const db = req.result;
-				if (!db.objectStoreNames.contains("extensions")) {
-					db.createObjectStore("extensions", { keyPath: "id" });
-				}
-				if (!db.objectStoreNames.contains("extension_files")) {
-					db.createObjectStore("extension_files");
-				}
-				if (!db.objectStoreNames.contains("extension_storage")) {
-					db.createObjectStore("extension_storage");
-				}
+				ensureSapphireStores(req.result);
 			};
 			req.onsuccess = () => {
 				const db = req.result;
@@ -91,7 +94,32 @@ function openSapphireDB() {
 					db.close();
 					sapphireDbPromise = null;
 				};
-				resolve(db);
+				if (
+					db.objectStoreNames.contains("extensions") &&
+					db.objectStoreNames.contains("extension_files") &&
+					db.objectStoreNames.contains("extension_storage")
+				) {
+					resolve(db);
+					return;
+				}
+				const nextVersion = (db.version || 1) + 1;
+				db.close();
+				const upgradeReq = indexedDB.open("sapphire_extensions", nextVersion);
+				upgradeReq.onupgradeneeded = () => {
+					ensureSapphireStores(upgradeReq.result);
+				};
+				upgradeReq.onsuccess = () => {
+					const udb = upgradeReq.result;
+					udb.onversionchange = () => {
+						udb.close();
+						sapphireDbPromise = null;
+					};
+					resolve(udb);
+				};
+				upgradeReq.onerror = () => {
+					sapphireDbPromise = null;
+					resolve(null);
+				};
 			};
 			req.onerror = () => {
 				sapphireDbPromise = null;

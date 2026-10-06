@@ -450,16 +450,18 @@
 		root.className = "w-full h-full bg-[#0a0c14] text-white font-sans text-xs flex flex-col overflow-hidden select-none";
 
 		const filesData = [
-			{ name: "Onyx Browser.app", type: "app", appId: "browser", icon: "fa-solid fa-compass", color: "text-sky-400", size: "4.8 MB" },
-			{ name: "Sonora.app", type: "app", appId: "music", icon: "fa-solid fa-music", color: "text-cyan-400", size: "7.4 MB" },
-			{ name: "Scenario AI.app", type: "app", appId: "ai", icon: "fa-solid fa-wand-magic-sparkles", color: "text-purple-400", size: "8.2 MB" },
-			{ name: "Onyx Chat.app", type: "app", appId: "chat", icon: "fa-solid fa-comments", color: "text-emerald-400", size: "3.1 MB" },
-			{ name: "Helium Vault.app", type: "app", appId: "vault", icon: "fa-solid fa-tv", color: "text-cyan-400", size: "6.4 MB" },
-			{ name: "SSV Movies.app", type: "app", appId: "movies", icon: "fa-solid fa-film", color: "text-pink-400", size: "5.5 MB" },
+			{ name: "Onyx Browser.app", type: "app", appId: "browser", icon: "fa-solid fa-bolt", color: "text-sky-400", size: "4.8 MB" },
+			{ name: "SSV Movies.app", type: "app", appId: "movies", icon: "fa-solid fa-film", color: "text-rose-400", size: "5.5 MB" },
 			{ name: "Pulse Games.app", type: "app", appId: "games", icon: "fa-solid fa-gamepad", color: "text-violet-400", size: "12.0 MB" },
-			{ name: "Cloud Gaming.app", type: "app", appId: "cloudgaming", icon: "fa-solid fa-cloud", color: "text-indigo-400", size: "2.1 MB" },
+			{ name: "Sonora.app", type: "app", appId: "music", icon: "fa-solid fa-music", color: "text-rose-400", size: "7.4 MB" },
+			{ name: "Scenario.app", type: "app", appId: "ai", icon: "fa-solid fa-brain", color: "text-purple-400", size: "8.2 MB" },
+			{ name: "Onyx Chat.app", type: "app", appId: "chat", icon: "fa-solid fa-message", color: "text-emerald-400", size: "3.1 MB" },
+			{ name: "Helium Vault.app", type: "app", appId: "vault", icon: "fa-solid fa-vault", color: "text-cyan-400", size: "6.4 MB" },
+			{ name: "Cloud Gaming.app", type: "app", appId: "cloudgaming", icon: "fa-solid fa-cloud", color: "text-teal-400", size: "2.1 MB" },
 			{ name: "Task Manager.app", type: "app", appId: "activity", icon: "fa-solid fa-chart-line", color: "text-rose-400", size: "1.4 MB" },
-			{ name: "Veil Terminal.app", type: "app", appId: "terminal", icon: "fa-solid fa-terminal", color: "text-emerald-400", size: "1.2 MB" }
+			{ name: "Veil Terminal.app", type: "app", appId: "terminal", icon: "fa-solid fa-terminal", color: "text-emerald-400", size: "1.2 MB" },
+			{ name: "Ampler Launcher.app", type: "app", appId: "ampler", icon: "fa-solid fa-cube", color: "text-emerald-400", size: "3.2 MB" },
+			{ name: "Changelog & Credits.app", type: "app", appId: "changelog", icon: "fa-solid fa-scroll", color: "text-emerald-400", size: "850 KB" }
 		];
 
 		let activeCategory = "all";
@@ -552,6 +554,866 @@
 					}
 				});
 			});
+		}
+
+		render();
+		win.customState.rootEl = root;
+		return root;
+	};
+
+	// 4. VeilOS Changelog & Credits Application
+	const CHANGELOG_DATA = [
+		{
+			era: "V0.6.x",
+			badge: "Current Release",
+			badgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+			versions: [
+				{
+					version: "V0.6.2",
+					title: "Unproxy Scenario",
+					tag: "AI & Integrations",
+					tagClass: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+					desc: "Direct, high-performance unproxied embedding for Scenario AI assistant with native browser tab passthrough and media permissions."
+				},
+				{
+					version: "V0.6.1",
+					title: "Font Awesome icons, Remove other apps from taskbar",
+					tag: "UI & Icons",
+					tagClass: "bg-sky-500/20 text-sky-300 border-sky-500/30",
+					desc: "Restructured taskbar dock with core applications, standardized crisp Font Awesome iconography, and organized utility apps into Spotlight and menus."
+				}
+			]
+		},
+		{
+			era: "V0.5.x",
+			badge: "System Era",
+			badgeClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+			versions: [
+				{
+					version: "V0.5.10",
+					title: "Unproxy it",
+					tag: "Audio",
+					tagClass: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+					desc: "Direct unproxied embedded playback for Sonora music engine with dedicated audio navigation and playback controls."
+				},
+				{
+					version: "V0.5.9",
+					title: "Add Sonora, proxy it",
+					tag: "Audio",
+					tagClass: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+					desc: "Integrated Sonora high-fidelity music streaming application with Scramjet proxy pipeline."
+				},
+				{
+					version: "V0.5.8",
+					title: "Fix app logos",
+					tag: "Visuals",
+					tagClass: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+					desc: "Replaced placeholder logos with custom crafted SVG app badges for all core desktop applications."
+				},
+				{
+					version: "V0.5.7",
+					title: "Add task manager, terminal, files",
+					tag: "System Apps",
+					tagClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+					desc: "Built-in Veil Task Manager with live process meters, interactive Veil Terminal shell, and Veil Files storage explorer."
+				},
+				{
+					version: "V0.5.6",
+					title: "Add close animations and make login icon bigger",
+					tag: "Animations",
+					tagClass: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+					desc: "Fluid window close animations and refined lock screen avatar presentation."
+				},
+				{
+					version: "V0.5.5",
+					title: "Add animations",
+					tag: "Animations",
+					tagClass: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+					desc: "Integrated micro-animations, fade transitions, and window bounce physics across desktop UI."
+				},
+				{
+					version: "V0.5.4",
+					title: "Login Icon change",
+					tag: "Lockscreen",
+					tagClass: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+					desc: "Polished user avatar styling on the VeilOS lock and login prompt."
+				},
+				{
+					version: "V0.5.3",
+					title: "Remove novene stuff and Font Awesome",
+					tag: "Refactor",
+					tagClass: "bg-neutral-500/20 text-neutral-300 border-neutral-500/30",
+					desc: "Streamlined icon assets and pruned legacy UI libraries."
+				},
+				{
+					version: "V0.5.2",
+					title: "Add lucide.dev icons",
+					tag: "Icons",
+					tagClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+					desc: "Integrated vector Lucide icon library for modern, minimalist desktop indicators."
+				},
+				{
+					version: "V0.5.1",
+					title: "Remove reicon",
+					tag: "Refactor",
+					tagClass: "bg-neutral-500/20 text-neutral-300 border-neutral-500/30",
+					desc: "Removed third-party icon bundle in favor of standalone vector assets."
+				}
+			]
+		},
+		{
+			era: "V0.4.x",
+			badge: "Overhaul Era",
+			badgeClass: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+			versions: [
+				{
+					version: "V0.4.10",
+					title: "Base off of Novene, reicon integration",
+					tag: "Design",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Visual refresh exploring Novene OS desktop paradigms and icon pack layering."
+				},
+				{
+					version: "V0.4.9",
+					title: "Rename OnyxAI to Scenario",
+					tag: "Branding",
+					tagClass: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+					desc: "Branding update transitioning the AI assistant to Scenario."
+				},
+				{
+					version: "V0.4.8",
+					title: "Login screen",
+					tag: "Lockscreen",
+					tagClass: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+					desc: "Interactive system startup login prompt with lock and unlock state handling."
+				},
+				{
+					version: "V0.4.7",
+					title: "Make onyx chat account stay logged in through localStorage, fix browser engine",
+					tag: "Persistence",
+					tagClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+					desc: "Persistent user session state for Onyx Chat and strengthened browser core transport."
+				},
+				{
+					version: "V0.4.6",
+					title: "Fix menus loading on launch",
+					tag: "Stability",
+					tagClass: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+					desc: "Resolved startup race conditions ensuring flyout menus and windows open clean."
+				},
+				{
+					version: "V0.4.5",
+					title: "Fix more things (Cannot exit out of VeilOS launcher, Fix the white outline on everything in VeilOS preferences, fix auto about:blank cloak, bring back apps button but make it a menu with the apps not the hamburger menu, I should not be able to get to controls from time, make onyx browser home look like this, remove password from start, make onyx browser not start on launch)",
+					tag: "Major Fixes",
+					tagClass: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+					desc: "VeilOS launcher exit handling, settings outline refinements, auto about:blank cloak, standalone apps menu, controls isolation from time click, Onyx Browser home page, and start screen behavior."
+				},
+				{
+					version: "V0.4.4",
+					title: "Fix a lot of things (Clicking the app button goes to Hamburger Menu, Clicking time takes you to controls, REMOVE the Proxy Settings, Hamburger Menu is a weird font (make it a good one), On the App Dock button in the Hamburger Menu add an arrow and make sure you don't have to close the hamburger menu to see the changes, Remove Tags and Descriptions in the Hamburger Menu, There is a white outline in settings around everything fix it so it's just what you select, The auto about:blank switch is weird fix it, make the tab system in Onyx Browser better, add a home on Onyx Browser, Start with a Login Screen each time with VeilOS, Remove fake CPU and RAM usage in Controls)",
+					tag: "Major Overhaul",
+					tagClass: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+					desc: "App button linking to Hamburger Menu, clock opens controls, removed legacy proxy settings, improved menu typography, App Dock toggle arrow, removed tags/descriptions, settings selection outlines, about:blank cloak switch, improved Onyx tab system & home screen, startup login screen, and cleaned control metrics."
+				},
+				{
+					version: "V0.4.3",
+					title: "Make background a flower",
+					tag: "Theme",
+					tagClass: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+					desc: "Installed high-resolution floral aesthetic desktop wallpaper."
+				},
+				{
+					version: "V0.4.2",
+					title: "Remove OnyxAI and add OnyxAI through 3rd-Party Site",
+					tag: "AI",
+					tagClass: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+					desc: "Transitioned internal AI proxying to cloud hosted web application."
+				},
+				{
+					version: "V0.4.1",
+					title: "Remove Desktop Shortcuts",
+					tag: "Desktop",
+					tagClass: "bg-neutral-500/20 text-neutral-300 border-neutral-500/30",
+					desc: "Cleaned desktop workspace by removing cluttered icon grid in favor of clean background and dock."
+				}
+			]
+		},
+		{
+			era: "V0.3.x",
+			badge: "Features Era",
+			badgeClass: "bg-sky-500/20 text-sky-300 border-sky-500/30",
+			versions: [
+				{
+					version: "V0.3.10",
+					title: "Add New Models",
+					tag: "AI",
+					tagClass: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+					desc: "Expanded AI assistant capabilities with additional model backends."
+				},
+				{
+					version: "V0.3.9",
+					title: "Add OnyxAI",
+					tag: "AI",
+					tagClass: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+					desc: "Introduced dedicated OnyxAI assistant window to the OS desktop."
+				},
+				{
+					version: "V0.3.8",
+					title: "Fix Hamburger menu",
+					tag: "UI",
+					tagClass: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+					desc: "Fixed styling, positioning, and animation triggers for the left slide-out hamburger menu."
+				},
+				{
+					version: "V0.3.7",
+					title: "Add Cloaks",
+					tag: "Cloaking",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Integrated tab disguise presets (Classroom, Drive, Docs, Canvas, Desmos) and stealth popup cloaks."
+				},
+				{
+					version: "V0.3.6",
+					title: "Font Awesome Integration",
+					tag: "Icons",
+					tagClass: "bg-sky-500/20 text-sky-300 border-sky-500/30",
+					desc: "Full Font Awesome 6 icon system integration across desktop, dock, and windows."
+				},
+				{
+					version: "V0.3.5",
+					title: "Add Extension Search",
+					tag: "Browser",
+					tagClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+					desc: "Extension directory search filter inside Onyx Browser extension manager."
+				},
+				{
+					version: "V0.3.4",
+					title: "Add internal URLS to Onyx Browser",
+					tag: "Browser",
+					tagClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+					desc: "Built-in support for onyx://newtab, onyx://bookmarks, onyx://history, onyx://extensions, and onyx://settings."
+				},
+				{
+					version: "V0.3.3",
+					title: "Add Extension Popups",
+					tag: "Extensions",
+					tagClass: "bg-teal-500/20 text-teal-300 border-teal-500/30",
+					desc: "Render Chrome extension action popups in Onyx Browser with full runtime API hooks."
+				},
+				{
+					version: "V0.3.2",
+					title: "Fix Helium Vault",
+					tag: "Vault",
+					tagClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+					desc: "Resolved media catalog indexing and embedded streaming playback issues."
+				},
+				{
+					version: "V0.3.1",
+					title: "Fix Extensions Button",
+					tag: "Browser",
+					tagClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+					desc: "Fixed toolbar extension trigger icon and extension manager modal in browser tabs."
+				}
+			]
+		},
+		{
+			era: "V0.2.x",
+			badge: "Expansion Era",
+			badgeClass: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+			versions: [
+				{
+					version: "V0.2.10",
+					title: "Add Sapphire to Onyx Browser",
+					tag: "Extensions",
+					tagClass: "bg-teal-500/20 text-teal-300 border-teal-500/30",
+					desc: "Embedded Sapphire Chrome Extensions runtime for Chromium-compatible extension injection."
+				},
+				{
+					version: "V0.2.9",
+					title: "Rename OnyxOS to VeilOS",
+					tag: "Branding",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Rebranded system to VeilOS Web Operating System with new branding guidelines."
+				},
+				{
+					version: "V0.2.8",
+					title: "Remove Bloxcraft Local Games",
+					tag: "Games",
+					tagClass: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+					desc: "Pruned legacy static game builds in favor of verified multi-provider cloud mirrors."
+				},
+				{
+					version: "V0.2.7",
+					title: "Remove Sea Bean, remove now.gg CG, remove all other community vaults",
+					tag: "Pruning",
+					tagClass: "bg-neutral-500/20 text-neutral-300 border-neutral-500/30",
+					desc: "Streamlined game providers and vaulted media collections to fast, verified mirrors."
+				},
+				{
+					version: "V0.2.6",
+					title: "Add new Game Providers",
+					tag: "Games",
+					tagClass: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+					desc: "Expanded Pulse Games arcade with 8 high-speed mirror providers."
+				},
+				{
+					version: "V0.2.5",
+					title: "Copy media to Helium Vault",
+					tag: "Media",
+					tagClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+					desc: "Consolidated movie and anime dataset into high-speed unified Helium Vault catalog."
+				},
+				{
+					version: "V0.2.4",
+					title: "Remove fake gateway proxy stuff in SSV",
+					tag: "Streaming",
+					tagClass: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+					desc: "Eliminated mock gateway interfaces in favor of real Scramjet proxy streaming."
+				},
+				{
+					version: "V0.2.3",
+					title: "Import Helium Vault",
+					tag: "Vault",
+					tagClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+					desc: "Added Helium Vault movies, TV series, and anime collection browser with responsive cards."
+				},
+				{
+					version: "V0.2.2",
+					title: "Add new movie stream sites",
+					tag: "Streaming",
+					tagClass: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+					desc: "Integrated multiple alternate streaming players (VidLink, EmbedSU, SuperEmbed, AutoEmbed)."
+				},
+				{
+					version: "V0.2.1",
+					title: "Proxy movies",
+					tag: "Streaming",
+					tagClass: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+					desc: "Implemented Scramjet Service Worker proxying for video stream embeds."
+				}
+			]
+		},
+		{
+			era: "V0.1.x",
+			badge: "Foundations Era",
+			badgeClass: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+			versions: [
+				{
+					version: "V0.1.10",
+					title: "Import SSV movies",
+					tag: "Media",
+					tagClass: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+					desc: "Integrated SSV Movies streaming hub into desktop environment."
+				},
+				{
+					version: "V0.1.9",
+					title: "Hide wisps settings",
+					tag: "Settings",
+					tagClass: "bg-neutral-500/20 text-neutral-300 border-neutral-500/30",
+					desc: "Simplified user settings by managing Wisp and Bare endpoints automatically in the background."
+				},
+				{
+					version: "V0.1.8",
+					title: "Change fonts on Games, Rename Dominum to Pulse",
+					tag: "Games",
+					tagClass: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+					desc: "Modern typography pass and renamed gaming suite to Pulse Games."
+				},
+				{
+					version: "V0.1.7",
+					title: "Remove themes dropdown on games",
+					tag: "Games",
+					tagClass: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+					desc: "Locked in a unified, distraction-free dark neon gaming theme."
+				},
+				{
+					version: "V0.1.6",
+					title: "3 updates, Icons (not current)",
+					tag: "UI",
+					tagClass: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+					desc: "UI improvements and icon updates."
+				},
+				{
+					version: "V0.1.5",
+					title: "Change themes of Games",
+					tag: "Games",
+					tagClass: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+					desc: "Visual refresh for games catalog cards and controls."
+				},
+				{
+					version: "V0.1.4",
+					title: "Import Dominum's Games",
+					tag: "Games",
+					tagClass: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+					desc: "Loaded community game directory into desktop window system."
+				},
+				{
+					version: "V0.1.3",
+					title: "Remove navigation bar of Cloud Gaming",
+					tag: "Gaming",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Full-window immersive presentation for Cloud Gaming."
+				},
+				{
+					version: "V0.1.2",
+					title: "Cloud gaming just nowgg.fun",
+					tag: "Gaming",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Configured Cloud Gaming window directly to nowgg.fun."
+				},
+				{
+					version: "V0.1.1",
+					title: "17 updates, fix background",
+					tag: "Core",
+					tagClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+					desc: "Major stability improvements and desktop background fix."
+				}
+			]
+		},
+		{
+			era: "V0.0.x",
+			badge: "Genesis Era",
+			badgeClass: "bg-slate-500/20 text-slate-300 border-slate-500/30",
+			versions: [
+				{
+					version: "V0.0.10",
+					title: "Remove Playstation, Netflix, and Spotify button",
+					tag: "Cleanup",
+					tagClass: "bg-neutral-500/20 text-neutral-300 border-neutral-500/30",
+					desc: "Cleaned up external launcher buttons for a focused native operating system feel."
+				},
+				{
+					version: "V0.0.9",
+					title: "Fix new tabs (again), Fix URL not changing at top",
+					tag: "Browser",
+					tagClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+					desc: "Resolved browser tab address bar synchronization on internal iframe navigation."
+				},
+				{
+					version: "V0.0.8",
+					title: "Make default wisp (Fern)",
+					tag: "Proxy",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Initial deployment with remote Wisp server transport."
+				},
+				{
+					version: "V0.0.7",
+					title: "Maximize covering App Dock and Hamburger Menu, Fix New Tabs, Fix Bookmarks button and History button",
+					tag: "Window Manager",
+					tagClass: "bg-sky-500/20 text-sky-300 border-sky-500/30",
+					desc: "Window maximize depth management hiding taskbar, new tab button fixes, and bookmark/history triggers."
+				},
+				{
+					version: "V0.0.6",
+					title: "Fix refreshing when moving things",
+					tag: "Window Manager",
+					tagClass: "bg-sky-500/20 text-sky-300 border-sky-500/30",
+					desc: "Preserved iframe DOM state when dragging, resizing, or focusing desktop windows."
+				},
+				{
+					version: "V0.0.5",
+					title: "Add page system, history and bookmarks to Onyx Browser",
+					tag: "Browser",
+					tagClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+					desc: "Full web browsing experience with multi-tab management, history logging, and bookmarks bar."
+				},
+				{
+					version: "V0.0.4",
+					title: "Add Cloud Gaming via myself",
+					tag: "Gaming",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Added initial Cloud Gaming app window."
+				},
+				{
+					version: "V0.0.3",
+					title: "Copy Synapse's look",
+					tag: "Design",
+					tagClass: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+					desc: "Adopted clean, sleek glassmorphism desktop environment aesthetics."
+				},
+				{
+					version: "V0.0.2",
+					title: "Fixed Exit and Minimize",
+					tag: "Window Manager",
+					tagClass: "bg-sky-500/20 text-sky-300 border-sky-500/30",
+					desc: "Window control buttons (close, minimize, maximize) with active z-index focus."
+				},
+				{
+					version: "V0.0.1",
+					title: "Import Onyx and zoom out as a web OS",
+					tag: "Genesis",
+					tagClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+					desc: "Initial conception and architecture of Onyx/VeilOS as a full web-based operating system."
+				}
+			]
+		}
+	];
+
+	const CREDITS_DATA = [
+		{
+			category: "Core Contributions & Systems",
+			members: [
+				{
+					name: "Cherri",
+					role: "Media Hub",
+					detail: "SSV skidding and media streaming integration.",
+					icon: "fa-solid fa-film text-rose-400",
+					badge: "SSV skidding"
+				},
+				{
+					name: "Synapse",
+					role: "Original Inspiration",
+					detail: "Idea and look behind the web desktop OS interface.",
+					icon: "fa-solid fa-lightbulb text-amber-400",
+					badge: "Idea"
+				},
+				{
+					name: "ZXS",
+					role: "Artificial Intelligence",
+					detail: "AI engine integration and backend logic.",
+					icon: "fa-solid fa-brain text-purple-400",
+					badge: "AI"
+				},
+				{
+					name: "Scramjet",
+					role: "Web Proxy",
+					detail: "Core proxy engine powering stealth web browsing and media rewriting.",
+					icon: "fa-solid fa-bolt text-sky-400",
+					badge: "Proxy Engine"
+				},
+				{
+					name: "InHeavenlyy",
+					role: "Networking",
+					detail: "Wisp server generation and transport connectivity.",
+					icon: "fa-solid fa-network-wired text-emerald-400",
+					badge: "Wisp Gen"
+				},
+				{
+					name: "Lord Beerus",
+					role: "Vault Storage",
+					detail: "Helium Vault media files and streaming archives.",
+					icon: "fa-solid fa-vault text-cyan-400",
+					badge: "Helium Vault Files"
+				},
+				{
+					name: "Material",
+					role: "UI & Aesthetics",
+					detail: "Scenario UI design and presentation styling.",
+					icon: "fa-solid fa-palette text-pink-400",
+					badge: "Scenario UI"
+				},
+				{
+					name: "viktorius",
+					role: "Branding",
+					detail: "Name of VeilOS.",
+					icon: "fa-solid fa-signature text-indigo-400",
+					badge: "Name"
+				},
+				{
+					name: "Frogiee's Arcade",
+					role: "Cloud Gaming",
+					detail: "Cloud gaming integration and streaming mirrors.",
+					icon: "fa-solid fa-cloud text-teal-400",
+					badge: "Cloud Gaming"
+				}
+			]
+		},
+		{
+			category: "Game Libraries & Game Archives",
+			members: [
+				{ name: "GN-Math", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "CKV", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Hydra Network", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "LupineVault", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "3kh0", role: "Arcade Mirror", detail: "Legendary web game archive and library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Daknux Zones", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Frogiee's Arcade", role: "Arcade Mirror", detail: "Curated game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Alexr's Worlds", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "CCPorted", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Google Classroom Games", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Seraph", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Elite Gamez", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "UGS", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Truffled", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Bloxcraft UBG", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "PeteZah", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "ShuttleProxy", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Marz Library", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" }
+			]
+		}
+	];
+
+	window.renderChangelogApp = function (win, scramjet, osInstance) {
+		if (win.customState && win.customState.rootEl) {
+			return win.customState.rootEl;
+		}
+		if (!win.customState) win.customState = {};
+
+		const root = document.createElement("div");
+		root.className = "w-full h-full flex flex-col bg-[#07080d] text-white select-text font-sans overflow-hidden";
+
+		let currentTab = "changelog"; // "changelog" | "credits" | "about"
+		let selectedEra = "all";
+		let searchQuery = "";
+
+		function countTotalVersions() {
+			let total = 0;
+			CHANGELOG_DATA.forEach(era => { total += era.versions.length; });
+			return total;
+		}
+
+		function getFilteredEras() {
+			const query = searchQuery.trim().toLowerCase();
+			return CHANGELOG_DATA.filter(era => {
+				if (selectedEra !== "all" && era.era !== selectedEra) return false;
+				if (!query) return true;
+				return era.era.toLowerCase().includes(query) ||
+					era.versions.some(v =>
+						v.version.toLowerCase().includes(query) ||
+						v.title.toLowerCase().includes(query) ||
+						v.desc.toLowerCase().includes(query) ||
+						v.tag.toLowerCase().includes(query)
+					);
+			}).map(era => {
+				if (!query) return era;
+				return {
+					...era,
+					versions: era.versions.filter(v =>
+						v.version.toLowerCase().includes(query) ||
+						v.title.toLowerCase().includes(query) ||
+						v.desc.toLowerCase().includes(query) ||
+						v.tag.toLowerCase().includes(query)
+					)
+				};
+			});
+		}
+
+		function render() {
+			const totalVers = countTotalVersions();
+			const filteredEras = getFilteredEras();
+
+			root.innerHTML = `
+				<!-- Top Header Toolbar -->
+				<div class="h-14 bg-neutral-900/90 border-b border-white/10 px-4 flex items-center justify-between shrink-0 backdrop-blur-xl">
+					<div class="flex items-center gap-3">
+						<div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white shadow-md">
+							<i class="fa-solid fa-scroll text-sm"></i>
+						</div>
+						<div class="flex flex-col">
+							<div class="flex items-center gap-2">
+								<span class="text-sm font-bold text-white tracking-tight">VeilOS Changelog & Credits</span>
+								<span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+									<span>v0.6.2</span>
+								</span>
+							</div>
+							<span class="text-[10px] text-neutral-400">Complete release history from V0.0.1 to V0.6.2 &bull; ${totalVers} total versions</span>
+						</div>
+					</div>
+
+					<!-- Navigation Tabs -->
+					<div class="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
+						<button class="cl-nav-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${currentTab === 'changelog' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-white'}" data-tab="changelog">
+							<i class="fa-solid fa-clock-rotate-left text-xs"></i>
+							<span>Changelog</span>
+						</button>
+						<button class="cl-nav-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${currentTab === 'credits' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-white'}" data-tab="credits">
+							<i class="fa-solid fa-crown text-xs"></i>
+							<span>Credits</span>
+						</button>
+						<button class="cl-nav-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${currentTab === 'about' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-white'}" data-tab="about">
+							<i class="fa-solid fa-circle-info text-xs"></i>
+							<span>About</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- Main Content Body -->
+				<div class="flex-1 overflow-y-auto custom-scrollbar p-5">
+					${currentTab === "changelog" ? `
+						<!-- Era Filter & Search Controls -->
+						<div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6 bg-white/[0.03] border border-white/10 p-3 rounded-2xl backdrop-blur-md">
+							<!-- Search Input -->
+							<div class="relative flex-1">
+								<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-xs"></i>
+								<input id="cl-search" type="text" value="${escapeHtml(searchQuery)}" placeholder="Search versions, features, fixes..."
+									class="w-full pl-8 pr-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-400/50 transition-colors" />
+							</div>
+
+							<!-- Era Filter Pills -->
+							<div class="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar shrink-0">
+								<button class="cl-era-btn px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-all ${selectedEra === 'all' ? 'bg-white/20 text-white border border-white/30' : 'bg-white/5 text-neutral-400 hover:text-white border border-transparent'}" data-era="all">All</button>
+								${CHANGELOG_DATA.map(era => `
+									<button class="cl-era-btn px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-all whitespace-nowrap ${selectedEra === era.era ? 'bg-indigo-600 text-white border border-indigo-400/40 shadow-sm' : 'bg-white/5 text-neutral-400 hover:text-white border border-transparent'}" data-era="${era.era}">${era.era}</button>
+								`).join("")}
+							</div>
+						</div>
+
+						<!-- Timeline of Versions -->
+						<div class="space-y-6 max-w-4xl mx-auto">
+							${filteredEras.length === 0 ? `
+								<div class="py-12 text-center text-neutral-400">
+									<i class="fa-solid fa-search text-3xl mb-3 text-neutral-600"></i>
+									<p class="text-sm">No updates match your search "${escapeHtml(searchQuery)}"</p>
+								</div>
+							` : filteredEras.map(era => `
+								<div class="bg-neutral-900/40 border border-white/10 rounded-3xl p-5 backdrop-blur-xl shadow-xl">
+									<!-- Era Header -->
+									<div class="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
+										<div class="flex items-center gap-2.5">
+											<div class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center font-bold text-white text-xs">
+												${era.era.replace(".x", "")}
+											</div>
+											<div>
+												<h2 class="text-sm font-bold text-white tracking-tight">${era.era} Timeline</h2>
+												<p class="text-[10px] text-neutral-400">${era.versions.length} release milestone${era.versions.length === 1 ? '' : 's'}</p>
+											</div>
+										</div>
+										<span class="px-2.5 py-1 rounded-xl text-[10px] font-semibold border ${era.badgeClass}">${era.badge}</span>
+									</div>
+
+									<!-- Version Cards in Era -->
+									<div class="space-y-3">
+										${era.versions.map(v => `
+											<div class="p-3.5 rounded-2xl bg-black/40 border border-white/5 hover:border-white/20 transition-all hover:bg-black/60 group">
+												<div class="flex items-start justify-between gap-3">
+													<div class="flex items-center gap-2">
+														<span class="font-mono text-xs font-bold text-white px-2 py-0.5 rounded-md bg-white/10 border border-white/15">${v.version}</span>
+														<h3 class="text-xs font-semibold text-neutral-100 group-hover:text-white transition-colors">${escapeHtml(v.title)}</h3>
+													</div>
+													<span class="px-2 py-0.5 rounded-full text-[9px] font-semibold border shrink-0 ${v.tagClass || 'bg-white/10 text-neutral-300 border-white/10'}">${v.tag}</span>
+												</div>
+												<p class="text-[11px] text-neutral-400 mt-2 leading-relaxed pl-1 border-l-2 border-indigo-500/40">${escapeHtml(v.desc)}</p>
+											</div>
+										`).join("")}
+									</div>
+								</div>
+							`).join("")}
+						</div>
+					` : currentTab === "credits" ? `
+						<!-- Credits View -->
+						<div class="max-w-4xl mx-auto space-y-6">
+							<div class="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-teal-950/30 to-indigo-950/40 border border-emerald-500/25 shadow-xl text-center flex flex-col items-center gap-2">
+								<div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-2xl text-emerald-300 shadow-md">
+									<i class="fa-solid fa-crown"></i>
+								</div>
+								<h2 class="text-lg font-bold text-white tracking-tight">VeilOS Credits & Attributions</h2>
+								<p class="text-xs text-neutral-300 max-w-lg leading-relaxed">Recognizing the developers, open-source maintainers, and foundational technologies that power the VeilOS ecosystem.</p>
+							</div>
+
+							${CREDITS_DATA.map(sec => `
+								<div class="bg-neutral-900/40 border border-white/10 rounded-3xl p-5 backdrop-blur-xl shadow-xl">
+									<div class="flex items-center gap-2 pb-3 mb-3 border-b border-white/10">
+										<span class="text-xs font-bold text-white uppercase tracking-wider">${sec.category}</span>
+										<span class="text-[10px] text-neutral-400">(${sec.members.length})</span>
+									</div>
+									<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+										${sec.members.map(m => `
+											<div class="p-4 rounded-2xl bg-black/40 border border-white/5 hover:border-white/20 transition-all flex flex-col justify-between gap-3">
+												<div class="flex items-start gap-3">
+													<div class="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-lg shrink-0">
+														<i class="${m.icon}"></i>
+													</div>
+													<div class="flex-1 min-w-0">
+														<div class="flex items-center justify-between gap-2">
+															<span class="text-xs font-bold text-white truncate">${m.name}</span>
+															<span class="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-white/10 text-neutral-300 border border-white/10">${m.badge}</span>
+														</div>
+														<div class="text-[10px] text-indigo-400 font-medium">${m.role}</div>
+													</div>
+												</div>
+												<p class="text-[11px] text-neutral-400 leading-relaxed">${m.detail}</p>
+											</div>
+										`).join("")}
+									</div>
+								</div>
+							`).join("")}
+						</div>
+					` : `
+						<!-- About System View -->
+						<div class="max-w-2xl mx-auto space-y-4">
+							<div class="p-6 rounded-3xl bg-neutral-900/60 border border-white/10 shadow-2xl flex flex-col items-center text-center gap-3">
+								<div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-3xl text-white shadow-xl">
+									<i class="fa-solid fa-shapes"></i>
+								</div>
+								<h2 class="text-xl font-bold text-white">VeilOS Web Operating System</h2>
+								<p class="text-xs text-neutral-400 max-w-md leading-relaxed">
+									A privacy-focused, unblocked web desktop operating system featuring an in-OS tabbed web browser, native proxy engine, media vaults, games arcade, and stealth tab disguise cloaks.
+								</p>
+								<div class="flex items-center gap-2 mt-1">
+									<span class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Release v0.6.2</span>
+									<span class="px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-neutral-300 border border-white/10">MIT License</span>
+								</div>
+							</div>
+
+							<div class="p-5 rounded-3xl bg-black/40 border border-white/10 divide-y divide-white/5 text-xs">
+								<div class="py-2.5 flex items-center justify-between">
+									<span class="text-neutral-400">Operating System</span>
+									<span class="font-semibold text-white">VeilOS Web OS</span>
+								</div>
+								<div class="py-2.5 flex items-center justify-between">
+									<span class="text-neutral-400">Current Build</span>
+									<span class="font-mono text-white">v0.6.2 (Unproxy Scenario)</span>
+								</div>
+								<div class="py-2.5 flex items-center justify-between">
+									<span class="text-neutral-400">Default Web Browser</span>
+									<span class="font-semibold text-sky-400">Onyx Browser</span>
+								</div>
+								<div class="py-2.5 flex items-center justify-between">
+									<span class="text-neutral-400">Proxy Engine</span>
+									<span class="font-semibold text-indigo-400">Scramjet Service Worker + BareMux</span>
+								</div>
+								<div class="py-2.5 flex items-center justify-between">
+									<span class="text-neutral-400">Transport Layer</span>
+									<span class="font-mono text-emerald-400">/epoxy/index.mjs &bull; Wisp WebSocket</span>
+								</div>
+								<div class="py-2.5 flex items-center justify-between">
+									<span class="text-neutral-400">Tab Cloaking</span>
+									<span class="font-semibold text-purple-400">Classroom, Drive, Canvas, Desmos, Custom</span>
+								</div>
+								<div class="py-2.5 flex items-center justify-between">
+									<span class="text-neutral-400">Stealth Modes</span>
+									<span class="font-semibold text-teal-400">Disguised About:Blank & Blob Cloaks</span>
+								</div>
+								<div class="py-2.5 flex items-center justify-between">
+									<span class="text-neutral-400">Developer</span>
+									<span class="font-semibold text-amber-400">ezclaps (Gavin)</span>
+								</div>
+							</div>
+						</div>
+					`}
+				</div>
+			`;
+
+			// Event listeners for tabs
+			root.querySelectorAll(".cl-nav-btn").forEach(btn => {
+				btn.addEventListener("click", () => {
+					currentTab = btn.getAttribute("data-tab");
+					render();
+				});
+			});
+
+			// Event listeners for era buttons
+			root.querySelectorAll(".cl-era-btn").forEach(btn => {
+				btn.addEventListener("click", () => {
+					selectedEra = btn.getAttribute("data-era");
+					render();
+				});
+			});
+
+			// Search input
+			const searchInput = root.querySelector("#cl-search");
+			if (searchInput) {
+				searchInput.addEventListener("input", (e) => {
+					searchQuery = e.target.value;
+					render();
+					// Maintain focus
+					const nextInp = root.querySelector("#cl-search");
+					if (nextInp) {
+						nextInp.focus();
+						nextInp.selectionStart = nextInp.selectionEnd = nextInp.value.length;
+					}
+				});
+			}
 		}
 
 		render();

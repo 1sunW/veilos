@@ -1,13 +1,13 @@
 // Google tag (gtag.js)
 const script1 = document.createElement('script');
 script1.async = true;
-script1.src = 'https://www.googletagmanager.com/gtag/js?id=G-CC007RV79S';
+script1.src = 'https://www.googletagmanager.com/gtag/js?id=G-0LH2MR13BF';
 document.head.appendChild(script1);
 
 window.dataLayer = window.dataLayer || [];
 function gtag(){window.dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', 'G-CC007RV79S');
+gtag('config', 'G-0LH2MR13BF');
 
 // Ensure store is always defined in ui.js
 var store = (typeof window !== "undefined" && window.store) ||
@@ -113,18 +113,20 @@ const applyTransport = async (transport, wispurl, bareurl) => {
 	if (!connection) return;
 	try {
 		if (transport === "/baremod/index.mjs") {
-			await connection.setTransport("/baremod/index.mjs", [bareurl || store.bareurl]);
+			const bUrl = bareurl || store.bareurl || ((typeof location !== "undefined" && location.origin) ? (location.origin + "/bare/") : "/bare/");
+			await connection.setTransport("/baremod/index.mjs", [bUrl]);
 		} else {
-			let targetWisp = wispurl || store.wispurl;
+			let targetWisp = wispurl || store.wispurl || ((typeof location !== "undefined" && location.host) ? ((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wisp/") : "wss://wisp.mercurywork.shop/");
 			if (targetWisp && !targetWisp.endsWith("/")) {
 				targetWisp += "/";
 			}
-			await connection.setTransport(transport, [{ wisp: targetWisp }]);
+			await connection.setTransport(transport || "/epoxy/index.mjs", [{ wisp: targetWisp }]);
 		}
 	} catch (err) {
 		console.warn("Failed to set transport " + transport + ", falling back to Bare 3:", err);
 		try {
-			await connection.setTransport("/baremod/index.mjs", [bareurl || store.bareurl]);
+			const fallbackBare = bareurl || store.bareurl || ((typeof location !== "undefined" && location.origin) ? (location.origin + "/bare/") : "/bare/");
+			await connection.setTransport("/baremod/index.mjs", [fallbackBare]);
 			store.transport = "/baremod/index.mjs";
 		} catch (fallbackErr) {
 			console.error("Fallback transport also failed:", fallbackErr);
@@ -140,13 +142,13 @@ function Config() {
     opacity: 1;
     
     &.cfg {
-      background: rgba(10, 10, 15, 0.95) !important;
+      background: rgba(12, 14, 20, 0.96) !important;
       color: #f1f5f9;
-      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
       border-radius: 24px;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       padding: 24px;
       max-width: 520px;
       width: 92%;
@@ -156,21 +158,24 @@ function Config() {
       outline: none !important;
     }
 
-    &.cfg {
+    &.cfg:focus, &.cfg:focus-visible {
       outline: none !important;
-      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85) !important;
     }
 
-    &.cfg *:focus:not(.selected-item):not(.active), &.cfg *:focus-visible:not(.selected-item):not(.active) {
-      outline: none;
-      box-shadow: none;
+    &.cfg *:focus:not(.selected-item),
+    &.cfg *:focus-visible:not(.selected-item) {
+      outline: none !important;
+      box-shadow: none !important;
     }
 
     .selected-item, &.cfg .selected-item {
       outline: 2px solid #ffffff !important;
-      outline-offset: 1px !important;
+      outline-offset: 2px !important;
       border: 1px solid #ffffff !important;
-      box-shadow: 0 0 14px rgba(255, 255, 255, 0.25) !important;
+      background-color: rgba(255, 255, 255, 0.16) !important;
+      color: #ffffff !important;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.25) !important;
     }
 
     &::backdrop {
@@ -207,6 +212,7 @@ function Config() {
       padding: 4px;
       border-radius: 14px;
       border: none !important;
+      outline: none !important;
     }
 
     .tab-pills button {
@@ -228,12 +234,24 @@ function Config() {
     }
 
     .tab-pills button.active {
-      background: rgba(255, 255, 255, 0.15);
-      outline: 2px solid #ffffff !important;
-      outline-offset: 1px !important;
-      border: 1px solid #ffffff !important;
+      background: rgba(255, 255, 255, 0.12) !important;
+      outline: none !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      color: #ffffff !important;
+      box-shadow: none !important;
+    }
+
+    .tab-pills button:focus,
+    .tab-pills button:focus-visible,
+    .tab-pills button.active:focus,
+    .tab-pills button.active:focus-visible {
+      outline: none !important;
+      box-shadow: none !important;
+    }
+
+    .tab-pills button:hover:not(.active) {
       color: #ffffff;
-      box-shadow: 0 0 14px rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.06);
     }
 
     .section-title {
@@ -272,6 +290,7 @@ function Config() {
     .buttons button.active {
       background-color: rgba(99, 102, 241, 0.25);
       border: 1px solid rgba(129, 140, 248, 0.6) !important;
+      outline: none !important;
       color: #ffffff;
       box-shadow: 0 0 16px rgba(99, 102, 241, 0.2);
     }
@@ -299,7 +318,7 @@ function Config() {
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       color: #f1f5f9;
-      outline: none;
+      outline: none !important;
       padding: 10px 12px;
       font-size: 0.85rem;
       transition: all 0.2s;
@@ -307,9 +326,10 @@ function Config() {
     }
 
     .input_row input:focus {
-      border-color: rgba(255, 255, 255, 0.4);
-      box-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
+      border-color: rgba(129, 140, 248, 0.5) !important;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.2) !important;
       background-color: rgba(0, 0, 0, 0.6);
+      outline: none !important;
     }
 
     .status-pill {
@@ -325,9 +345,10 @@ function Config() {
     }
 
     .close-btn {
-      background: #ffffff;
-      color: #000000;
-      border: none;
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      outline: none !important;
       border-radius: 12px;
       padding: 12px 24px;
       font-weight: 600;
@@ -339,11 +360,13 @@ function Config() {
       align-items: center;
       justify-content: center;
       gap: 8px;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
     }
 
     .close-btn:hover {
-      background: #e2e8f0;
+      background: linear-gradient(135deg, #4338ca, #4f46e5);
       transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
     }
 
     .close-btn:active {
@@ -464,7 +487,11 @@ function Config() {
                   <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" class="sr-only peer" checked=${Boolean(store.autoAboutBlank)}
                       on:change=${(e) => {
-												store.autoAboutBlank = Boolean(e.target.checked);
+												const checked = Boolean(e.target.checked);
+												store.autoAboutBlank = checked;
+												try {
+													localStorage.setItem("veil_auto_about_blank", checked ? "true" : "false");
+												} catch(err) {}
 												this.cfgTab = "cloak";
 											}}>
                     <div class="w-9 h-5 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
@@ -475,7 +502,21 @@ function Config() {
 					}
 				})}
 
-        <div>
+        <div class="flex flex-col gap-2 pt-2 border-t border-white/10 mt-3">
+          <button class="w-full py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 hover:text-white text-xs font-semibold flex items-center justify-between cursor-pointer transition-all"
+            on:click=${() => {
+							handleModalClose(this.root);
+							if (window.osGlobalInstance) {
+								window.osGlobalInstance.openApp("changelog");
+							}
+						}}>
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-scroll text-emerald-400"></i>
+              <span>View VeilOS Changelog & Credits</span>
+            </div>
+            <span class="text-[10px] text-emerald-400 font-mono">v0.6.2 &rarr;</span>
+          </button>
+
           <button class="close-btn" on:click=${() => {
 						if (window.applyTabCloak) window.applyTabCloak(store.tabCloak, store.customCloakTitle, store.customCloakIcon);
 						handleModalClose(this.root);
@@ -520,6 +561,68 @@ window.addEventListener("load", async () => {
 	await scramjet.init();
 	window.$scramjet = scramjet;
 	window.scramjet = scramjet;
+
+	if (window.Sapphire) {
+		try {
+			const sapphire = new window.Sapphire({
+				controller: scramjet,
+				host: {
+					getTabId: (winObj) => {
+						const activeId = win.customState?.activeTabId;
+						if (!winObj) return activeId || 1;
+						const match = (win.customState?.tabs || []).find(t => t.frameObj?.frame?.contentWindow === winObj);
+						return match ? match.numericId : (activeId || 1);
+					},
+					getTab: (id) => {
+						const match = (win.customState?.tabs || []).find(t => t.numericId === id || t.id === id);
+						if (!match) return null;
+						return {
+							id: match.numericId || 1,
+							windowId: 1,
+							url: match.url || "about:blank",
+							title: match.title || "New Tab",
+							active: match.id === win.customState?.activeTabId,
+						};
+					},
+					getAllTabs: () => {
+						return (win.customState?.tabs || []).map(t => ({
+							id: t.numericId || 1,
+							windowId: 1,
+							url: t.url || "about:blank",
+							title: t.title || "New Tab",
+							active: t.id === win.customState?.activeTabId,
+						}));
+					},
+					getTabWindow: (id) => {
+						const match = (win.customState?.tabs || []).find(t => t.numericId === id || t.id === id);
+						return match?.frameObj?.frame?.contentWindow || null;
+					},
+					navigateTab: (id, url) => {
+						const match = (win.customState?.tabs || []).find(t => t.numericId === id || t.id === id);
+						if (match && match.frameObj) {
+							match.frameObj.go(url);
+						}
+					},
+				},
+			});
+			await sapphire.init();
+			window.sapphire = sapphire;
+			if (typeof sapphire.registry?.list === "function") {
+				for (const ext of sapphire.registry.list()) {
+					if (ext.enabled && !ext.background && typeof sapphire.startBackground === "function") {
+						try {
+							sapphire.startBackground(ext);
+						} catch (bgErr) {
+							console.warn("[Sapphire] Background boot error:", bgErr);
+						}
+					}
+				}
+			}
+			console.log("[Sapphire] Extension orchestrator initialized successfully");
+		} catch (e) {
+			console.warn("[Sapphire] Failed to initialize Sapphire orchestrator:", e);
+		}
+	}
 	window.encodeProxyUrl = (url) => {
 		try {
 			return scramjet.encodeUrl(url);
@@ -528,320 +631,152 @@ window.addEventListener("load", async () => {
 		}
 	};
 	if ("serviceWorker" in navigator) {
-		await navigator.serviceWorker.register("./sw.js");
-		if (navigator.serviceWorker.controller) {
-			navigator.serviceWorker.controller.postMessage({
-				scramjet$type: "loadConfig",
-				config: scramjet.config,
-			});
-		}
-	}
-
-	// Initialize Sapphire Chrome Extensions Engine
-	const Sapphire = window.Sapphire || globalThis.Sapphire;
-	const SapphireContentScriptPlugin = window.SapphireContentScriptPlugin || globalThis.SapphireContentScriptPlugin;
-
-	let sapphire = null;
-	if (Sapphire) {
 		try {
-			sapphire = new Sapphire({
-				host: {
-					getTabId: (win) => {
-						const os = window.osGlobalInstance;
-						if (!os) return null;
-						for (const osWin of os.windows) {
-							if (osWin.customState && osWin.customState.tabs) {
-								for (const tab of osWin.customState.tabs) {
-									if (tab.frameObj?.frame?.contentWindow === win) {
-										return tab.numericId;
-									}
-								}
-							}
-						}
-						return null;
-					},
-					getActiveTabId: () => {
-						const os = window.osGlobalInstance;
-						if (!os) return 1;
-						const activeWin = os.windows.find((w) => w.focused && w.customState?.tabs?.length) ||
-						                  os.windows.find((w) => w.customState?.tabs?.length);
-						if (activeWin && activeWin.customState && activeWin.customState.tabs) {
-							const activeTab = activeWin.customState.tabs.find((t) => t.id === activeWin.customState.activeTabId) ||
-							                  activeWin.customState.tabs[0];
-							return activeTab ? activeTab.numericId : 1;
-						}
-						return 1;
-					},
-					getTab: (id) => {
-						const os = window.osGlobalInstance;
-						if (!os) return null;
-						for (const osWin of os.windows) {
-							if (osWin.customState && osWin.customState.tabs) {
-								const tab = osWin.customState.tabs.find((t) => t.numericId === id);
-								if (tab) {
-									const rawUrl = tab.url || tab.frameObj?.url || "https://google.com";
-									return {
-										id: tab.numericId,
-										windowId: 1,
-										url: rawUrl.startsWith("http") ? rawUrl : (rawUrl.startsWith("about:") ? rawUrl : "https://google.com"),
-										title: tab.title || "Tab",
-										active: osWin.customState.activeTabId === tab.id,
-									};
-								}
-							}
-						}
-						return null;
-					},
-					getAllTabs: () => {
-						const all = [];
-						const os = window.osGlobalInstance;
-						if (!os) return all;
-						for (const osWin of os.windows) {
-							if (osWin.customState && osWin.customState.tabs) {
-								for (const tab of osWin.customState.tabs) {
-									const rawUrl = tab.url || tab.frameObj?.url || "https://google.com";
-									all.push({
-										id: tab.numericId,
-										windowId: 1,
-										url: rawUrl.startsWith("http") ? rawUrl : (rawUrl.startsWith("about:") ? rawUrl : "https://google.com"),
-										title: tab.title || "Tab",
-										active: osWin.customState.activeTabId === tab.id,
-									});
-								}
-							}
-						}
-						return all;
-					},
-					getTabWindow: (id) => {
-						const os = window.osGlobalInstance;
-						if (!os) return null;
-						for (const osWin of os.windows) {
-							if (osWin.customState && osWin.customState.tabs) {
-								const tab = osWin.customState.tabs.find((t) => t.numericId === id);
-								if (tab && tab.frameObj?.frame?.contentWindow) {
-									return tab.frameObj.frame.contentWindow;
-								}
-							}
-						}
-						return null;
-					},
-					openTab: (url, active = true) => {
-						const os = window.osGlobalInstance;
-						if (!os) return;
-						let targetWin = (os.activeWinId ? os.windows.find((w) => w.id === os.activeWinId && w.appId === "browser") : null) ||
-						                os.windows.find((w) => w.appId === "browser" && !w.isMinimized) ||
-						                os.windows.find((w) => w.appId === "browser");
-						if (!targetWin) {
-							os.openApp("browser", undefined, { url: url || "https://google.com" });
-							return;
-						}
-						if (targetWin.isMinimized) {
-							targetWin.isMinimized = false;
-						}
-						os.focusWindow(targetWin.id);
-						if (targetWin.customState?.hidePopover) {
-							targetWin.customState.hidePopover();
-						}
-						if (typeof targetWin.customState?.createNewTab === "function") {
-							targetWin.customState.createNewTab(url || "https://google.com");
-						} else {
-							targetWin.customState = targetWin.customState || {};
-							targetWin.customState.url = url || "https://google.com";
-						}
-					},
-					navigateTab: (id, url) => {
-						const os = window.osGlobalInstance;
-						if (!os) return;
-						if (id !== null && id !== undefined) {
-							for (const osWin of os.windows) {
-								if (osWin.customState && osWin.customState.tabs) {
-									const tab = osWin.customState.tabs.find((t) => t.numericId === id);
-									if (tab) {
-										tab.url = url;
-										if (tab.frameObj?.go) {
-											tab.frameObj.go(url);
-										}
-										return;
-									}
-								}
-							}
-						}
-						let targetWin = (os.activeWinId ? os.windows.find((w) => w.id === os.activeWinId && w.appId === "browser") : null) ||
-						                os.windows.find((w) => w.appId === "browser" && !w.isMinimized) ||
-						                os.windows.find((w) => w.appId === "browser");
-						if (!targetWin) {
-							os.openApp("browser", undefined, { url: url || "https://google.com" });
-							return;
-						}
-						if (targetWin.isMinimized) {
-							targetWin.isMinimized = false;
-						}
-						os.focusWindow(targetWin.id);
-						if (targetWin.customState?.hidePopover) {
-							targetWin.customState.hidePopover();
-						}
-						if (typeof targetWin.customState?.createNewTab === "function") {
-							targetWin.customState.createNewTab(url || "https://google.com");
-						} else {
-							targetWin.customState = targetWin.customState || {};
-							targetWin.customState.url = url || "https://google.com";
-						}
-					},
-					openExtensionTab: (extId, page, tabId) => {
-						const pageUrl = `${window.location.origin}/~/sx/${extId}/${String(page || "").replace(/^\//, "")}`;
-						const os = window.osGlobalInstance;
-						if (!os) return;
-						if (tabId !== null && tabId !== undefined) {
-							for (const osWin of os.windows) {
-								if (osWin.customState && osWin.customState.tabs) {
-									const tab = osWin.customState.tabs.find((t) => t.numericId === tabId);
-									if (tab) {
-										tab.url = pageUrl;
-										if (tab.frameObj?.go) {
-											tab.frameObj.go(pageUrl);
-										}
-										return;
-									}
-								}
-							}
-						}
-						let targetWin = (os.activeWinId ? os.windows.find((w) => w.id === os.activeWinId && w.appId === "browser") : null) ||
-						                os.windows.find((w) => w.appId === "browser" && !w.isMinimized) ||
-						                os.windows.find((w) => w.appId === "browser");
-						if (!targetWin) {
-							os.openApp("browser", undefined, { url: pageUrl });
-							return;
-						}
-						if (targetWin.isMinimized) {
-							targetWin.isMinimized = false;
-						}
-						os.focusWindow(targetWin.id);
-						if (targetWin.customState?.hidePopover) {
-							targetWin.customState.hidePopover();
-						}
-						if (typeof targetWin.customState?.createNewTab === "function") {
-							targetWin.customState.createNewTab(pageUrl);
-						} else {
-							targetWin.customState = targetWin.customState || {};
-							targetWin.customState.url = pageUrl;
-						}
-					},
-					showNotification: (title, message) => {
-						console.log(`[Extension Notification] ${title}: ${message}`);
-					},
-				},
-			});
-			await sapphire.init();
-			if (typeof sapphire.getPopupUrl !== "function") {
-				sapphire.getPopupUrl = async function (extId) {
-					if (!extId) return null;
-					try {
-						const page = typeof this.getExtensionPopupPage === "function" ? this.getExtensionPopupPage(extId) : null;
-						if (page) {
-							return `${window.location.origin}/~/sx/${extId}/${String(page).replace(/^\//, "")}`;
-						}
-						const ext = this.registry?.get ? this.registry.get(extId) : null;
-						if (ext) {
-							const fallback =
-								ext.popupPage ||
-								ext.manifest?.action?.default_popup ||
-								ext.manifest?.browser_action?.default_popup ||
-								ext.manifest?.page_action?.default_popup;
-							if (fallback) {
-								return `${window.location.origin}/~/sx/${extId}/${String(fallback).replace(/^\//, "")}`;
-							}
-						}
-					} catch (e) {
-						console.warn("[getPopupUrl] error:", e);
-					}
-					return null;
-				};
+			const reg = await navigator.serviceWorker.register("./sw.js", { scope: "/" });
+			const sw = reg.active || reg.installing || reg.waiting;
+			if (sw) {
+				sw.postMessage({
+					scramjet$type: "loadConfig",
+					config: scramjet.config,
+				});
 			}
-			window.sapphire = sapphire;
-			console.log("[OnyxOS] Sapphire Chrome Extensions engine initialized");
-		} catch (err) {
-			console.warn("[OnyxOS] Failed to initialize Sapphire:", err);
+			navigator.serviceWorker.addEventListener("controllerchange", () => {
+				if (navigator.serviceWorker.controller) {
+					navigator.serviceWorker.controller.postMessage({
+						scramjet$type: "loadConfig",
+						config: scramjet.config,
+					});
+				}
+			});
+			navigator.serviceWorker.ready.then((readyReg) => {
+				if (readyReg.active) {
+					readyReg.active.postMessage({
+						scramjet$type: "loadConfig",
+						config: scramjet.config,
+					});
+				}
+			});
+		} catch (swErr) {
+			console.warn("[Scramjet] SW registration issue:", swErr);
 		}
 	}
+
+
 
 	connection = new BareMux.BareMuxConnection("/baremux/worker.js");
 	await applyTransport(store.transport || "/baremod/index.mjs", store.wispurl, store.bareurl);
 
-	// Definition of Apps in VeilOS - Core Apps (in dock) + System & Utility Apps (in menus/spotlight only)
+	// Lock Screen Community Quotes
+	const LOCKSCREEN_QUOTES = [
+		{
+			author: "Yuki",
+			quote: "9.3/10",
+			role: "Owner of Snipershot",
+			icon: "fa-solid fa-crosshairs",
+			avatarBg: "bg-gradient-to-br from-amber-500 to-red-600"
+		},
+		{
+			author: "Obamamegagon",
+			quote: "VeilOS is tuff like me",
+			role: "Owner of Potatoland and Black Hat",
+			icon: "fa-solid fa-hat-cowboy",
+			avatarBg: "bg-gradient-to-br from-blue-600 to-indigo-800"
+		},
+		{
+			author: "hvtrs",
+			quote: "veilos mogs figure",
+			role: "Ex-Owner of Cherri",
+			icon: "fa-solid fa-crown",
+			avatarBg: "bg-gradient-to-br from-rose-600 to-pink-700"
+		},
+		{
+			author: "MrCoffee",
+			quote: "wow this is amazing and i love it so much",
+			role: "Owner of Vanta",
+			icon: "fa-solid fa-mug-hot",
+			avatarBg: "bg-gradient-to-br from-amber-700 to-yellow-900"
+		},
+		{
+			author: "david",
+			quote: "faiz basha faiz basha blue bands 🩵",
+			role: "Owner of Novene",
+			icon: "fa-solid fa-gem",
+			avatarBg: "bg-gradient-to-br from-cyan-600 to-blue-800"
+		},
+		{
+			author: "Rasha",
+			quote: "veil os is very niche and very veil 👌",
+			role: "Owner of Niche and T9 Network",
+			icon: "fa-solid fa-fingerprint",
+			avatarBg: "bg-gradient-to-br from-emerald-600 to-teal-800"
+		},
+		{
+			author: "Dominus",
+			quote: "Site so good even the femboys couldnt resist",
+			role: "Owner of Dominum Network",
+			icon: "fa-solid fa-bolt",
+			avatarBg: "bg-gradient-to-br from-purple-600 to-violet-900"
+		},
+		{
+			author: "zxs",
+			quote: "Vrrtrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+			role: "Owner of Emis, Zodiac and Luna",
+			icon: "fa-solid fa-brain",
+			avatarBg: "bg-gradient-to-br from-fuchsia-600 to-pink-800"
+		},
+		{
+			author: "Suki",
+			quote: "If you use Veil you have aura",
+			role: "Owner of Celsius",
+			icon: "fa-solid fa-sun",
+			avatarBg: "bg-gradient-to-br from-sky-500 to-indigo-700"
+		},
+		{
+			author: "midnight",
+			quote: "VeilOS make me cream",
+			role: "Owner of Nocturne",
+			icon: "fa-solid fa-moon",
+			avatarBg: "bg-gradient-to-br from-indigo-900 to-purple-950"
+		},
+		{
+			author: "bestspark",
+			quote: "this is one of the good web os'es out there according to my 30 second view of it",
+			role: "Owner of BestSpark",
+			icon: "fa-solid fa-star",
+			avatarBg: "bg-gradient-to-br from-yellow-500 to-amber-700"
+		},
+		{
+			author: "taii",
+			quote: "veilos is amazing i love it",
+			role: "Owner of Mizumath",
+			icon: "fa-solid fa-heart",
+			avatarBg: "bg-gradient-to-br from-teal-500 to-emerald-700"
+		}
+	];
+
+	// Definition of Apps in VeilOS - All app icons matched directly from the Credits app
 	const APPS = [
 		{ 
 			id: "browser", 
 			name: "Onyx Browser", 
-			logoUrl: "assets/scramjet.png", 
-			iconClass: "fa-solid fa-compass", 
+			logoUrl: null, 
+			iconClass: "fa-solid fa-bolt", 
 			iconColor: "text-sky-400", 
 			dockGradient: "from-blue-500 to-indigo-600", 
-			desc: "Proxy Web Browser with tabs & search", 
+			desc: "Proxy Web Browser powered by Scramjet engine", 
 			category: "Internet", 
 			defaultW: 980, 
 			defaultH: 640, 
 			inDock: true 
 		},
 		{ 
-			id: "music", 
-			name: "Sonora", 
-			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"gsonora\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%236366f1\"/><stop offset=\"100%\" stop-color=\"%2306b6d4\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23gsonora)\"/><path d=\"M19 32V11l18-3v21\" stroke=\"%23fff\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" fill=\"none\"/><circle cx=\"14\" cy=\"32\" r=\"4.5\" fill=\"%23fff\"/><circle cx=\"32\" cy=\"28\" r=\"4.5\" fill=\"%23fff\"/></svg>", 
-			iconClass: "fa-solid fa-music", 
-			iconColor: "text-cyan-400", 
-			dockGradient: "from-indigo-600 to-cyan-500", 
-			desc: "Lossless and high-fidelity music streaming", 
-			category: "Entertainment", 
-			defaultW: 1100, 
-			defaultH: 720, 
-			inDock: true 
-		},
-		{ 
-			id: "ai", 
-			name: "Scenario", 
-			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g1\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%23818cf8\"/><stop offset=\"50%\" stop-color=\"%23a855f7\"/><stop offset=\"100%\" stop-color=\"%23ec4899\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g1)\"/><path d=\"M24 10l3.2 8.8L36 22l-8.8 3.2L24 34l-3.2-8.8L12 22l8.8-3.2z\" fill=\"%23fff\"/><circle cx=\"34\" cy=\"12\" r=\"2\" fill=\"%23fff\"/><circle cx=\"14\" cy=\"32\" r=\"1.5\" fill=\"%23fff\"/></svg>", 
-			iconClass: "fa-solid fa-wand-magic-sparkles", 
-			iconColor: "text-purple-400", 
-			dockGradient: "from-indigo-600 via-purple-600 to-pink-500", 
-			desc: "Scenario AI Assistant Web Application", 
-			category: "Productivity", 
-			defaultW: 1040, 
-			defaultH: 700, 
-			inDock: true 
-		},
-		{ 
-			id: "chat", 
-			name: "Onyx Chat", 
-			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g2\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%2310b981\"/><stop offset=\"100%\" stop-color=\"%230d9488\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g2)\"/><path d=\"M14 16h20a2 2 0 012 2v12a2 2 0 01-2 2h-6l-6 5v-5h-8a2 2 0 01-2-2V18a2 2 0 012-2z\" fill=\"%23fff\"/><circle cx=\"20\" cy=\"24\" r=\"2\" fill=\"%230d9488\"/><circle cx=\"25\" cy=\"24\" r=\"2\" fill=\"%230d9488\"/><circle cx=\"30\" cy=\"24\" r=\"2\" fill=\"%230d9488\"/></svg>", 
-			iconClass: "fa-solid fa-comments", 
-			iconColor: "text-emerald-400", 
-			dockGradient: "from-emerald-500 to-teal-600", 
-			desc: "Multi-channel community chat room", 
-			category: "Social", 
-			defaultW: 860, 
-			defaultH: 580, 
-			inDock: true 
-		},
-		{ 
-			id: "vault", 
-			name: "Helium Vault", 
-			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g3\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%2306b6d4\"/><stop offset=\"100%\" stop-color=\"%233b82f6\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g3)\"/><path d=\"M12 15a3 3 0 013-3h18a3 3 0 013 3v16a3 3 0 01-3 3H15a3 3 0 01-3-3V15z\" fill=\"%231e293b\" stroke=\"%23fff\" stroke-width=\"2\"/><polygon points=\"21,19 30,24 21,29\" fill=\"%2338bdf8\"/><path d=\"M18 38h12\" stroke=\"%23fff\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>", 
-			iconClass: "fa-solid fa-tv", 
-			iconColor: "text-cyan-400", 
-			dockGradient: "from-rose-500 via-indigo-600 to-cyan-500", 
-			desc: "Curated Movies, TV Shows, Anime & Direct Streams", 
-			category: "Entertainment", 
-			defaultW: 1120, 
-			defaultH: 740, 
-			inDock: true 
-		},
-		{ 
 			id: "movies", 
 			name: "SSV Movies", 
-			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g4\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%23e11d48\"/><stop offset=\"100%\" stop-color=\"%239333ea\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g4)\"/><path d=\"M13 14h22a2 2 0 012 2v18a2 2 0 01-2 2H13a2 2 0 01-2-2V16a2 2 0 012-2z\" fill=\"%23fff\"/><polygon points=\"21,19 30,25 21,31\" fill=\"%23e11d48\"/><rect x=\"11\" y=\"14\" width=\"26\" height=\"5\" fill=\"%231e1b4b\"/><circle cx=\"15\" cy=\"16.5\" r=\"1\" fill=\"%23fff\"/><circle cx=\"21\" cy=\"16.5\" r=\"1\" fill=\"%23fff\"/><circle cx=\"27\" cy=\"16.5\" r=\"1\" fill=\"%23fff\"/><circle cx=\"33\" cy=\"16.5\" r=\"1\" fill=\"%23fff\"/></svg>", 
+			logoUrl: null, 
 			iconClass: "fa-solid fa-film", 
-			iconColor: "text-pink-400", 
+			iconColor: "text-rose-400", 
 			dockGradient: "from-pink-600 via-purple-700 to-indigo-800", 
-			desc: "Proxied movies, TV shows, and streaming player", 
+			desc: "Proxied movies, TV shows, and streaming player (Cherri / SSV)", 
 			category: "Entertainment", 
 			defaultW: 1080, 
 			defaultH: 720, 
@@ -850,21 +785,98 @@ window.addEventListener("load", async () => {
 		{ 
 			id: "games", 
 			name: "Pulse Games", 
-			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g5\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%238b5cf6\"/><stop offset=\"100%\" stop-color=\"%234f46e5\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g5)\"/><path d=\"M12 20c0-3.3 2.7-6 6-6h12c3.3 0 6 2.7 6 6v7c0 4-3.5 7-7.5 7-2 0-3.5-1-4.5-2.5-1 1.5-2.5 2.5-4.5 2.5-4 0-7.5-3-7.5-7v-7z\" fill=\"%23fff\"/><path d=\"M19 21v6M16 24h6\" stroke=\"%234f46e5\" stroke-width=\"2\" stroke-linecap=\"round\"/><circle cx=\"29\" cy=\"22\" r=\"1.5\" fill=\"%23ec4899\"/><circle cx=\"32\" cy=\"25\" r=\"1.5\" fill=\"%233b82f6\"/></svg>", 
+			logoUrl: null, 
 			iconClass: "fa-solid fa-gamepad", 
 			iconColor: "text-violet-400", 
 			dockGradient: "from-violet-600 to-purple-800", 
-			desc: "Unblocked arcade with 8 providers & 1,000+ games", 
+			desc: "Unblocked arcade with community game libraries", 
 			category: "Gaming", 
 			defaultW: 1080, 
 			defaultH: 720, 
 			inDock: true 
 		},
-		// Restored apps - NOT in task bar
+		{ 
+			id: "music", 
+			name: "Sonora", 
+			logoUrl: null, 
+			iconClass: "fa-solid fa-music", 
+			iconColor: "text-rose-400", 
+			dockGradient: "from-rose-500 via-fuchsia-600 to-indigo-600", 
+			desc: "Lossless and high-fidelity music streaming", 
+			category: "Entertainment", 
+			defaultW: 1060, 
+			defaultH: 700, 
+			inDock: false 
+		},
+		{ 
+			id: "ai", 
+			name: "Scenario", 
+			logoUrl: null, 
+			iconClass: "fa-solid fa-brain", 
+			iconColor: "text-purple-400", 
+			dockGradient: "from-indigo-600 via-purple-600 to-pink-500", 
+			desc: "Scenario AI Assistant (ZXS / Material)", 
+			category: "Productivity", 
+			defaultW: 1040, 
+			defaultH: 700, 
+			inDock: false 
+		},
+		{ 
+			id: "ampler", 
+			name: "Ampler Launcher", 
+			logoUrl: null, 
+			iconClass: "fa-solid fa-cube", 
+			iconColor: "text-emerald-400", 
+			dockGradient: "from-emerald-600 via-teal-600 to-indigo-700", 
+			desc: "Minecraft & Eaglercraft web launcher (Ampler Launcher)", 
+			category: "Gaming", 
+			defaultW: 1080, 
+			defaultH: 720, 
+			inDock: false 
+		},
+		{ 
+			id: "chat", 
+			name: "Onyx Chat", 
+			logoUrl: null, 
+			iconClass: "fa-solid fa-message", 
+			iconColor: "text-emerald-400", 
+			dockGradient: "from-emerald-500 to-teal-600", 
+			desc: "Multi-channel community chat room", 
+			category: "Social", 
+			defaultW: 860, 
+			defaultH: 580, 
+			inDock: false 
+		},
+		{ 
+			id: "vault", 
+			name: "Helium Vault", 
+			logoUrl: null, 
+			iconClass: "fa-solid fa-vault", 
+			iconColor: "text-cyan-400", 
+			dockGradient: "from-rose-500 via-indigo-600 to-cyan-500", 
+			desc: "Curated Movies, TV Shows & Direct Streams (Lord Beerus)", 
+			category: "Entertainment", 
+			defaultW: 1120, 
+			defaultH: 740, 
+			inDock: false 
+		},
+		{ 
+			id: "cloudgaming", 
+			name: "Cloud Gaming", 
+			logoUrl: null, 
+			iconClass: "fa-solid fa-cloud", 
+			iconColor: "text-teal-400", 
+			dockGradient: "from-teal-600 to-indigo-700", 
+			desc: "Cloud gaming mirrors (Frogiee's Arcade)", 
+			category: "Gaming", 
+			defaultW: 1040, 
+			defaultH: 700, 
+			inDock: false 
+		},
 		{ 
 			id: "activity", 
 			name: "Task Manager", 
-			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"g6\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%23f43f5e\"/><stop offset=\"100%\" stop-color=\"%23be123c\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23g6)\"/><path d=\"M11 26h6l3-8 6 16 4-10 3 4h4\" fill=\"none\" stroke=\"%23fff\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>", 
+			logoUrl: null, 
 			iconClass: "fa-solid fa-chart-line", 
 			iconColor: "text-rose-400", 
 			dockGradient: "from-rose-600 to-red-800", 
@@ -877,7 +889,7 @@ window.addEventListener("load", async () => {
 		{ 
 			id: "terminal", 
 			name: "Veil Terminal", 
-			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"%231e293b\"/><rect x=\"4\" y=\"4\" width=\"40\" height=\"40\" rx=\"10\" fill=\"%230f172a\" stroke=\"%23334155\" stroke-width=\"1\"/><path d=\"M14 18l6 6-6 6\" fill=\"none\" stroke=\"%2310b981\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M24 30h10\" stroke=\"%23fff\" stroke-width=\"3\" stroke-linecap=\"round\"/></svg>", 
+			logoUrl: null, 
 			iconClass: "fa-solid fa-terminal", 
 			iconColor: "text-emerald-400", 
 			dockGradient: "from-emerald-600 to-slate-900", 
@@ -890,7 +902,7 @@ window.addEventListener("load", async () => {
 		{ 
 			id: "files", 
 			name: "Veil Files", 
-			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"gf\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%230284c7\"/><stop offset=\"100%\" stop-color=\"%230369a1\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23gf)\"/><path d=\"M12 16a2 2 0 012-2h6l3 3h11a2 2 0 012 2v14a2 2 0 01-2 2H14a2 2 0 01-2-2V16z\" fill=\"%2338bdf8\"/><path d=\"M12 20h24v13a2 2 0 01-2 2H14a2 2 0 01-2-2V20z\" fill=\"%23fff\" opacity=\"0.95\"/></svg>", 
+			logoUrl: null, 
 			iconClass: "fa-solid fa-folder-open", 
 			iconColor: "text-amber-300", 
 			dockGradient: "from-amber-600 to-yellow-700", 
@@ -901,16 +913,16 @@ window.addEventListener("load", async () => {
 			inDock: false 
 		},
 		{ 
-			id: "cloudgaming", 
-			name: "Cloud Gaming", 
-			logoUrl: "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><defs><linearGradient id=\"gc\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%236366f1\"/><stop offset=\"100%\" stop-color=\"%234338ca\"/></linearGradient></defs><rect width=\"48\" height=\"48\" rx=\"12\" fill=\"url(%23gc)\"/><path d=\"M15 28a6 6 0 01-1-11.9 8 8 0 0115.5-2.2 6 6 0 015.5 8.1A5 5 0 0133 28H15z\" fill=\"%23fff\" opacity=\"0.9\"/><polygon points=\"22,20 28,24 22,28\" fill=\"%234338ca\"/></svg>", 
-			iconClass: "fa-solid fa-cloud", 
-			iconColor: "text-indigo-400", 
-			dockGradient: "from-purple-600 to-indigo-700", 
-			desc: "Play cloud games directly at nowgg.fun", 
-			category: "Gaming", 
-			defaultW: 1040, 
-			defaultH: 700, 
+			id: "changelog", 
+			name: "Changelog & Credits", 
+			logoUrl: null, 
+			iconClass: "fa-solid fa-scroll", 
+			iconColor: "text-emerald-400", 
+			dockGradient: "from-emerald-500 via-teal-600 to-cyan-700", 
+			desc: "Version release history, features & project credits", 
+			category: "System", 
+			defaultW: 940, 
+			defaultH: 660, 
 			inDock: false 
 		}
 	];
@@ -937,6 +949,25 @@ window.addEventListener("load", async () => {
 		this.batteryLevel = 100;
 		this.isCharging = true;
 		this.pingMs = 12;
+
+		this.quoteIndex = 0;
+		this.quotePaused = false;
+		this.nextQuote = () => {
+			this.quoteIndex = (this.quoteIndex + 1) % LOCKSCREEN_QUOTES.length;
+			this.windows = [...this.windows];
+		};
+		this.prevQuote = () => {
+			this.quoteIndex = (this.quoteIndex - 1 + LOCKSCREEN_QUOTES.length) % LOCKSCREEN_QUOTES.length;
+			this.windows = [...this.windows];
+		};
+
+		// Auto-rotate lockscreen quotes slider every 3.5 seconds with pause on hover
+		setInterval(() => {
+			if (this.isLocked && !this.quotePaused) {
+				this.quoteIndex = (this.quoteIndex + 1) % LOCKSCREEN_QUOTES.length;
+				this.windows = [...this.windows];
+			}
+		}, 3500);
 
 		this.notify = (title, message, icon = "fa-solid fa-bell", type = "info") => {
 			const id = "notif_" + Date.now();
@@ -1123,14 +1154,6 @@ window.addEventListener("load", async () => {
 					this.controlCenterOpen = false;
 					this.windows = [...this.windows];
 				}
-			}
-			if (window.sapphire && window.findMatchingCommand && window.triggerCommand) {
-				try {
-					const match = window.findMatchingCommand(window.sapphire.registry, e);
-					if (match) {
-						window.triggerCommand(window.sapphire.registry, match.extId, match.name);
-					}
-				} catch (err) {}
 			}
 		});
 
@@ -1577,6 +1600,25 @@ window.addEventListener("load", async () => {
 						</button>
 					</div>
 
+					<!-- Changelog & Credits Quick Button -->
+					<button class="w-full flex items-center justify-between p-2.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-teal-950/40 to-indigo-950/40 hover:from-emerald-900/60 hover:to-teal-900/60 border border-emerald-500/25 text-xs text-emerald-200 hover:text-white cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] shadow-sm"
+						on:click=${() => {
+							this.startMenuOpen = false;
+							this.windows = [...this.windows];
+							this.openApp("changelog");
+						}} title="View Version History & Project Credits">
+						<div class="flex items-center gap-2.5">
+							<div class="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+								<i class="fa-solid fa-scroll text-xs"></i>
+							</div>
+							<div class="flex flex-col text-left">
+								<span class="font-bold text-white text-[11px]">Changelog & Credits</span>
+								<span class="text-[9px] text-emerald-300/80">v0.6.2 &bull; 60+ updates & attributions</span>
+							</div>
+						</div>
+						<i class="fa-solid fa-chevron-right text-[10px] text-emerald-400/60"></i>
+					</button>
+
 					<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-1 pt-1">Cloak Launchers</div>
 					<div class="grid grid-cols-2 gap-1.5">
 						<button class="py-2 px-2 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
@@ -1619,105 +1661,6 @@ window.addEventListener("load", async () => {
 						return this.dockOpen ? "display: flex;" : "display: none;";
 					})}>
 
-					<!-- Left Apps Button Container (Apps Menu pops up directly ABOVE the button) -->
-					<div class="relative shrink-0">
-						<button class="w-9 h-9 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center cursor-pointer shrink-0 dock-icon-anim border border-white/10"
-							on:click=${(e) => {
-								e.stopPropagation();
-								this.appsMenuOpen = !this.appsMenuOpen;
-								if (this.appsMenuOpen) {
-									this.startMenuOpen = false;
-									this.controlCenterOpen = false;
-								}
-								this.windows = [...this.windows];
-							}} title="Applications Menu">
-							<img src="favicon.webp" alt="VeilOS" class="w-5 h-5 rounded-lg object-contain pointer-events-none" />
-						</button>
-
-						<!-- APPS BAR MENU: Pops up directly ABOVE the button -->
-						<div class="absolute bottom-full mb-3 left-0 z-50 w-80 max-w-[92vw] max-h-[75vh] bg-neutral-950/98 border border-white/20 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu overflow-hidden pointer-events-auto"
-							style=${use(this.windows, () => {
-								const active = this.windows.find(w => w.id === this.activeWinId);
-								if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
-								const disp = this.appsMenuOpen ? "display: flex;" : "display: none;";
-								return `${disp} font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;`;
-							})}
-							on:click=${(e) => e.stopPropagation()}>
-
-							<!-- Header: Title & Close Button -->
-							<div class="flex items-center justify-between px-1 pb-1 border-b border-white/10">
-								<div class="flex items-center gap-2">
-									<div class="w-6 h-6 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs text-indigo-300">
-										<i class="fa-solid fa-shapes"></i>
-									</div>
-									<span class="text-xs font-bold text-white tracking-tight uppercase">Applications</span>
-								</div>
-								<button class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-400 hover:text-white text-xs flex items-center justify-center cursor-pointer transition-colors"
-									on:click=${(e) => { e.stopPropagation(); this.appsMenuOpen = false; this.windows = [...this.windows]; }} title="Close">
-									<i class="fa-solid fa-xmark"></i>
-								</button>
-							</div>
-
-							<!-- Search input with real-time app filtering -->
-							<div class="relative w-full">
-								<input class="w-full bg-white/5 border border-white/10 rounded-2xl pl-8 pr-12 py-2 text-xs text-white placeholder-neutral-400 outline-none focus:border-indigo-400 font-sans transition-all"
-									placeholder="Search applications..."
-									bind:value=${use(this.searchQuery)}
-									on:input=${(e) => { this.searchQuery = e.target.value; this.windows = [...this.windows]; }}
-									on:keydown=${(e) => {
-										if (e.key === "Enter") {
-											const q = (this.searchQuery || "").toLowerCase().trim();
-											const match = APPS.find(a => a.name.toLowerCase().includes(q)) || APPS[0];
-											if (match) {
-												this.openApp(match.id);
-												this.appsMenuOpen = false;
-												this.windows = [...this.windows];
-											}
-										}
-									}}></input>
-								<i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-[11px] text-neutral-400"></i>
-								<span class="absolute right-3 top-2 text-[10px] text-neutral-400 bg-white/10 px-1.5 py-0.5 rounded-md font-mono">↵</span>
-							</div>
-
-							<!-- APPLICATIONS LIST -->
-							<div class="flex flex-col gap-1 overflow-y-auto max-h-60 pr-1 custom-scrollbar">
-								${use(this.windows, () => {
-									const q = (this.searchQuery || "").toLowerCase().trim();
-									const filteredApps = APPS.filter(a => !q || a.name.toLowerCase().includes(q));
-									
-									if (filteredApps.length === 0) {
-										return html`
-											<div class="py-4 text-center text-xs text-neutral-500">
-												No applications matching "${this.searchQuery}"
-											</div>
-										`;
-									}
-
-									return filteredApps.map(app => html`
-										<div class="flex items-center gap-3 px-3 py-2 rounded-2xl hover:bg-white/10 active:scale-[0.99] cursor-pointer transition-all border border-transparent hover:border-white/10 group"
-											on:click=${() => {
-												this.openApp(app.id);
-												this.appsMenuOpen = false;
-												this.windows = [...this.windows];
-											}}>
-											<div class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-sm shrink-0 transition-all group-hover:scale-105 shadow-sm overflow-hidden p-0.5">
-												${app.logoUrl ? html`
-													<img src="${app.logoUrl}" alt="${app.name}" class="w-6 h-6 object-contain pointer-events-none rounded-lg" />
-												` : html`
-													<i class="${app.iconClass} text-white"></i>
-												`}
-											</div>
-											<div class="flex flex-col min-w-0 flex-1">
-												<span class="text-xs font-semibold text-white truncate">${app.name}</span>
-												<span class="text-[10px] text-neutral-400 truncate">${app.desc}</span>
-											</div>
-										</div>
-									`);
-								})}
-							</div>
-						</div>
-					</div>
-
 					<!-- Spotlight Search Button -->
 					<button class="w-9 h-9 rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/30 active:scale-95 transition-all flex items-center justify-center text-indigo-300 hover:text-white cursor-pointer shrink-0 dock-icon-anim"
 						on:click=${(e) => {
@@ -1732,6 +1675,7 @@ window.addEventListener("load", async () => {
 					<!-- Dock Application Badges with Logos and Custom Hover Name Modals -->
 					<div class="flex items-center gap-2 shrink-0">
 						${APPS.filter(app => app.inDock).map(app => {
+							const iconCls = `${app.iconClass || 'fa-solid fa-shapes'} text-lg ${app.iconColor || 'text-white'} drop-shadow-md`;
 							return html`
 								<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20 transition-all hover:scale-105"
 									on:click=${() => this.openApp(app.id)}>
@@ -1748,7 +1692,7 @@ window.addEventListener("load", async () => {
 									${app.logoUrl ? html`
 										<img src="${app.logoUrl}" alt="${app.name}" class="w-7 h-7 rounded-xl object-contain drop-shadow-md pointer-events-none select-none" />
 									` : html`
-										<i class="${app.iconClass} text-lg text-white drop-shadow-md"></i>
+										<i class="${iconCls}"></i>
 									`}
 
 									<!-- Active Running App Indicator Dot -->
@@ -1969,7 +1913,9 @@ window.addEventListener("load", async () => {
 								<!-- Results List -->
 								<div class="max-h-72 overflow-y-auto custom-scrollbar p-2 flex flex-col gap-1">
 									<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-3 py-1">Applications (${filteredApps.length})</div>
-									${filteredApps.map((app, idx) => html`
+									${filteredApps.map((app, idx) => {
+										const iconCls = `${app.iconClass || 'fa-solid fa-shapes'} ${app.iconColor || 'text-white'} text-base`;
+										return html`
 										<div class="flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-white/10 active:scale-[0.99] cursor-pointer transition-colors group"
 											on:click=${() => {
 												this.openApp(app.id);
@@ -1977,7 +1923,11 @@ window.addEventListener("load", async () => {
 											}}>
 											<div class="flex items-center gap-3">
 												<div class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white text-sm shadow-sm group-hover:scale-105 transition-transform overflow-hidden p-0.5">
-													<img src="${app.logoUrl || 'favicon.webp'}" alt="${app.name}" class="w-6 h-6 object-contain pointer-events-none rounded-lg" />
+													${app.logoUrl ? html`
+														<img src="${app.logoUrl}" alt="${app.name}" class="w-6 h-6 object-contain pointer-events-none rounded-lg" />
+													` : html`
+														<i class="${iconCls}"></i>
+													`}
 												</div>
 												<div class="flex flex-col">
 													<span class="text-xs font-semibold text-white">${app.name}</span>
@@ -1986,7 +1936,8 @@ window.addEventListener("load", async () => {
 											</div>
 											<span class="text-[10px] text-neutral-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity">Press ↵</span>
 										</div>
-									`)}
+									`;
+									})}
 
 									<!-- Web search option if typed query -->
 									${this.spotlightQuery ? html`
@@ -2042,18 +1993,28 @@ window.addEventListener("load", async () => {
 							</button>
 							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
 								on:click=${() => { this.contextMenu.open = false; this.openApp("ai"); }}>
-								<i class="fa-solid fa-wand-magic-sparkles text-purple-400 w-4"></i>
-								<span>Scenario AI</span>
+								<i class="fa-solid fa-diamond text-purple-400 w-4"></i>
+								<span>Scenario</span>
 							</button>
 							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
 								on:click=${() => { this.contextMenu.open = false; this.openApp("chat"); }}>
-								<i class="fa-solid fa-comments text-emerald-400 w-4"></i>
+								<i class="fa-solid fa-message text-emerald-400 w-4"></i>
 								<span>Onyx Chat</span>
 							</button>
 							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
 								on:click=${() => { this.contextMenu.open = false; this.openApp("music"); }}>
-								<i class="fa-solid fa-music text-cyan-400 w-4"></i>
-								<span>Sonora Music</span>
+								<i class="fa-solid fa-music text-rose-400 w-4"></i>
+								<span>Sonora</span>
+							</button>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.openApp("ampler"); }}>
+								<i class="fa-solid fa-cube text-emerald-400 w-4"></i>
+								<span>Ampler Launcher</span>
+							</button>
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-emerald-300 hover:text-white transition-colors cursor-pointer text-left"
+								on:click=${() => { this.contextMenu.open = false; this.openApp("changelog"); }}>
+								<i class="fa-solid fa-scroll text-emerald-400 w-4"></i>
+								<span>Changelog & Credits</span>
 							</button>
 							<div class="h-px bg-white/10 my-1"></div>
 							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
@@ -2071,7 +2032,7 @@ window.addEventListener("load", async () => {
 				})}
 
 				<!-- LOGIN / LOCK SCREEN (Shown on launch & when system locked) -->
-				<div id="veil-lock-screen" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-between p-6 sm:p-10 text-white font-sans animate-fade select-none overflow-hidden"
+				<div id="veil-lock-screen" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-between p-6 sm:p-8 text-white font-sans animate-fade select-none overflow-y-auto custom-scrollbar"
 					style=${use(this.isLocked, (locked) => locked ? "display: flex;" : "display: none;")}>
 
 					<!-- Ambient Animated Background Lights -->
@@ -2079,46 +2040,72 @@ window.addEventListener("load", async () => {
 					<div class="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-purple-600/20 blur-3xl pointer-events-none animate-orb-2"></div>
 					<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-pink-600/10 blur-[120px] pointer-events-none"></div>
 
-					<div class="w-full flex-1 flex flex-col items-center justify-center relative z-10">
-						<!-- Center Card: Large Clock, Date, Avatar, and Sign In -->
-						<div class="flex flex-col items-center gap-6 max-w-sm w-full my-auto py-6 animate-card-entrance">
+					<div class="w-full flex-1 flex flex-col items-center justify-center relative z-10 py-2">
+						<!-- Center Section: Clock, Date, Avatar & Sign In Card -->
+						<div class="flex flex-col items-center gap-3 sm:gap-4 max-w-sm w-full animate-card-entrance mb-4 sm:mb-6">
 							<!-- Lock Screen Clock & Date -->
 							<div class="text-center">
 								<div class="text-5xl sm:text-6xl font-extralight tracking-[0.15em] text-white/95 uppercase font-sans drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]">
 									${use(this.dockTimeStr)}
 								</div>
-								<div class="text-xs sm:text-sm text-neutral-400 font-medium mt-1.5 tracking-wide">
+								<div class="text-xs sm:text-sm text-neutral-400 font-medium mt-1 tracking-wide">
 									${use(this.dockDateStr)}
 								</div>
 							</div>
 
 							<!-- User Profile & Sign-In Card -->
-							<div class="w-full bg-white/[0.05] border border-white/15 p-7 rounded-3xl backdrop-blur-2xl shadow-2xl flex flex-col items-center gap-4 transition-all duration-300 hover:border-indigo-500/40 hover:shadow-indigo-500/10">
+							<div class="w-full bg-white/[0.05] border border-white/15 p-5 sm:p-6 rounded-3xl backdrop-blur-2xl shadow-2xl flex flex-col items-center gap-3.5 transition-all duration-300 hover:border-indigo-500/40 hover:shadow-indigo-500/10">
 								<div class="relative group">
 									<!-- Pulsing halo behind avatar -->
 									<div class="absolute -inset-1.5 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-75 blur-md animate-veil-glow"></div>
-									<div class="relative w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center shadow-xl border-2 border-white/40 overflow-hidden animate-veil-float p-1 shrink-0">
+									<div class="relative w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center shadow-xl border-2 border-white/40 overflow-hidden animate-veil-float p-1 shrink-0">
 										<img src="https://raw.githubusercontent.com/1sunW/ICONS-FOR-LINKS/refs/heads/main/the-veil-icon-1024.png" alt="Veil OS" class="w-full h-full object-contain rounded-full transition-transform duration-500 group-hover:scale-110 drop-shadow-md" />
 									</div>
-									<div class="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-black flex items-center justify-center text-[10px] text-white shadow-md animate-pulse" title="Online">
+									<div class="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 border-2 border-black flex items-center justify-center text-[9px] text-white shadow-md animate-pulse" title="Online">
 										<i class="fa-solid fa-check"></i>
 									</div>
 								</div>
 
 								<div class="flex flex-col items-center gap-0.5 text-center">
-									<h2 class="text-lg font-bold tracking-tight text-white">${use(this.windows, () => (store && store.osUsername) ? store.osUsername : "Veil User")}</h2>
+									<h2 class="text-base sm:text-lg font-bold tracking-tight text-white">${use(this.windows, () => (store && store.osUsername) ? store.osUsername : "Veil User")}</h2>
 									<span class="text-xs text-neutral-400 font-medium">VeilOS Web Operating System</span>
 								</div>
 
 								<!-- Sign In Button (no PIN requirement) -->
-								<div class="w-full mt-2">
+								<div class="w-full mt-0.5">
 									<button type="button"
-										class="group relative w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs tracking-wide transition-all duration-300 shadow-xl hover:shadow-indigo-500/35 active:scale-95 cursor-pointer flex items-center justify-center gap-2.5 overflow-hidden shimmer-btn"
+										class="group relative w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs tracking-wide transition-all duration-300 shadow-xl hover:shadow-indigo-500/35 active:scale-95 cursor-pointer flex items-center justify-center gap-2.5 overflow-hidden shimmer-btn"
 										on:click=${() => this.unlockOS()}>
 										<span class="relative z-10">Sign In</span>
 										<i class="fa-solid fa-arrow-right text-xs relative z-10 transition-transform duration-300 group-hover:translate-x-1.5"></i>
 									</button>
 								</div>
+							</div>
+						</div>
+
+						<!-- Community Testimonial Cards Wraparound Slider (Below Sign In Button, Matching Screenshot Exactly) -->
+						<div class="w-full max-w-[100vw] overflow-hidden relative lock-quotes-container py-1"
+							style="mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);">
+							<div class="lock-quotes-track px-4 py-1">
+								${[...LOCKSCREEN_QUOTES, ...LOCKSCREEN_QUOTES].map(q => html`
+									<div class="bg-[#120e17]/85 hover:bg-[#191321]/95 border border-white/[0.08] hover:border-white/20 transition-all duration-200 rounded-2xl p-4 shadow-2xl flex flex-col justify-start w-[290px] sm:w-[310px] shrink-0 text-left backdrop-blur-md cursor-default select-none group/card">
+										<!-- Card Top: Avatar, Name, Dot, Role -->
+										<div class="flex items-center gap-2.5 mb-2">
+											<div class="w-8 h-8 rounded-xl ${q.avatarBg} flex items-center justify-center text-white shrink-0 shadow-inner group-hover/card:scale-105 transition-transform">
+												<i class="${q.icon} text-xs"></i>
+											</div>
+											<div class="flex items-center gap-1.5 text-xs truncate leading-none min-w-0">
+												<span class="font-bold text-white tracking-wide shrink-0">${q.author}</span>
+												<span class="text-neutral-500 font-bold shrink-0">•</span>
+												<span class="text-[#aa9cb3] font-normal truncate">${q.role}</span>
+											</div>
+										</div>
+										<!-- Card Body: Quote text matching screenshot -->
+										<p class="text-xs sm:text-[13px] text-neutral-200 font-normal leading-relaxed line-clamp-3 select-text">
+											${q.quote}
+										</p>
+									</div>
+								`)}
 							</div>
 						</div>
 					</div>
@@ -2323,7 +2310,11 @@ window.addEventListener("load", async () => {
 		} else if (appId === "cloudgaming") {
 			el = renderCloudGamingApp(win, scramjet, osInstance);
 		} else if (appId === "music") {
-			el = html`<iframe src="/music.html" class="w-full h-full border-0 outline-none bg-[#09090b]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture; clipboard-write; microphone"></iframe>`;
+			el = renderMusicApp(win, scramjet, osInstance);
+		} else if (appId === "ampler") {
+			el = renderAmplerLauncherApp(win, scramjet, osInstance);
+		} else if (appId === "changelog") {
+			el = window.renderChangelogApp ? window.renderChangelogApp(win, scramjet, osInstance) : html`<div>Loading Changelog...</div>`;
 		} else {
 			el = html`<div class="p-6 text-center text-neutral-400">Application loading...</div>`;
 		}
@@ -2331,24 +2322,167 @@ window.addEventListener("load", async () => {
 		return el;
 	}
 
-	// 2. Scenario App Renderer (Proxied full-window Scenario web application)
+	// 4. Sonora Music App Renderer (Direct unproxied full-window Sonora web application at https://musicv-production.up.railway.app/)
+	function renderMusicApp(win, scramjet, osInstance) {
+		if (!win.customState) {
+			win.customState = {};
+		}
+
+		if (!win.customState.iframe) {
+			const iframe = document.createElement("iframe");
+			iframe.className = "w-full h-full border-0 outline-none bg-[#09090b] block";
+			iframe.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; microphone";
+			iframe.src = "https://musicv-production.up.railway.app/";
+			win.customState.iframe = iframe;
+		}
+
+		const iframe = win.customState.iframe;
+
+		return html`
+			<div class="w-full h-full relative bg-[#09090b] overflow-hidden select-text flex flex-col">
+				<!-- Sonora mini navigation bar (back, forward, reload, open in browser) -->
+				<div class="h-8 bg-neutral-900/90 border-b border-white/10 px-3 flex items-center justify-between text-xs text-neutral-300 shrink-0">
+					<div class="flex items-center gap-2">
+						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
+							on:click=${() => { try { iframe.contentWindow.history.back(); } catch(e){} }} title="Back">
+							<i class="fa-solid fa-arrow-left text-[10px]"></i>
+						</button>
+						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
+							on:click=${() => { try { iframe.contentWindow.history.forward(); } catch(e){} }} title="Forward">
+							<i class="fa-solid fa-arrow-right text-[10px]"></i>
+						</button>
+						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
+							on:click=${() => { iframe.src = "https://musicv-production.up.railway.app/"; }} title="Reload Home">
+							<i class="fa-solid fa-rotate-right text-[10px]"></i>
+						</button>
+						<span class="text-[11px] text-neutral-300 font-semibold ml-1 flex items-center gap-1.5">
+							<i class="fa-solid fa-music text-rose-400 text-[10px]"></i>
+							<span>Sonora</span>
+						</span>
+					</div>
+					<div class="flex items-center gap-2">
+						<button class="text-[10px] text-neutral-400 hover:text-white px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+							on:click=${() => {
+								osInstance.openApp("browser", "Sonora", { url: "https://musicv-production.up.railway.app/" });
+							}} title="Open in Onyx Browser">
+							<i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+							<span>Open in Browser</span>
+						</button>
+					</div>
+				</div>
+				<div class="flex-1 w-full h-full relative overflow-hidden">
+					${iframe}
+				</div>
+			</div>
+		`;
+	}
+
+	// 5. Ampler Launcher App Renderer (Direct unproxied full-window launcher at https://amplerlauncher-main.vercel.app/)
+	function renderAmplerLauncherApp(win, scramjet, osInstance) {
+		if (!win.customState) {
+			win.customState = {};
+		}
+
+		if (!win.customState.iframe) {
+			const iframe = document.createElement("iframe");
+			iframe.className = "w-full h-full border-0 outline-none bg-[#0a0a0c] block";
+			iframe.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; microphone; camera; keyboard";
+			iframe.src = "https://amplerlauncher-main.vercel.app/";
+			win.customState.iframe = iframe;
+		}
+
+		const iframe = win.customState.iframe;
+
+		return html`
+			<div class="w-full h-full relative bg-[#0a0a0c] overflow-hidden select-text flex flex-col">
+				<!-- Ampler Launcher mini navigation bar (back, forward, reload, open in browser) -->
+				<div class="h-8 bg-neutral-900/90 border-b border-white/10 px-3 flex items-center justify-between text-xs text-neutral-300 shrink-0">
+					<div class="flex items-center gap-2">
+						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
+							on:click=${() => { try { iframe.contentWindow.history.back(); } catch(e){} }} title="Back">
+							<i class="fa-solid fa-arrow-left text-[10px]"></i>
+						</button>
+						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
+							on:click=${() => { try { iframe.contentWindow.history.forward(); } catch(e){} }} title="Forward">
+							<i class="fa-solid fa-arrow-right text-[10px]"></i>
+						</button>
+						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
+							on:click=${() => { iframe.src = "https://amplerlauncher-main.vercel.app/"; }} title="Reload Home">
+							<i class="fa-solid fa-rotate-right text-[10px]"></i>
+						</button>
+						<span class="text-[11px] text-neutral-300 font-semibold ml-1 flex items-center gap-1.5">
+							<i class="fa-solid fa-cube text-emerald-400 text-[10px]"></i>
+							<span>Ampler Launcher</span>
+						</span>
+					</div>
+					<div class="flex items-center gap-2">
+						<button class="text-[10px] text-neutral-400 hover:text-white px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+							on:click=${() => {
+								osInstance.openApp("browser", "Ampler Launcher", { url: "https://amplerlauncher-main.vercel.app/" });
+							}} title="Open in Onyx Browser">
+							<i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+							<span>Open in Browser</span>
+						</button>
+					</div>
+				</div>
+				<div class="flex-1 w-full h-full relative overflow-hidden">
+					${iframe}
+				</div>
+			</div>
+		`;
+	}
+
+	// 2. Scenario App Renderer (Direct unproxied full-window Scenario web application at https://onyxai-fornow-ochre.vercel.app/)
 	function renderOnyxAIApp(win, scramjet, osInstance) {
 		if (!win.customState) {
 			win.customState = {};
 		}
 
-		if (!win.customState.frameObj) {
-			const frameObj = scramjet.createFrame();
-			frameObj.frame.className = "w-full h-full border-0 outline-none bg-[#09090d] block";
-			frameObj.go("https://onyxai-fornow-ochre.vercel.app/");
-			win.customState.frameObj = frameObj;
+		if (!win.customState.iframe) {
+			const iframe = document.createElement("iframe");
+			iframe.className = "w-full h-full border-0 outline-none bg-[#09090d] block";
+			iframe.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; microphone; camera";
+			iframe.src = "https://onyxai-fornow-ochre.vercel.app/";
+			win.customState.iframe = iframe;
 		}
 
-		const frameObj = win.customState.frameObj;
+		const iframe = win.customState.iframe;
 
 		return html`
-			<div class="w-full h-full relative bg-[#09090d] overflow-hidden select-text">
-				${frameObj.frame}
+			<div class="w-full h-full relative bg-[#09090d] overflow-hidden select-text flex flex-col">
+				<!-- Scenario mini navigation bar (back, forward, reload, open in browser) -->
+				<div class="h-8 bg-neutral-900/90 border-b border-white/10 px-3 flex items-center justify-between text-xs text-neutral-300 shrink-0">
+					<div class="flex items-center gap-2">
+						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
+							on:click=${() => { try { iframe.contentWindow.history.back(); } catch(e){} }} title="Back">
+							<i class="fa-solid fa-arrow-left text-[10px]"></i>
+						</button>
+						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
+							on:click=${() => { try { iframe.contentWindow.history.forward(); } catch(e){} }} title="Forward">
+							<i class="fa-solid fa-arrow-right text-[10px]"></i>
+						</button>
+						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
+							on:click=${() => { iframe.src = "https://onyxai-fornow-ochre.vercel.app/"; }} title="Reload Home">
+							<i class="fa-solid fa-rotate-right text-[10px]"></i>
+						</button>
+						<span class="text-[11px] text-neutral-300 font-semibold ml-1 flex items-center gap-1.5">
+							<i class="fa-solid fa-diamond text-purple-400 text-[10px]"></i>
+							<span>Scenario</span>
+						</span>
+					</div>
+					<div class="flex items-center gap-2">
+						<button class="text-[10px] text-neutral-400 hover:text-white px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+							on:click=${() => {
+								osInstance.openApp("browser", "Scenario", { url: "https://onyxai-fornow-ochre.vercel.app/" });
+							}} title="Open in Onyx Browser">
+							<i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+							<span>Open in Browser</span>
+						</button>
+					</div>
+				</div>
+				<div class="flex-1 w-full h-full relative overflow-hidden">
+					${iframe}
+				</div>
 			</div>
 		`;
 	}
@@ -2412,13 +2546,6 @@ window.addEventListener("load", async () => {
 			if (clean.startsWith("http://") || clean.startsWith("https://") || clean.startsWith("about:") || clean.startsWith("data:") || clean.startsWith("blob:")) {
 				return clean;
 			}
-			if (clean.startsWith("/~/sx/")) {
-				return window.location.origin + clean;
-			}
-			if (clean.startsWith("chrome-extension://")) {
-				const extPart = clean.slice("chrome-extension://".length);
-				return window.location.origin + "/~/sx/" + extPart;
-			}
 			if (!clean.includes(".") || clean.includes(" ")) {
 				const engine = (store.searchEngine || "google").toLowerCase();
 				if (engine === "duckduckgo") {
@@ -2460,6 +2587,7 @@ window.addEventListener("load", async () => {
 			if (urlStr.includes("history")) return '<i class="fa-solid fa-clock-rotate-left text-purple-400"></i>';
 			if (urlStr.includes("extensions")) return '<i class="fa-solid fa-puzzle-piece text-emerald-400"></i>';
 			if (urlStr.includes("settings")) return '<i class="fa-solid fa-gear text-sky-400"></i>';
+			if (urlStr.includes("changelog")) return '<i class="fa-solid fa-scroll text-emerald-400"></i>';
 			if (urlStr.includes("/~/sx/") || urlStr.startsWith("chrome-extension://")) return '<i class="fa-solid fa-puzzle-piece text-emerald-400"></i>';
 			return '<i class="fa-solid fa-globe"></i>';
 		};
@@ -2578,116 +2706,911 @@ window.addEventListener("load", async () => {
 		goBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i>';
 		goBtn.title = "Go to URL";
 
-		// EXTENSIONS TOOLBAR CONTAINER (Holds Chrome Extension Action buttons)
-		const toolbarExtensions = document.createElement("div");
-		toolbarExtensions.className = "flex items-center gap-1.5 shrink-0";
+		// DEVTOOLS - GUST DEV TOOLS EXTRACTED INTEGRATION
+		const devToggleBtn = document.createElement("button");
+		devToggleBtn.className = "tool-btn dev-toggle-btn text-neutral-300 hover:text-white";
+		devToggleBtn.id = "devToggle";
+		devToggleBtn.title = "Toggle logs (Ctrl+Shift+I)";
+		devToggleBtn.innerHTML = '<i class="fas fa-server"></i>';
 
-		// FLOATING EXTENSION POPOVER
-		const floatingPopover = document.createElement("div");
-		floatingPopover.className = "absolute right-2 top-[calc(100%+6px)] z-50 w-[360px] rounded-2xl border border-white/20 bg-[#191a24] shadow-2xl shadow-black/90 overflow-hidden flex flex-col hidden animate-fade";
+		const codeBtn = document.createElement("button");
+		codeBtn.className = "tool-btn code-toggle-btn text-neutral-300 hover:text-white";
+		codeBtn.id = "codeBtn";
+		codeBtn.title = "Toggle elements inspector";
+		codeBtn.innerHTML = '<i class="fas fa-code"></i>';
 
-		function renderExtensionPopup(extId, popupUrl) {
-			floatingPopover.innerHTML = "";
-			const ext = window.sapphire && window.sapphire.registry?.get ? window.sapphire.registry.get(extId) : null;
-			const name = ext?.manifest?.name || "Extension";
-
-			const topBanner = document.createElement("div");
-			topBanner.className = "h-11 bg-[#2b2e3c] px-3 flex items-center justify-between border-b border-black/30 shrink-0";
-			topBanner.innerHTML = `
-				<div class="flex items-center gap-2 truncate">
-					<span class="text-sm">🧩</span>
-					<span class="text-xs font-bold text-white truncate">${name}</span>
-				</div>
+		// Highlight overlay for elements inspector inside viewport
+		let elemHighlightOverlay = win.customState.viewportEl.querySelector("#elemHighlightOverlay");
+		if (!elemHighlightOverlay) {
+			elemHighlightOverlay = document.createElement("div");
+			elemHighlightOverlay.id = "elemHighlightOverlay";
+			elemHighlightOverlay.style.cssText = `
+				display: none;
+				position: absolute;
+				pointer-events: none;
+				z-index: 50;
+				outline: 2px solid var(--ac, #9de5ff);
+				outline-offset: 0px;
+				box-shadow: 0 0 0 4px rgba(157, 229, 255, 0.18), inset 0 0 0 9999px rgba(157, 229, 255, 0.08);
+				border-radius: 2px;
+				transition: top .08s, left .08s, width .08s, height .08s;
 			`;
-			const closeBtn = document.createElement("button");
-			closeBtn.className = "text-neutral-400 hover:text-white text-xs cursor-pointer px-1.5 py-0.5 rounded bg-white/5";
-			closeBtn.textContent = "✕";
-			closeBtn.onclick = (e) => {
-				e.stopPropagation();
-				floatingPopover.classList.add("hidden");
-				win.customState.activePopup = null;
-			};
-			topBanner.appendChild(closeBtn);
-			floatingPopover.appendChild(topBanner);
+			win.customState.viewportEl.appendChild(elemHighlightOverlay);
+		}
 
-			const frameContainer = document.createElement("div");
-			frameContainer.className = "w-full h-[450px] bg-white";
-			const iframe = document.createElement("iframe");
-			iframe.className = "w-full h-full border-0";
-			frameContainer.appendChild(iframe);
-			floatingPopover.appendChild(frameContainer);
+		// LOGS PANEL
+		const logsEl = document.createElement("div");
+		logsEl.className = "logs hidden";
+		logsEl.id = "logs";
+		logsEl.innerHTML = `
+			<div class="panel-resize-handle"></div>
+			<div class="log-head">
+				<div class="log-head-top">
+					<span>
+						Logs
+						<span class="log-count-badge">0</span>
+						<div class="log-search-wrap">
+							<i class="fas fa-magnifying-glass log-search-icon"></i>
+							<input class="log-search" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false">
+						</div>
+					</span>
+					<div class="log-head-controls">
+						<button class="tool-btn copy-btn" title="Copy logs">
+							<i class="fas fa-copy"></i>
+						</button>
+						<button class="tool-btn clear-btn" title="Clear logs">
+							<i class="fas fa-trash"></i>
+						</button>
+					</div>
+				</div>
+				<div class="log-filter-bar">
+					<button class="log-filter-btn f-all active" data-filter="all">All</button>
+					<button class="log-filter-btn f-info" data-filter="info"><i class="fas fa-circle-info" style="font-size:8px;"></i> Info</button>
+					<button class="log-filter-btn f-ok" data-filter="ok"><i class="fas fa-check" style="font-size:8px;"></i> OK</button>
+					<button class="log-filter-btn f-warn" data-filter="warn"><i class="fas fa-triangle-exclamation" style="font-size:8px;"></i> Warn</button>
+					<button class="log-filter-btn f-err" data-filter="err"><i class="fas fa-xmark" style="font-size:8px;"></i> Err</button>
+					<button class="log-filter-btn f-stream" data-filter="stream"><i class="fas fa-wave-square" style="font-size:8px;"></i> Stream</button>
+				</div>
+			</div>
+			<div class="log-body">
+				<div class="log-no-results">No matching entries</div>
+			</div>
+			<div class="log-footer">
+				<span class="status"><span class="dot idle"></span><span class="status-text">Ready</span></span>
+				<div class="log-footer-right">
+					<span class="stats">0 requests</span>
+					<button class="log-autoscroll-btn pinned" title="Toggle auto-scroll">
+						<i class="fas fa-angles-down"></i>
+					</button>
+				</div>
+			</div>
+		`;
 
-			const activeTab = win.customState?.tabs?.find(t => t.id === win.customState.activeTabId) || win.customState?.tabs?.[0];
-			const activeTabId = activeTab ? activeTab.numericId : 1;
+		// ELEMENTS PANEL
+		const elementsEl = document.createElement("div");
+		elementsEl.className = "elements hidden";
+		elementsEl.id = "elements";
+		elementsEl.innerHTML = `
+			<div class="panel-resize-handle"></div>
+			<div class="elements-head">
+				<div class="elements-head-top">
+					<span class="elements-head-label">Elements</span>
+					<div class="elements-search-wrap">
+						<i class="fas fa-magnifying-glass elements-search-icon"></i>
+						<input class="elements-search" type="text" placeholder="Filter tags, attrs…" autocomplete="off" spellcheck="false">
+					</div>
+					<div style="display:flex;gap:4px;flex-shrink:0;align-items:center;">
+						<button class="tool-btn refresh-elements-btn" title="Refresh elements">
+							<i class="fas fa-rotate-right"></i>
+						</button>
+						<button class="elem-detail-toggle on" title="Toggle details panel">
+							<i class="fas fa-table-cells-large"></i>
+						</button>
+					</div>
+				</div>
+				<div class="elements-breadcrumb"></div>
+			</div>
+			<div class="elements-body">
+				<ul class="elements-tree"></ul>
+			</div>
+			<div class="elements-detail"
+				style="border-top:1px solid var(--bd);flex-shrink:0;overflow-y:auto;max-height:240px;display:flex;flex-direction:column;background:var(--bg1);">
+				<div style="display:flex;gap:0;border-bottom:1px solid var(--bd);">
+					<button class="elem-tab active" data-tab="styles"
+						style="flex:1;padding:6px 4px;font-size:11px;background:none;border:none;color:var(--tx);cursor:pointer;border-bottom:2px solid var(--ac);font-family:var(--ui);">Styles</button>
+					<button class="elem-tab" data-tab="box"
+						style="flex:1;padding:6px 4px;font-size:11px;background:none;border:none;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;font-family:var(--ui);">Box</button>
+					<button class="elem-tab" data-tab="attrs"
+						style="flex:1;padding:6px 4px;font-size:11px;background:none;border:none;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;font-family:var(--ui);">Attrs</button>
+				</div>
+				<div class="elem-detail-content"
+					style="padding:8px;font-size:11px;font-family:var(--mono);color:var(--tx2);line-height:1.7;"></div>
+			</div>
+			<div class="elem-ctx-menu"
+				style="display:none;position:fixed;z-index:99999;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:4px;min-width:170px;box-shadow:0 8px 24px rgba(0,0,0,.5);">
+				<button class="ctx-item ctx-copy-selector"><i class="fas fa-code" style="width:14px"></i> Copy Selector</button>
+				<button class="ctx-item ctx-copy-html"><i class="fas fa-copy" style="width:14px"></i> Copy HTML</button>
+				<button class="ctx-item ctx-copy-text"><i class="fas fa-font" style="width:14px"></i> Copy Text</button>
+				<div style="height:1px;background:var(--bd);margin:3px 0;"></div>
+				<button class="ctx-item ctx-scroll-to"><i class="fas fa-eye" style="width:14px"></i> Scroll Into View</button>
+				<button class="ctx-item ctx-hide-element"><i class="fas fa-eye-slash" style="width:14px"></i> Hide Element</button>
+			</div>
+		`;
 
-			if (window.sapphire && typeof window.sapphire.mountExtensionPopup === "function") {
-				window.sapphire.mountExtensionPopup(iframe, extId, activeTabId).catch((err) => {
-					console.warn("[renderExtensionPopup] mountExtensionPopup failed, fallback to src:", err);
-					iframe.src = popupUrl || `/~/sx/${extId}/popup.html`;
+		// Gust DevTools Logic & State
+		const logbox = logsEl.querySelector(".log-body");
+		const logCountBadge = logsEl.querySelector(".log-count-badge");
+		const logSearchInput = logsEl.querySelector(".log-search");
+		const logFilterBar = logsEl.querySelector(".log-filter-bar");
+		const copyLogsBtn = logsEl.querySelector(".copy-btn");
+		const clearLogsBtn = logsEl.querySelector(".clear-btn");
+		const statusDot = logsEl.querySelector(".dot");
+		const statusText = logsEl.querySelector(".status-text");
+		const statsEl = logsEl.querySelector(".stats");
+		const logAutoScrollBtn = logsEl.querySelector(".log-autoscroll-btn");
+		const logsResizeHandle = logsEl.querySelector(".panel-resize-handle");
+
+		const elementsTree = elementsEl.querySelector(".elements-tree");
+		const elementsSearchInput = elementsEl.querySelector(".elements-search");
+		const elementsBreadcrumb = elementsEl.querySelector(".elements-breadcrumb");
+		const refreshElementsBtn = elementsEl.querySelector(".refresh-elements-btn");
+		const elemDetailToggleBtn = elementsEl.querySelector(".elem-detail-toggle");
+		const elementsDetailPanel = elementsEl.querySelector(".elements-detail");
+		const elemDetailContent = elementsEl.querySelector(".elem-detail-content");
+		const elemCtxMenu = elementsEl.querySelector(".elem-ctx-menu");
+		const elementsResizeHandle = elementsEl.querySelector(".panel-resize-handle");
+
+		let totalRequests = 0;
+		let _logFilter = "all";
+		let _logSearch = "";
+		let _logAutoScroll = true;
+		const recentLogs = new Map();
+		let selectedElement = null;
+		let currentDetailTab = "styles";
+
+		function setDevStatus(state, text) {
+			if (statusDot) statusDot.className = "dot " + state;
+			if (statusText) statusText.textContent = text;
+		}
+
+		function updateLogCountBadge() {
+			if (!logCountBadge || !logbox) return;
+			const all = logbox.querySelectorAll(".log-entry");
+			const visible = logbox.querySelectorAll(".log-entry:not(.hidden-by-filter)");
+			logCountBadge.textContent = (visible.length < all.length) ? `${visible.length}/${all.length}` : `${all.length}`;
+		}
+
+		function entryMatchesFilter(entry) {
+			const type = entry.dataset.type || "";
+			const text = (entry.dataset.text || "").toLowerCase();
+			const filterOk = (_logFilter === "all") || (type === _logFilter);
+			const searchOk = !_logSearch || text.includes(_logSearch);
+			return filterOk && searchOk;
+		}
+
+		function applyLogFilter() {
+			if (!logbox) return;
+			let anyVisible = false;
+			logbox.querySelectorAll(".log-entry").forEach(el => {
+				const show = entryMatchesFilter(el);
+				el.classList.toggle("hidden-by-filter", !show);
+				if (show) anyVisible = true;
+			});
+			const noResults = logbox.querySelector(".log-no-results");
+			if (noResults) noResults.classList.toggle("visible", !anyVisible);
+			updateLogCountBadge();
+		}
+
+		function log(msg, type = "") {
+			if (!logbox) return;
+			totalRequests++;
+			if (statsEl) statsEl.textContent = `${totalRequests} requests`;
+
+			const d = document.createElement("div");
+			d.className = `log-entry ${type}`.trim();
+			d.dataset.type = type || "default";
+
+			const now = new Date();
+			const ts = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+			const tempDiv = document.createElement("div");
+			tempDiv.innerHTML = String(msg);
+			const plainText = tempDiv.textContent || String(msg);
+			d.dataset.text = plainText.toLowerCase();
+
+			const msgKey = String(msg).slice(0, 500);
+			const lastSeen = recentLogs.get(msgKey);
+
+			if (lastSeen && (Date.now() - lastSeen.time) < 5000) {
+				lastSeen.count++;
+				if (lastSeen.el) {
+					let badge = lastSeen.el.querySelector(".log-dup-badge");
+					if (!badge) {
+						badge = document.createElement("span");
+						badge.className = "log-dup-badge";
+						lastSeen.el.appendChild(badge);
+					}
+					badge.textContent = `×${lastSeen.count + 1}`;
+				}
+				return;
+			}
+
+			recentLogs.set(msgKey, { time: Date.now(), count: 1, el: d });
+
+			if (recentLogs.size > 200) {
+				const cutoff = Date.now() - 10000;
+				for (const [k, v] of recentLogs.entries()) {
+					if (v.time < cutoff) recentLogs.delete(k);
+				}
+			}
+
+			const tsSpan = document.createElement("span");
+			tsSpan.className = "log-ts";
+			tsSpan.textContent = ts;
+
+			const msgSpan = document.createElement("span");
+			msgSpan.className = "log-msg";
+			msgSpan.innerHTML = String(msg).slice(0, 500);
+
+			d.appendChild(tsSpan);
+			d.appendChild(msgSpan);
+
+			if (!entryMatchesFilter(d)) d.classList.add("hidden-by-filter");
+
+			const noResults = logbox.querySelector(".log-no-results");
+			if (noResults) logbox.insertBefore(d, noResults);
+			else logbox.appendChild(d);
+
+			if (logbox.querySelectorAll(".log-entry").length > 400) {
+				const first = logbox.querySelector(".log-entry");
+				if (first) logbox.removeChild(first);
+			}
+
+			updateLogCountBadge();
+			if (noResults) {
+				const anyVisible = logbox.querySelector(".log-entry:not(.hidden-by-filter)");
+				noResults.classList.toggle("visible", !anyVisible);
+			}
+
+			if (_logAutoScroll) logbox.scrollTop = logbox.scrollHeight;
+		}
+
+		// Filter bar event listeners
+		if (logFilterBar) {
+			logFilterBar.querySelectorAll(".log-filter-btn").forEach(btn => {
+				btn.addEventListener("click", () => {
+					logFilterBar.querySelectorAll(".log-filter-btn").forEach(b => b.classList.remove("active"));
+					btn.classList.add("active");
+					_logFilter = btn.dataset.filter;
+					applyLogFilter();
 				});
-			} else {
-				iframe.src = popupUrl || `/~/sx/${extId}/popup.html`;
+			});
+		}
+
+		if (logSearchInput) {
+			logSearchInput.addEventListener("input", () => {
+				_logSearch = logSearchInput.value.trim().toLowerCase();
+				applyLogFilter();
+			});
+		}
+
+		if (logAutoScrollBtn) {
+			logAutoScrollBtn.addEventListener("click", () => {
+				_logAutoScroll = !_logAutoScroll;
+				logAutoScrollBtn.classList.toggle("pinned", _logAutoScroll);
+				logAutoScrollBtn.title = _logAutoScroll ? "Auto-scroll on" : "Auto-scroll off";
+				if (_logAutoScroll) logbox.scrollTop = logbox.scrollHeight;
+			});
+		}
+
+		if (logbox) {
+			logbox.addEventListener("scroll", () => {
+				const atBottom = logbox.scrollHeight - logbox.scrollTop - logbox.clientHeight < 24;
+				if (!atBottom && _logAutoScroll) {
+					_logAutoScroll = false;
+					if (logAutoScrollBtn) { logAutoScrollBtn.classList.remove("pinned"); logAutoScrollBtn.title = "Auto-scroll off"; }
+				} else if (atBottom && !_logAutoScroll) {
+					_logAutoScroll = true;
+					if (logAutoScrollBtn) { logAutoScrollBtn.classList.add("pinned"); logAutoScrollBtn.title = "Auto-scroll on"; }
+				}
+			});
+		}
+
+		if (clearLogsBtn) {
+			clearLogsBtn.onclick = () => {
+				logbox.querySelectorAll(".log-entry").forEach(el => el.remove());
+				recentLogs.clear();
+				const nr = logbox.querySelector(".log-no-results");
+				if (nr) nr.classList.remove("visible");
+				updateLogCountBadge();
+				log("Logs cleared", "info");
+			};
+		}
+
+		if (copyLogsBtn) {
+			copyLogsBtn.onclick = () => {
+				const lines = Array.from(logbox.querySelectorAll(".log-entry")).map(el => {
+					const ts = el.querySelector(".log-ts")?.textContent || "";
+					const msg = el.querySelector(".log-msg")?.textContent || el.textContent;
+					return ts ? `[${ts}] ${msg}` : msg;
+				});
+				navigator.clipboard?.writeText(lines.join("\n")).then(() => {
+					log("Logs copied to clipboard", "info");
+				}).catch(err => {
+					log("Failed to copy logs: " + err.message, "err");
+				});
+			};
+		}
+
+		function toggleLogs() {
+			const wasHidden = logsEl.classList.contains("hidden");
+			logsEl.classList.toggle("hidden");
+			devToggleBtn.classList.toggle("text-sky-400", !logsEl.classList.contains("hidden"));
+		}
+
+		function toggleElements() {
+			const wasHidden = elementsEl.classList.contains("hidden");
+			elementsEl.classList.toggle("hidden");
+			codeBtn.classList.toggle("text-teal-400", !elementsEl.classList.contains("hidden"));
+			if (!elementsEl.classList.contains("hidden")) {
+				inspectCurrentPage();
+			} else if (elemHighlightOverlay) {
+				elemHighlightOverlay.style.display = "none";
 			}
 		}
 
-		win.customState.renderExtensionPopup = renderExtensionPopup;
-		win.customState.showExtensionPopover = (extId, popupUrl) => {
-			win.customState.activePopup = extId;
-			renderExtensionPopup(extId, popupUrl);
-			floatingPopover.classList.remove("hidden");
+		function escapeHtml(text) {
+			const div = document.createElement("div");
+			div.textContent = text;
+			return div.innerHTML;
+		}
+
+		function getSelector(element) {
+			const path = [];
+			let current = element;
+			while (current && current.parentElement) {
+				const parent = current.parentElement;
+				const id = current.id ? "#" + current.id : null;
+				if (id) { path.unshift(current.tagName.toLowerCase() + id); break; }
+				const siblings = Array.from(parent.children).filter(c => c.tagName === current.tagName);
+				const index = siblings.indexOf(current);
+				path.unshift(current.tagName.toLowerCase() + (siblings.length > 1 ? ":nth-of-type(" + (index + 1) + ")" : ""));
+				current = parent;
+			}
+			return path.join(" > ");
+		}
+
+		function getBreadcrumb(element) {
+			const crumbs = [];
+			let current = element;
+			while (current && current.tagName) {
+				const tag = current.tagName.toLowerCase();
+				const id = current.id ? "#" + current.id : "";
+				const cls = current.className && typeof current.className === "string"
+					? "." + current.className.trim().split(/\s+/).slice(0,2).join(".") : "";
+				crumbs.unshift({ label: tag + id + cls, el: current });
+				current = current.parentElement;
+			}
+			return crumbs;
+		}
+
+		function updateBreadcrumb(element) {
+			if (!elementsBreadcrumb) return;
+			const crumbs = getBreadcrumb(element);
+			elementsBreadcrumb.innerHTML = crumbs.map((c, i) => {
+				const isCurrent = i === crumbs.length - 1;
+				return (i > 0 ? '<span class="elem-crumb-sep">›</span>' : "") +
+					`<span class="elem-crumb${isCurrent ? " current" : ""}" data-idx="${i}">${escapeHtml(c.label)}</span>`;
+			}).join("");
+			elementsBreadcrumb.classList.add("visible");
+			elementsBreadcrumb.querySelectorAll(".elem-crumb:not(.current)").forEach(span => {
+				span.onclick = () => {
+					const idx = parseInt(span.dataset.idx);
+					const el = crumbs[idx]?.el;
+					if (el) selectElementNode(el);
+				};
+			});
+		}
+
+		function highlightElementInPage(element) {
+			if (!elemHighlightOverlay || !element) {
+				if (elemHighlightOverlay) elemHighlightOverlay.style.display = "none";
+				return;
+			}
+			try {
+				const activeTab = getActiveTab();
+				const frameEl = activeTab?.frameObj?.frame;
+				if (!frameEl) return;
+				const frameRect = frameEl.getBoundingClientRect();
+				const elemRect = element.getBoundingClientRect();
+				const viewRect = win.customState.viewportEl.getBoundingClientRect();
+				const top = (frameRect.top - viewRect.top) + elemRect.top;
+				const left = (frameRect.left - viewRect.left) + elemRect.left;
+				elemHighlightOverlay.style.top = top + "px";
+				elemHighlightOverlay.style.left = left + "px";
+				elemHighlightOverlay.style.width = elemRect.width + "px";
+				elemHighlightOverlay.style.height = elemRect.height + "px";
+				elemHighlightOverlay.style.display = "block";
+			} catch (e) {
+				elemHighlightOverlay.style.display = "none";
+			}
+		}
+
+		function showElementDetail(element, tab) {
+			currentDetailTab = tab;
+			const tabs = elementsDetailPanel.querySelectorAll(".elem-tab");
+			tabs.forEach(t => {
+				const isActive = t.dataset.tab === tab;
+				t.style.color = isActive ? "var(--tx)" : "var(--tx3)";
+				t.style.borderBottomColor = isActive ? "var(--ac)" : "transparent";
+			});
+
+			if (tab === "styles") {
+				try {
+					const cs = element.ownerDocument.defaultView
+						? element.ownerDocument.defaultView.getComputedStyle(element)
+						: getComputedStyle(element);
+					const styleProps = ["display","position","width","height","min-width","min-height","max-width","max-height",
+						"flex","flex-direction","flex-wrap","grid","gap","overflow",
+						"margin","margin-top","margin-right","margin-bottom","margin-left",
+						"padding","padding-top","padding-right","padding-bottom","padding-left",
+						"color","background","background-color","border","border-radius",
+						"box-shadow","opacity","visibility","z-index",
+						"font-size","font-weight","font-family","line-height","text-align",
+						"text-decoration","white-space","letter-spacing",
+						"transform","transition","animation"];
+					const styles = {};
+					styleProps.forEach(p => { styles[p] = cs.getPropertyValue(p); });
+					const groups = [
+						{ label: "Layout", keys: ["display","position","width","height","min-width","min-height","max-width","max-height","flex","flex-direction","flex-wrap","grid","gap","overflow"] },
+						{ label: "Spacing", keys: ["margin","margin-top","margin-right","margin-bottom","margin-left","padding","padding-top","padding-right","padding-bottom","padding-left"] },
+						{ label: "Visual", keys: ["color","background","background-color","border","border-radius","box-shadow","opacity","visibility","z-index"] },
+						{ label: "Typography", keys: ["font-size","font-weight","font-family","line-height","text-align","text-decoration","white-space","letter-spacing"] },
+						{ label: "Transform", keys: ["transform","transition","animation"] },
+					];
+					const skip = new Set(["none","normal","auto","0px","rgba(0, 0, 0, 0)","","transparent","nowrap","static","visible","initial","unset"]);
+					let html = "";
+					groups.forEach(g => {
+						const rows = g.keys.filter(k => styles[k] && !skip.has(styles[k]));
+						if (!rows.length) return;
+						html += `<div style="font-size:9px;font-weight:700;color:var(--tx3);letter-spacing:.06em;text-transform:uppercase;margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid var(--bd)">${g.label}</div>`;
+						rows.forEach(k => {
+							html += `<div style="display:flex;gap:4px;margin-bottom:2px;flex-wrap:wrap;">` +
+								`<span style="color:#8aefb0;flex-shrink:0">${k}</span>` +
+								`<span style="color:var(--tx3);flex-shrink:0">:</span>` +
+								`<span style="color:#f8dc75;word-break:break-all">${escapeHtml(styles[k])}</span></div>`;
+						});
+					});
+					elemDetailContent.innerHTML = html || '<span style="color:var(--tx3)">No notable styles</span>';
+				} catch (e) {
+					elemDetailContent.innerHTML = '<span style="color:var(--tx3)">Could not read styles</span>';
+				}
+			} else if (tab === "box") {
+				try {
+					const r = element.getBoundingClientRect();
+					const cs = element.ownerDocument.defaultView
+						? element.ownerDocument.defaultView.getComputedStyle(element)
+						: getComputedStyle(element);
+					const parseNum = v => parseFloat(v) || 0;
+					const mt = parseNum(cs.marginTop), mr = parseNum(cs.marginRight), mb = parseNum(cs.marginBottom), ml = parseNum(cs.marginLeft);
+					const pt = parseNum(cs.paddingTop), pr = parseNum(cs.paddingRight), pb = parseNum(cs.paddingBottom), pl = parseNum(cs.paddingLeft);
+					const w = r.width?.toFixed(1) ?? "-";
+					const h = r.height?.toFixed(1) ?? "-";
+					elemDetailContent.innerHTML = `
+						<div style="display:flex;flex-direction:column;align-items:center;gap:0;padding:6px 2px;font-size:10px;">
+							<div style="width:100%;max-width:220px;">
+								<div style="background:rgba(253,186,116,.08);border:1px dashed rgba(253,186,116,.35);border-radius:5px;padding:4px;position:relative;">
+									<div style="text-align:center;color:rgba(253,186,116,.7);font-size:9px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px;">margin</div>
+									<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0;">
+										<span style="color:rgba(253,186,116,.8);padding:0 4px">${ml}px</span>
+										<div style="flex:1;background:rgba(134,239,172,.07);border:1px dashed rgba(134,239,172,.3);border-radius:4px;padding:4px;">
+											<div style="text-align:center;color:rgba(134,239,172,.65);font-size:9px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px;">padding</div>
+											<div style="display:flex;justify-content:space-between;align-items:flex-start;">
+												<span style="color:rgba(134,239,172,.8);padding:0 3px">${pl}px</span>
+												<div style="flex:1;background:rgba(157,229,255,.1);border:1px solid rgba(157,229,255,.25);border-radius:3px;padding:6px 4px;text-align:center;">
+													<div style="color:var(--ac);font-size:11px;font-weight:600">${w} × ${h}</div>
+													<div style="color:var(--tx3);font-size:9px;margin-top:1px">content</div>
+												</div>
+												<span style="color:rgba(134,239,172,.8);padding:0 3px">${pr}px</span>
+											</div>
+											<div style="text-align:center;color:rgba(134,239,172,.7);margin-top:2px">${pb}px</div>
+										</div>
+										<span style="color:rgba(253,186,116,.8);padding:0 4px">${mr}px</span>
+									</div>
+									<div style="text-align:center;color:rgba(253,186,116,.7);margin-top:2px">${mb}px</div>
+								</div>
+							</div>
+							<div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:10.5px;width:100%;max-width:220px;">
+								<div><span style="color:var(--tx3)">top: </span><span style="color:#f8dc75">${r.top?.toFixed(1) ?? "-"}px</span></div>
+								<div><span style="color:var(--tx3)">left: </span><span style="color:#f8dc75">${r.left?.toFixed(1) ?? "-"}px</span></div>
+								<div><span style="color:var(--tx3)">bottom: </span><span style="color:#f8dc75">${r.bottom?.toFixed(1) ?? "-"}px</span></div>
+								<div><span style="color:var(--tx3)">right: </span><span style="color:#f8dc75">${r.right?.toFixed(1) ?? "-"}px</span></div>
+							</div>
+						</div>`;
+				} catch (e) {
+					elemDetailContent.innerHTML = '<span style="color:var(--tx3)">Could not read box model</span>';
+				}
+			} else if (tab === "attrs") {
+				let html = "";
+				if (element.attributes && element.attributes.length > 0) {
+					for (let i = 0; i < element.attributes.length; i++) {
+						const a = element.attributes[i];
+						const val = escapeHtml(a.value);
+						html += `<div style="margin-bottom:4px;display:flex;gap:4px;align-items:baseline;flex-wrap:wrap;">` +
+							`<span style="color:#8aefb0;flex-shrink:0">${escapeHtml(a.name)}</span>` +
+							`<span style="color:var(--tx3);flex-shrink:0">=</span>` +
+							`<span style="color:#f8dc75;word-break:break-all">"${val}"</span></div>`;
+					}
+				} else {
+					html = '<span style="color:var(--tx3)">No attributes</span>';
+				}
+				elemDetailContent.innerHTML = html;
+			}
+		}
+
+		function selectElementNode(element) {
+			elementsTree.querySelectorAll(".element-content.selected").forEach(n => n.classList.remove("selected"));
+			selectedElement = element;
+			updateBreadcrumb(element);
+			showElementDetail(element, currentDetailTab || "styles");
+			highlightElementInPage(element);
+		}
+
+		function showElemCtxMenu(x, y, element) {
+			if (!elemCtxMenu) return;
+			elemCtxMenu.style.display = "block";
+			elemCtxMenu.style.left = Math.min(x, window.innerWidth - 185) + "px";
+			elemCtxMenu.style.top = Math.min(y, window.innerHeight - 180) + "px";
+		}
+		document.addEventListener("click", () => { if (elemCtxMenu) elemCtxMenu.style.display = "none"; });
+
+		elementsDetailPanel.querySelectorAll(".elem-tab").forEach(btn => {
+			btn.onclick = () => { if (selectedElement) showElementDetail(selectedElement, btn.dataset.tab); };
+		});
+
+		elementsEl.querySelector(".ctx-copy-selector")?.addEventListener("click", () => {
+			if (selectedElement) navigator.clipboard?.writeText(getSelector(selectedElement));
+		});
+		elementsEl.querySelector(".ctx-copy-html")?.addEventListener("click", () => {
+			if (selectedElement) navigator.clipboard?.writeText(selectedElement.outerHTML);
+		});
+		elementsEl.querySelector(".ctx-copy-text")?.addEventListener("click", () => {
+			if (selectedElement) navigator.clipboard?.writeText(selectedElement.textContent?.trim() || "");
+		});
+		elementsEl.querySelector(".ctx-scroll-to")?.addEventListener("click", () => {
+			if (selectedElement) selectedElement.scrollIntoView({ behavior: "smooth", block: "center" });
+		});
+		elementsEl.querySelector(".ctx-hide-element")?.addEventListener("click", () => {
+			if (selectedElement) selectedElement.style.display = selectedElement.style.display === "none" ? "" : "none";
+		});
+
+		if (elementsSearchInput) {
+			elementsSearchInput.addEventListener("input", () => {
+				const q = elementsSearchInput.value.trim().toLowerCase();
+				if (!elementsTree) return;
+				elementsTree.querySelectorAll(".element-node").forEach(node => {
+					const text = node.querySelector(".element-content")?.textContent?.toLowerCase() || "";
+					node.style.display = (!q || text.includes(q)) ? "" : "none";
+				});
+			});
+		}
+
+		if (elemDetailToggleBtn && elementsDetailPanel) {
+			elemDetailToggleBtn.addEventListener("click", () => {
+				const isOn = elemDetailToggleBtn.classList.toggle("on");
+				if (isOn && selectedElement) {
+					elementsDetailPanel.style.display = "flex";
+					showElementDetail(selectedElement, currentDetailTab || "styles");
+				} else if (!isOn) {
+					elementsDetailPanel.style.display = "none";
+				}
+			});
+		}
+
+		function renderElementNode(element, parent, depth) {
+			if (!element || !element.tagName) return;
+
+			const li = document.createElement("li");
+			li.className = "element-node";
+			li.style.paddingLeft = (depth * 8) + "px";
+
+			const hasChildren = element.children && element.children.length > 0;
+
+			const contentDiv = document.createElement("div");
+			contentDiv.className = "element-content";
+
+			if (hasChildren) {
+				const toggle = document.createElement("span");
+				toggle.className = "element-toggle collapsed";
+				contentDiv.appendChild(toggle);
+			} else {
+				const spacer = document.createElement("span");
+				spacer.className = "element-spacer";
+				contentDiv.appendChild(spacer);
+			}
+
+			const tagSpan = document.createElement("span");
+			let html = '<span class="element-tag">&lt;' + element.tagName.toLowerCase();
+
+			if (element.attributes) {
+				for (let i = 0; i < element.attributes.length; i++) {
+					const attr = element.attributes[i];
+					html += ' <span class="element-attr-name">' + escapeHtml(attr.name) + "</span>=";
+					html += '<span class="element-attr-value">"' + escapeHtml(attr.value.substring(0, 60)) + (attr.value.length > 60 ? '…"' : '"') + "</span>";
+				}
+			}
+			html += "&gt;</span>";
+
+			if (!hasChildren && element.textContent && element.textContent.trim()) {
+				const text = element.textContent.trim().substring(0, 60);
+				html += '<span class="element-text">' + escapeHtml(text) + (element.textContent.trim().length > 60 ? "…" : "") + "</span>";
+				html += '<span class="element-tag">&lt;/' + element.tagName.toLowerCase() + "&gt;</span>";
+			}
+
+			tagSpan.innerHTML = html;
+			contentDiv.appendChild(tagSpan);
+			li.appendChild(contentDiv);
+			parent.appendChild(li);
+
+			if (hasChildren) {
+				const toggle = contentDiv.querySelector(".element-toggle");
+				const childrenUl = document.createElement("ul");
+				childrenUl.className = "element-children";
+				li.appendChild(childrenUl);
+
+				toggle.onclick = (e) => {
+					e.stopPropagation();
+					toggle.classList.toggle("collapsed");
+					toggle.classList.toggle("expanded");
+					childrenUl.classList.toggle("expanded");
+					if (childrenUl.classList.contains("expanded") && childrenUl.children.length === 0) {
+						for (let i = 0; i < element.children.length; i++) {
+							renderElementNode(element.children[i], childrenUl, depth + 1);
+						}
+					}
+				};
+			}
+
+			contentDiv.onclick = (e) => {
+				e.stopPropagation();
+				selectElementNode(element);
+			};
+
+			contentDiv.oncontextmenu = (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				selectedElement = element;
+				showElemCtxMenu(e.clientX, e.clientY, element);
+			};
+		}
+
+		function inspectCurrentPage() {
+			const activeTab = getActiveTab();
+			if (!activeTab) return;
+			const targetUrl = activeTab.url || "";
+			if (targetUrl.startsWith("onyx://") || targetUrl.startsWith("veil://")) {
+				if (activeTab.internalEl) {
+					elementsTree.innerHTML = "";
+					renderElementNode(activeTab.internalEl, elementsTree, 0);
+					return;
+				}
+			}
+
+			let liveDoc = null;
+			try {
+				liveDoc = activeTab.frameObj?.frame?.contentDocument || activeTab.frameObj?.frame?.contentWindow?.document;
+			} catch (e) {}
+
+			if (!liveDoc) {
+				elementsTree.innerHTML = '<li style="color: var(--tx3); padding: 8px;">No page loaded</li>';
+				return;
+			}
+
+			try {
+				elementsTree.innerHTML = "";
+				renderElementNode(liveDoc.documentElement, elementsTree, 0);
+			} catch (e) {
+				elementsTree.innerHTML = '<li style="color: var(--err); padding: 8px;">Cannot inspect: ' + e.message + '</li>';
+			}
+		}
+
+		if (refreshElementsBtn) {
+			refreshElementsBtn.onclick = () => inspectCurrentPage();
+		}
+
+		function setupPanelResize(panel, handle) {
+			if (!panel || !handle) return;
+			let isResizing = false;
+			let startX = 0;
+			let startWidth = 0;
+
+			handle.addEventListener("mousedown", (e) => {
+				isResizing = true;
+				startX = e.clientX;
+				startWidth = panel.offsetWidth;
+				document.body.style.cursor = "ew-resize";
+				const activeTab = getActiveTab();
+				if (activeTab?.frameObj?.frame) activeTab.frameObj.frame.style.pointerEvents = "none";
+				e.preventDefault();
+			});
+
+			document.addEventListener("mousemove", (e) => {
+				if (!isResizing) return;
+				const deltaX = startX - e.clientX;
+				const newWidth = Math.max(250, Math.min(800, startWidth + deltaX));
+				panel.style.width = newWidth + "px";
+			});
+
+			const stopResize = () => {
+				if (isResizing) {
+					isResizing = false;
+					document.body.style.cursor = "";
+					const activeTab = getActiveTab();
+					if (activeTab?.frameObj?.frame) activeTab.frameObj.frame.style.pointerEvents = "";
+				}
+			};
+
+			document.addEventListener("mouseup", stopResize);
+			window.addEventListener("blur", stopResize);
+		}
+
+		setupPanelResize(logsEl, logsResizeHandle);
+		setupPanelResize(elementsEl, elementsResizeHandle);
+
+		devToggleBtn.onclick = () => toggleLogs();
+		codeBtn.onclick = () => toggleElements();
+
+		document.addEventListener("keydown", (e) => {
+			if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
+				e.preventDefault();
+				toggleLogs();
+			}
+		});
+
+		function hookActiveFrame(tabObj) {
+			if (!tabObj || !tabObj.frameObj?.frame) return;
+			const fr = tabObj.frameObj.frame;
+			const hook = () => {
+				let w;
+				try {
+					w = fr.contentWindow;
+					if (!w || !w.document) return;
+				} catch (e) {
+					return;
+				}
+				if (w.__gustHooked) return;
+				w.__gustHooked = true;
+
+				const cls = { log: "", warn: "warn", error: "err", info: "info", debug: "info" };
+				const esc = s => String(s).slice(0, 300).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+				["log", "warn", "error", "info", "debug"].forEach(m => {
+					const orig = w.console ? w.console[m] : null;
+					if (orig && typeof orig === "function") {
+						w.console[m] = function (...a) {
+							orig.apply(w.console, a);
+							log("[Console] " + esc(a.slice(0, 3).map(x => { try { return typeof x === "object" ? JSON.stringify(x) : String(x); } catch { return "[Object]"; } }).join(" ")), cls[m] || "");
+						};
+					}
+				});
+				w.addEventListener("error", e => log("[Error] " + esc(e.message || ""), "err"));
+				w.addEventListener("unhandledrejection", e => log("[Promise] " + esc(e.reason?.message || e.reason || ""), "err"));
+			};
+
+			fr.addEventListener("load", () => {
+				hook();
+				setDevStatus("idle", "Ready");
+				log(`Page loaded: ${tabObj.url}`, "ok");
+				if (!elementsEl.classList.contains("hidden")) {
+					inspectCurrentPage();
+				}
+			});
+			hook();
+		}
+
+		const floatingPopover = document.createElement("div");
+		floatingPopover.className = "fixed top-14 right-4 z-50 w-96 bg-neutral-900 border border-white/20 rounded-2xl shadow-2xl overflow-hidden hidden flex flex-col";
+		floatingPopover.style.height = "520px";
+
+		const popoverHeader = document.createElement("div");
+		popoverHeader.className = "flex items-center justify-between px-4 py-2.5 bg-neutral-950 border-b border-white/10 shrink-0";
+
+		const popoverTitle = document.createElement("span");
+		popoverTitle.className = "text-xs font-bold text-neutral-200 truncate";
+		popoverTitle.textContent = "Extension Popup";
+
+		const popoverClose = document.createElement("button");
+		popoverClose.className = "text-neutral-400 hover:text-white text-xs font-bold px-2 py-0.5 rounded cursor-pointer";
+		popoverClose.textContent = "✕";
+		popoverClose.onclick = (e) => {
+			if (e) e.stopPropagation();
+			try {
+				if (window.sapphire && typeof window.sapphire.unmountExtensionPopup === "function") {
+					window.sapphire.unmountExtensionPopup(popoverFrame);
+				}
+			} catch (err) {}
+			try {
+				popoverFrame.src = "about:blank";
+			} catch (err) {}
+			floatingPopover.classList.add("hidden");
 		};
+
+		popoverHeader.appendChild(popoverTitle);
+		popoverHeader.appendChild(popoverClose);
+
+		const popoverFrame = document.createElement("iframe");
+		popoverFrame.className = "w-full flex-1 border-0 bg-white";
+
+		floatingPopover.appendChild(popoverHeader);
+		floatingPopover.appendChild(popoverFrame);
+
+		document.addEventListener("click", (e) => {
+			if (floatingPopover && !floatingPopover.classList.contains("hidden")) {
+				if (!floatingPopover.contains(e.target) && !toolbarExtensions.contains(e.target)) {
+					popoverClose.onclick(e);
+				}
+			}
+		});
+
+		const showExtensionPopover = async (extId, extName) => {
+			try {
+				if (window.sapphire && typeof window.sapphire.unmountExtensionPopup === "function") {
+					window.sapphire.unmountExtensionPopup(popoverFrame);
+				}
+			} catch (err) {}
+			try {
+				popoverFrame.src = "about:blank";
+			} catch (err) {}
+
+			floatingPopover.classList.remove("hidden");
+			popoverTitle.textContent = extName || "Extension Popup";
+
+			if (window.sapphire) {
+				const ext = typeof window.sapphire.registry?.get === "function" ? window.sapphire.registry.get(extId) : null;
+				if (ext && ext.enabled && !ext.background && typeof window.sapphire.startBackground === "function") {
+					try {
+						await window.sapphire.startBackground(ext);
+					} catch (bgErr) {
+						console.warn("[showExtensionPopover] startBackground error:", bgErr);
+					}
+				}
+				if (typeof window.sapphire.mountExtensionPopup === "function") {
+					const ok = await window.sapphire.mountExtensionPopup(popoverFrame, extId, win.customState?.activeTabId || 1);
+					if (ok) return;
+				}
+			}
+			let popupUrl = `https://${extId}.sapphire-extension.invalid/popup.html`;
+			popoverFrame.src = window.encodeProxyUrl ? window.encodeProxyUrl(popupUrl) : popupUrl;
+		};
+		win.customState.showExtensionPopover = (extId, _url, extName) => showExtensionPopover(extId, extName);
+
+		const toolbarExtensions = document.createElement("div");
+		toolbarExtensions.className = "flex items-center gap-1 shrink-0";
 
 		const renderToolbarExtensions = () => {
 			toolbarExtensions.innerHTML = "";
-
-			if (window.sapphire && typeof window.sapphire.getInstalledExtensions === "function") {
-				const installed = window.sapphire.getInstalledExtensions();
-				installed.filter(ex => ex.enabled).forEach(ex => {
-					const extBtn = document.createElement("button");
-					extBtn.className = "w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all cursor-pointer shadow-sm relative shrink-0";
-					extBtn.title = ex.name || "Extension";
-					if (ex.iconUrl) {
-						extBtn.innerHTML = `<img src="${ex.iconUrl}" class="w-4 h-4 object-contain rounded" />`;
-					} else {
-						extBtn.innerHTML = `<span class="text-xs">🧩</span>`;
-					}
-					extBtn.onclick = async (e) => {
-						e.stopPropagation();
-						if (!floatingPopover.classList.contains("hidden") && win.customState.activePopup === ex.id) {
-							floatingPopover.classList.add("hidden");
-							win.customState.activePopup = null;
-							return;
-						}
-						try {
-							let popupUrl = null;
-							if (typeof window.sapphire.getPopupUrl === "function") {
-								popupUrl = await window.sapphire.getPopupUrl(ex.id);
-							}
-							win.customState.activePopup = ex.id;
-							renderExtensionPopup(ex.id, popupUrl);
-							floatingPopover.classList.remove("hidden");
-						} catch (popupErr) {
-							console.error("[ToolbarExtension] Failed to get popup URL:", popupErr);
-						}
-					};
-					toolbarExtensions.appendChild(extBtn);
-				});
+			if (!window.sapphire) return;
+			const exts = typeof window.sapphire.getInstalledExtensions === "function" ? window.sapphire.getInstalledExtensions() : [];
+			for (const ext of exts) {
+				if (!ext.enabled || !ext.hasPopup) continue;
+				const btn = document.createElement("button");
+				btn.className = "w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-neutral-300 hover:text-white transition-colors cursor-pointer shrink-0 relative";
+				btn.title = ext.name || "Extension";
+				const rawIcon = ext.iconUrl || ext.icon;
+				if (rawIcon) {
+					const proxiedIcon = window.encodeProxyUrl ? window.encodeProxyUrl(rawIcon) : rawIcon;
+					btn.innerHTML = `<img src="${proxiedIcon}" class="w-4 h-4 object-contain rounded" alt="" onerror="this.outerHTML='<span class=\\'text-xs\\'>🧩</span>'" />`;
+				} else {
+					btn.innerHTML = `<span class="text-xs">🧩</span>`;
+				}
+				btn.onclick = (ev) => {
+					ev.stopPropagation();
+					showExtensionPopover(ext.id, ext.name || "Extension Popup");
+				};
+				toolbarExtensions.appendChild(btn);
 			}
 		};
 		win.customState.renderToolbarExtensions = renderToolbarExtensions;
-
-		// Dismiss popover on outside click
-		const onDocumentClick = (e) => {
-			if (!floatingPopover.classList.contains("hidden")) {
-				if (!floatingPopover.contains(e.target) && !toolbarExtensions.contains(e.target)) {
-					floatingPopover.classList.add("hidden");
-					win.customState.activePopup = null;
-				}
-			}
-		};
-		document.addEventListener("mousedown", onDocumentClick);
-
-		renderToolbarExtensions();
+		setTimeout(renderToolbarExtensions, 300);
 
 		urlBar.appendChild(backBtn);
 		urlBar.appendChild(fwdBtn);
@@ -2696,13 +3619,15 @@ window.addEventListener("load", async () => {
 		urlBar.appendChild(urlInputBox);
 		urlBar.appendChild(goBtn);
 		urlBar.appendChild(toolbarExtensions);
+		urlBar.appendChild(devToggleBtn);
+		urlBar.appendChild(codeBtn);
 		urlBar.appendChild(floatingPopover);
 
 		// QUICK BOOKMARKS BAR
 		const quickBmBar = document.createElement("div");
 		quickBmBar.className = "flex items-center gap-1.5 px-3 py-1.5 bg-neutral-950 border-b border-white/10 overflow-x-auto text-xs shrink-0 custom-scrollbar";
 
-		// MAIN CONTENT (Viewport + Side Drawer)
+		// MAIN CONTENT (Viewport + Logs Panel + Elements Panel + Side Drawer)
 		const mainContent = document.createElement("div");
 		mainContent.className = "flex-1 w-full h-full relative flex overflow-hidden";
 
@@ -2710,12 +3635,16 @@ window.addEventListener("load", async () => {
 		drawerContainer.className = "h-full flex shrink-0";
 
 		mainContent.appendChild(win.customState.viewportEl);
+		mainContent.appendChild(logsEl);
+		mainContent.appendChild(elementsEl);
 		mainContent.appendChild(drawerContainer);
 
 		browserRoot.appendChild(tabStrip);
 		browserRoot.appendChild(urlBar);
 		browserRoot.appendChild(quickBmBar);
 		browserRoot.appendChild(mainContent);
+
+		log("Onyx DevTools ready", "info");
 
 		// Tab and Navigation Helpers
 		const getActiveTab = () => {
@@ -3889,7 +4818,13 @@ window.addEventListener("load", async () => {
 		};
 
 		const loadTabUrl = (tabObj, rawTarget) => {
-			const target = formatUrl(rawTarget || "https://google.com");
+			let target = formatUrl(rawTarget || "https://google.com");
+			if (target === "onyx://changelog" || target === "veil://changelog") {
+				if (osInstance && osInstance.openApp) {
+					osInstance.openApp("changelog");
+				}
+				target = "onyx://newtab";
+			}
 			tabObj.url = target;
 			tabObj.title = getTitleFromUrl(target);
 
@@ -3924,7 +4859,13 @@ window.addEventListener("load", async () => {
 				tabObj.frameObj.frame.style.position = "";
 			}
 
-			const isExtensionPage = target.includes("/~/sx/") || target.startsWith("chrome-extension://");
+			const isExtensionPage =
+				target.includes("/~/sx/") ||
+				target.startsWith("chrome-extension://") ||
+				target.includes(".sapphire-extension.invalid") ||
+				target.includes("sapphire-extension.invalid") ||
+				target.startsWith("sapphire://");
+
 			if (isExtensionPage && window.sapphire) {
 				let extId = null;
 				let pagePath = "popup.html";
@@ -3932,6 +4873,21 @@ window.addEventListener("load", async () => {
 					const parts = target.slice("chrome-extension://".length).split("/");
 					extId = parts[0];
 					pagePath = parts.slice(1).join("/") || "popup.html";
+				} else if (target.includes("sapphire-extension.invalid")) {
+					try {
+						const u = new URL(target.startsWith("http") ? target : `https://${target}`);
+						const hostMatch = u.hostname.match(/^([a-z0-9]+)\.sapphire-extension\.invalid$/i);
+						if (hostMatch) {
+							extId = hostMatch[1];
+							pagePath = u.pathname.replace(/^\/+/, "") || "popup.html";
+						}
+					} catch {
+						const m = target.match(/([a-z0-9]+)\.sapphire-extension\.invalid(?:\/(.*))?/i);
+						if (m) {
+							extId = m[1];
+							pagePath = m[2] || "popup.html";
+						}
+					}
 				} else {
 					const match = target.match(/\/~\/sx\/([^/]+)(?:\/(.*))?/);
 					if (match) {
@@ -3955,9 +4911,8 @@ window.addEventListener("load", async () => {
 								if (ok) return;
 							}
 						} catch (mountErr) {
-							console.warn("[loadTabUrl] mountExtensionPage error, falling back to frame.go:", mountErr);
+							console.warn("[loadTabUrl] mountExtensionPage error:", mountErr);
 						}
-						tabObj.frameObj.go(target);
 					}, 0);
 					addHistory(tabObj.title, target);
 					if (win.customState.activeTabId === tabObj.id) {
@@ -3968,7 +4923,11 @@ window.addEventListener("load", async () => {
 				}
 			}
 
-			tabObj.frameObj.go(target);
+			if (target.includes("musicv-production.up.railway.app") || target.includes("onyxai-fornow-ochre.vercel.app")) {
+				tabObj.frameObj.frame.src = target;
+			} else {
+				tabObj.frameObj.go(target);
+			}
 			addHistory(tabObj.title, target);
 			if (win.customState.activeTabId === tabObj.id) {
 				syncActiveTabUrl(target);
@@ -3981,11 +4940,17 @@ window.addEventListener("load", async () => {
 			const target = formatUrl(rawUrl || "https://google.com");
 
 			const plugins = [];
-			if (window.sapphire && window.SapphireContentScriptPlugin) {
+			if (window.sapphire) {
 				try {
-					plugins.push(new window.SapphireContentScriptPlugin(window.sapphire, tabNumericId));
+					if (typeof window.sapphire.createPlugin === "function") {
+						plugins.push(window.sapphire.createPlugin(tabNumericId));
+					} else if (window.SapphirePlugin) {
+						plugins.push(new window.SapphirePlugin(window.sapphire, tabNumericId));
+					} else if (window.SapphireContentScriptPlugin) {
+						plugins.push(new window.SapphireContentScriptPlugin(window.sapphire, tabNumericId));
+					}
 				} catch (e) {
-					console.warn("[createTab] Failed to instantiate SapphireContentScriptPlugin:", e);
+					console.warn("[createTab] Failed to instantiate Sapphire plugin:", e);
 				}
 			}
 
@@ -4041,6 +5006,7 @@ window.addEventListener("load", async () => {
 			});
 
 			win.customState.viewportEl.appendChild(tabEl);
+			hookActiveFrame(tabObj);
 			loadTabUrl(tabObj, target);
 			return tabObj;
 		};
@@ -4067,6 +5033,10 @@ window.addEventListener("load", async () => {
 			const activeTab = getActiveTab();
 			if (activeTab) {
 				syncActiveTabUrl(activeTab.url);
+				hookActiveFrame(activeTab);
+				if (!elementsEl.classList.contains("hidden")) {
+					inspectCurrentPage();
+				}
 			}
 			renderTabStrip();
 		};

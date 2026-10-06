@@ -2,67 +2,9 @@
 
 import "./safe-postmessage";
 import type { ScramjetVersionInfo } from "./types";
-import { Sapphire, SapphireContentScriptPlugin, findMatchingCommand, triggerCommand } from "@x8r/sapphire";
-import type {
-	InstalledExtensionSummary,
-	NewTabOverride,
-	ChromeManifest,
-	DNRDecision,
-	DNRRule,
-	SapphireHostBindings,
-	TabInfo,
-	SapphireOptions,
-} from "@x8r/sapphire";
 import JSZip from "jszip";
 
-export { Sapphire, SapphireContentScriptPlugin, findMatchingCommand, triggerCommand, JSZip };
-export type {
-	InstalledExtensionSummary,
-	NewTabOverride,
-	ChromeManifest,
-	DNRDecision,
-	DNRRule,
-	SapphireHostBindings,
-	TabInfo,
-	SapphireOptions,
-};
-
-// Polyfill getPopupUrl on Sapphire prototype if missing
-if (typeof (Sapphire.prototype as any).getPopupUrl !== "function") {
-	(Sapphire.prototype as any).getPopupUrl = async function (extId: string): Promise<string | null> {
-		if (!extId) {
-			return null;
-		}
-		try {
-			const page = typeof (this as any).getExtensionPopupPage === "function" ? (this as any).getExtensionPopupPage(extId) : null;
-			if (page) {
-				const cleanPage = String(page).replace(/^\//, "");
-				const origin = typeof globalThis.location !== "undefined" && globalThis.location.origin ? globalThis.location.origin : "";
-
-				return `${origin}/~/sx/${extId}/${cleanPage}`;
-			}
-			const ext = (this as any).registry?.get ? (this as any).registry.get(extId) : null;
-			if (ext) {
-				const manifest = ext.manifest;
-				const fallback =
-					ext.popupPage ||
-					manifest?.action?.default_popup ||
-					manifest?.browser_action?.default_popup ||
-					manifest?.page_action?.default_popup;
-				if (fallback) {
-					const cleanFallback = String(fallback).replace(/^\//, "");
-					const origin = typeof globalThis.location !== "undefined" && globalThis.location.origin ? globalThis.location.origin : "";
-
-					return `${origin}/~/sx/${extId}/${cleanFallback}`;
-				}
-			}
-		} catch (err) {
-			console.warn("[Sapphire.getPopupUrl] Failed to resolve popup URL:", err);
-		}
-
-		return null;
-	};
-}
+export { JSZip };
 
 export function crxToZip(buffer: ArrayBuffer): ArrayBuffer {
 	if (!buffer || buffer.byteLength < 16) return buffer;
@@ -88,8 +30,15 @@ export function crxToZip(buffer: ArrayBuffer): ArrayBuffer {
 }
 
 export async function normalizeExtensionBuffer(buffer: ArrayBuffer, _filename = "extension.zip"): Promise<ArrayBuffer> {
+	if (!buffer || buffer.byteLength < 16) return buffer;
 	try {
 		const zipBuffer = crxToZip(buffer);
+		if (zipBuffer.byteLength >= 2) {
+			const v = new Uint8Array(zipBuffer);
+			if (v[0] !== 0x50 || v[1] !== 0x4b) {
+				return zipBuffer;
+			}
+		}
 		const zip = await JSZip.loadAsync(zipBuffer);
 		if (zip.file("manifest.json")) {
 			return zipBuffer;
@@ -335,13 +284,18 @@ globalThis.$scramjetLoadWorker = $scramjetLoadWorker;
 globalThis.$scramjetVersion = $scramjetVersion;
 (globalThis as any).$scramjetController = require("./controller/shim");
 
-globalThis.Sapphire = Sapphire;
-globalThis.SapphireContentScriptPlugin = SapphireContentScriptPlugin;
-globalThis.findMatchingCommand = findMatchingCommand;
-globalThis.triggerCommand = triggerCommand;
 globalThis.JSZip = JSZip;
 globalThis.crxToZip = crxToZip;
 globalThis.normalizeExtensionBuffer = normalizeExtensionBuffer;
+
+import { Sapphire, SapphireContentScriptPlugin, SapphirePlugin, findMatchingCommand, triggerCommand } from "@x8r/sapphire";
+
+export { Sapphire, SapphireContentScriptPlugin, SapphirePlugin, findMatchingCommand, triggerCommand };
+(globalThis as any).Sapphire = Sapphire;
+(globalThis as any).SapphirePlugin = SapphirePlugin;
+(globalThis as any).SapphireContentScriptPlugin = SapphireContentScriptPlugin;
+(globalThis as any).findMatchingCommand = findMatchingCommand;
+(globalThis as any).triggerCommand = triggerCommand;
 
 if ("document" in globalThis && document?.currentScript) {
 	document.currentScript.remove();

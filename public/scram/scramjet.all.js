@@ -397,27 +397,4576 @@ module.exports = webpackEmptyContext;
 "./node_modules/@x8r/sapphire/src/SapphirePlugin.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  SapphireContentScriptPlugin: () => (SapphireContentScriptPlugin)
+  SapphireContentScriptPlugin: () => (SapphireContentScriptPlugin),
+  SapphirePlugin: () => (SapphirePlugin)
 });
 /* import */ var _mercuryworkshop_scramjet_controller__rspack_import_0 = __webpack_require__("./src/controller/shim.ts");
-/* import */ var _contentScripts__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/contentScripts.ts");
+/* import */ var _frames__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/frames.ts");
+/* import */ var _network__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/network.ts");
 
 
-class SapphireContentScriptPlugin extends _mercuryworkshop_scramjet_controller__rspack_import_0.ManagedPlugin {
+
+/**
+ * One per Scramjet Frame. For browser tabs pass the host's tab id; Sapphire
+ * creates its own instances for background pages, popups and offscreen
+ * documents. Wires Scramjet's frame-init hooks (extension contexts, content
+ * scripts, navigation tracking) and fetch hooks (extension resources,
+ * declarativeNetRequest, webRequest).
+ */ class SapphirePlugin extends _mercuryworkshop_scramjet_controller__rspack_import_0.ManagedPlugin {
     sapphire;
-    tabId;
-    constructor(sapphire, tabId){
-        super("sapphire-content-scripts", []);
+    info;
+    constructor(sapphire, tabIdOrOptions = null){
+        super("sapphire", []);
         this.sapphire = sapphire;
-        this.tabId = tabId;
+        this.info = tabIdOrOptions !== null && typeof tabIdOrOptions === "object" ? {
+            kind: tabIdOrOptions.kind ?? "tab",
+            tabId: tabIdOrOptions.tabId ?? null
+        } : {
+            kind: "tab",
+            tabId: tabIdOrOptions
+        };
     }
     install(frame) {
+        super.install(frame);
+        const s = this.sapphire;
         this.tap(frame.hooks.init.pre, (ctx)=>{
             if (!ctx?.window) return;
-            const url = ctx.window.location.href;
-            void (0,_contentScripts__rspack_import_1.injectContentScripts)(ctx.window, this.tabId, url, ctx.isTopLevel, this.sapphire.registry, this.sapphire.host);
+            try {
+                (0,_frames__rspack_import_1.onInitPre)(s, this.info, ctx);
+            } catch (e) {
+                console.error("[sapphire] frame init (pre) failed", e);
+            }
+        });
+        this.tap(frame.hooks.init.post, (ctx)=>{
+            if (!ctx?.window) return;
+            try {
+                (0,_frames__rspack_import_1.onInitPost)(s, this.info, ctx);
+            } catch (e) {
+                console.error("[sapphire] frame init (post) failed", e);
+            }
+        });
+        this.tap(frame.hooks.fetch.request, async (ctx, props)=>{
+            try {
+                await (0,_network__rspack_import_2.onFetchRequest)(s, this.info, ctx, props);
+            } catch (e) {
+                console.error("[sapphire] request hook failed", e);
+            }
+        });
+        this.tap(frame.hooks.fetch.preresponse, (ctx, props)=>{
+            try {
+                (0,_network__rspack_import_2.onFetchPreresponse)(s, ctx, props);
+            } catch (e) {
+                console.error("[sapphire] preresponse hook failed", e);
+            }
+        });
+        this.tap(frame.hooks.fetch.response, (ctx, props)=>{
+            try {
+                (0,_network__rspack_import_2.onFetchResponse)(s, ctx, props);
+            } catch (e) {
+                console.error("[sapphire] response hook failed", e);
+            }
         });
     }
+}
+/** Kept for existing hosts: `new SapphireContentScriptPlugin(sapphire, tabId)`. */ class SapphireContentScriptPlugin extends SapphirePlugin {
+    constructor(sapphire, tabId){
+        super(sapphire, {
+            kind: "tab",
+            tabId
+        });
+    }
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/action.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  clickAction: () => (clickAction),
+  colorToCss: () => (colorToCss),
+  createAction: () => (createAction),
+  effectiveAction: () => (effectiveAction),
+  parseColor: () => (parseColor)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _urls__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
+
+
+const NAMED = {
+    red: [
+        255,
+        0,
+        0,
+        255
+    ],
+    green: [
+        0,
+        128,
+        0,
+        255
+    ],
+    blue: [
+        0,
+        0,
+        255,
+        255
+    ],
+    black: [
+        0,
+        0,
+        0,
+        255
+    ],
+    white: [
+        255,
+        255,
+        255,
+        255
+    ],
+    transparent: [
+        0,
+        0,
+        0,
+        0
+    ]
+};
+function parseColor(input) {
+    if (Array.isArray(input)) {
+        const [r = 0, g = 0, b = 0, a = 255] = input.map(Number);
+        return [
+            r,
+            g,
+            b,
+            a
+        ];
+    }
+    const s = String(input ?? "").trim().toLowerCase();
+    if (NAMED[s]) return NAMED[s];
+    let m = s.match(/^#([0-9a-f]{3,8})$/);
+    if (m) {
+        let hex = m[1];
+        if (hex.length === 3 || hex.length === 4) hex = hex.split("").map((c)=>c + c).join("");
+        const n = (i)=>parseInt(hex.slice(i, i + 2), 16);
+        return [
+            n(0),
+            n(2),
+            n(4),
+            hex.length === 8 ? n(6) : 255
+        ];
+    }
+    m = s.match(/^rgba?\(([^)]+)\)$/);
+    if (m) {
+        const parts = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+        return [
+            parts[0] ?? 0,
+            parts[1] ?? 0,
+            parts[2] ?? 0,
+            parts[3] === undefined ? 255 : parts[3] <= 1 ? Math.round(parts[3] * 255) : parts[3]
+        ];
+    }
+    throw new _realm__rspack_import_0.ApiError("The color specification could not be parsed.");
+}
+function colorToCss(c) {
+    return c ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] / 255})` : null;
+}
+function imageDataToUrl(data) {
+    const canvas = document.createElement("canvas");
+    canvas.width = data.width;
+    canvas.height = data.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+    // ImageData from another realm can't be passed straight to putImageData.
+    const copy = new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
+    ctx.putImageData(copy, 0, 0);
+    return canvas.toDataURL("image/png");
+}
+function pickSize(dict) {
+    const sizes = Object.keys(dict).sort((a, b)=>Number(b) - Number(a));
+    return dict[sizes.find((k)=>Number(k) <= 32) ?? sizes[sizes.length - 1]] ?? dict[sizes[0]];
+}
+function effectiveAction(ext, tabId) {
+    const tab = tabId !== null ? ext.tabAction.get(tabId) : undefined;
+    const merged = {
+        ...ext.defaultAction,
+        ...tab ?? {}
+    };
+    if (merged.iconUrl === null) merged.iconUrl = ext.iconUrl;
+    if (!merged.badgeText && ext.dnr.displayActionCountAsBadgeText && tabId !== null) {
+        const count = ext.dnr.tabActionCounts.get(tabId);
+        if (count) merged.badgeText = String(count);
+    }
+    return merged;
+}
+function createAction(env, kind) {
+    const { s, ctx, ext } = env;
+    const mv = Number(ext.manifest.manifest_version) || 2;
+    const set = (details, patch)=>{
+        const tabId = details?.tabId;
+        if (tabId !== undefined && tabId !== null) {
+            if (!s.host.getTab(tabId)) throw new _realm__rspack_import_0.ApiError(`No tab with id: ${tabId}.`);
+            ext.tabAction.set(tabId, {
+                ...ext.tabAction.get(tabId) ?? {},
+                ...patch
+            });
+        } else if (kind === "pageAction") {
+            throw new _realm__rspack_import_0.ApiError("pageAction requires a tabId.");
+        } else {
+            Object.assign(ext.defaultAction, patch);
+        }
+        s.registry.notifyChange();
+    };
+    const get = (details)=>effectiveAction(ext, details?.tabId ?? null);
+    const setIcon = async (details)=>{
+        let url = null;
+        if (details?.imageData) {
+            const data = details.imageData;
+            const one = "data" in data && "width" in data ? data : pickSize(data);
+            if (one) url = imageDataToUrl(one);
+        } else if (details?.path) {
+            const p = typeof details.path === "string" ? details.path : pickSize(details.path);
+            if (p) {
+                const resolved = (0,_urls__rspack_import_1.resolvePackagePath)(p, ctx.kind === "background" ? "" : new URL(ctx.url).pathname.replace(/^\//, ""));
+                url = await ext.files.dataUrl(resolved);
+                if (!url) throw new _realm__rspack_import_0.ApiError(`Failed to set icon '${p}': Not found`);
+            }
+        } else {
+            throw new _realm__rspack_import_0.ApiError("Either the path or imageData property must be specified.");
+        }
+        set(details, {
+            iconUrl: url
+        });
+    };
+    const ns = {
+        setTitle: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>set(d, {
+                title: String(d?.title ?? "")
+            })),
+        getTitle: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>get(d).title),
+        setIcon: (0,_realm__rspack_import_0.asyncApi)(ctx, setIcon),
+        setPopup: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>set(d, {
+                popup: String(d?.popup ?? "").replace(/^\/+/, "")
+            })),
+        getPopup: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>{
+            const popup = get(d).popup;
+            return popup ? (0,_urls__rspack_import_1.extensionUrl)(ext.id, popup) : "";
+        }),
+        onClicked: ctx.events.api(`${kind}.onClicked`)
+    };
+    if (kind !== "pageAction") {
+        Object.assign(ns, {
+            setBadgeText: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>set(d, {
+                    badgeText: d?.text == null ? "" : String(d.text)
+                })),
+            getBadgeText: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>get(d).badgeText),
+            setBadgeBackgroundColor: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>set(d, {
+                    badgeColor: parseColor(d?.color)
+                })),
+            getBadgeBackgroundColor: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>get(d).badgeColor ?? [
+                    66,
+                    133,
+                    244,
+                    255
+                ]),
+            enable: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId)=>set(tabId === undefined ? undefined : {
+                    tabId
+                }, {
+                    enabled: true
+                })),
+            disable: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId)=>set(tabId === undefined ? undefined : {
+                    tabId
+                }, {
+                    enabled: false
+                })),
+            openPopup: (0,_realm__rspack_import_0.asyncApi)(ctx, async (options)=>{
+                void options;
+                const ok = s.openPopup(ext.id, ctx.tabId ?? s.host.getActiveTabId?.() ?? null);
+                if (!ok) throw new _realm__rspack_import_0.ApiError("Could not find an active browser window.");
+            })
+        });
+        if (mv >= 3 && kind === "action") {
+            Object.assign(ns, {
+                setBadgeTextColor: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>set(d, {
+                        badgeTextColor: parseColor(d?.color)
+                    })),
+                getBadgeTextColor: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>get(d).badgeTextColor ?? [
+                        255,
+                        255,
+                        255,
+                        255
+                    ]),
+                isEnabled: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId)=>get(tabId === undefined ? undefined : {
+                        tabId
+                    }).enabled),
+                getUserSettings: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                        isOnToolbar: true
+                    })),
+                onUserSettingsChanged: ctx.events.api("action.onUserSettingsChanged")
+            });
+        }
+    } else {
+        Object.assign(ns, {
+            show: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId)=>set({
+                    tabId
+                }, {
+                    enabled: true
+                })),
+            hide: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId)=>set({
+                    tabId
+                }, {
+                    enabled: false
+                }))
+        });
+    }
+    return ns;
+}
+/** Host-facing: click the toolbar button. Opens the popup if there is one, else fires onClicked. */ function clickAction(s, ext, tabId) {
+    const state = effectiveAction(ext, tabId);
+    if (!state.enabled) return "disabled";
+    if (state.popup) {
+        if (s.openPopup(ext.id, tabId)) return "popup";
+    }
+    if (ext.sidePanel.openOnActionClick && ext.sidePanel.path) {
+        s.host.openSidePanel?.(ext.id, ext.sidePanel.path, tabId);
+        return "clicked";
+    }
+    s.dispatchActionClicked(ext, tabId);
+    return "clicked";
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/alarms.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  clearAlarms: () => (clearAlarms),
+  createAlarms: () => (createAlarms),
+  restoreAlarms: () => (restoreAlarms),
+  scheduleAlarm: () => (scheduleAlarm)
+});
+/* import */ var _db__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/db.ts");
+/* import */ var _realm__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+
+
+// setTimeout clamps anything above ~24.8 days to 1ms; re-arm in chunks instead.
+const MAX_TIMEOUT = 2 ** 31 - 1;
+function persist(ext) {
+    const list = [
+        ...ext.alarms.values()
+    ].map(({ name, scheduledTime, periodInMinutes })=>({
+            name,
+            scheduledTime,
+            periodInMinutes
+        }));
+    void (0,_db__rspack_import_0.dbPut)(_db__rspack_import_0.EXT_STATE_STORE, `${ext.id}/alarms`, list).catch(()=>{});
+}
+function scheduleAlarm(s, ext, alarm) {
+    const existing = ext.alarms.get(alarm.name);
+    if (existing) clearTimeout(existing.timer);
+    const arm = ()=>{
+        const delay = Math.max(0, alarm.scheduledTime - Date.now());
+        return setTimeout(()=>{
+            if (alarm.scheduledTime - Date.now() > 50) {
+                record.timer = arm();
+                return;
+            }
+            const fired = {
+                name: alarm.name,
+                scheduledTime: alarm.scheduledTime,
+                ...alarm.periodInMinutes ? {
+                    periodInMinutes: alarm.periodInMinutes
+                } : {}
+            };
+            if (alarm.periodInMinutes) {
+                alarm.scheduledTime = Date.now() + alarm.periodInMinutes * 60000;
+                record.scheduledTime = alarm.scheduledTime;
+                record.timer = arm();
+            } else {
+                ext.alarms.delete(alarm.name);
+            }
+            persist(ext);
+            s.registry.dispatch(ext.id, "alarms.onAlarm", [
+                fired
+            ]);
+        }, Math.min(delay, MAX_TIMEOUT));
+    };
+    const record = {
+        name: alarm.name,
+        scheduledTime: alarm.scheduledTime,
+        periodInMinutes: alarm.periodInMinutes,
+        timer: 0
+    };
+    ext.alarms.set(alarm.name, record);
+    record.timer = arm();
+    persist(ext);
+}
+async function restoreAlarms(s, ext) {
+    const stored = await (0,_db__rspack_import_0.dbGet)(_db__rspack_import_0.EXT_STATE_STORE, `${ext.id}/alarms`).catch(()=>undefined);
+    for (const alarm of stored ?? []){
+        // A missed periodic alarm fires once on startup, like Chrome after sleep.
+        if (alarm.scheduledTime < Date.now() && !alarm.periodInMinutes) alarm.scheduledTime = Date.now() + 1000;
+        scheduleAlarm(s, ext, alarm);
+    }
+}
+function clearAlarms(ext) {
+    for (const a of ext.alarms.values())clearTimeout(a.timer);
+    ext.alarms.clear();
+}
+function createAlarms(env) {
+    const { s, ctx, ext } = env;
+    const describe = (a)=>({
+            name: a.name,
+            scheduledTime: a.scheduledTime,
+            ...a.periodInMinutes ? {
+                periodInMinutes: a.periodInMinutes
+            } : {}
+        });
+    return {
+        create: (0,_realm__rspack_import_1.asyncApi)(ctx, (nameOrInfo, maybeInfo)=>{
+            const name = typeof nameOrInfo === "string" ? nameOrInfo : "";
+            const info = (typeof nameOrInfo === "string" ? maybeInfo : nameOrInfo) ?? {};
+            if (info.when !== undefined && info.delayInMinutes !== undefined) throw new _realm__rspack_import_1.ApiError("Cannot set both when and delayInMinutes.");
+            const periodInMinutes = info.periodInMinutes !== undefined ? Number(info.periodInMinutes) : undefined;
+            let scheduledTime;
+            if (info.when !== undefined) scheduledTime = Number(info.when);
+            else if (info.delayInMinutes !== undefined) scheduledTime = Date.now() + Number(info.delayInMinutes) * 60000;
+            else if (periodInMinutes !== undefined) scheduledTime = Date.now() + periodInMinutes * 60000;
+            else throw new _realm__rspack_import_1.ApiError("One of when, delayInMinutes or periodInMinutes must be set.");
+            scheduleAlarm(s, ext, {
+                name,
+                scheduledTime,
+                periodInMinutes
+            });
+        }),
+        get: (0,_realm__rspack_import_1.asyncApi)(ctx, (name)=>{
+            const a = ext.alarms.get(typeof name === "string" ? name : "");
+            return a ? describe(a) : undefined;
+        }),
+        getAll: (0,_realm__rspack_import_1.asyncApi)(ctx, ()=>[
+                ...ext.alarms.values()
+            ].map(describe)),
+        clear: (0,_realm__rspack_import_1.asyncApi)(ctx, (name)=>{
+            const key = typeof name === "string" ? name : "";
+            const a = ext.alarms.get(key);
+            if (!a) return false;
+            clearTimeout(a.timer);
+            ext.alarms.delete(key);
+            persist(ext);
+            return true;
+        }),
+        clearAll: (0,_realm__rspack_import_1.asyncApi)(ctx, ()=>{
+            const had = ext.alarms.size > 0;
+            clearAlarms(ext);
+            persist(ext);
+            return had;
+        }),
+        onAlarm: ctx.events.api("alarms.onAlarm")
+    };
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/contextMenus.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  clickContextMenuItem: () => (clickContextMenuItem),
+  contextMenuEntries: () => (contextMenuEntries),
+  createContextMenus: () => (createContextMenus)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _matchPatterns__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/matchPatterns.ts");
+/* import */ var _tabsModel__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/tabsModel.ts");
+
+
+
+let generatedId = 0;
+function createContextMenus(env) {
+    const { s, ctx, ext } = env;
+    const mv = Number(ext.manifest.manifest_version) || 2;
+    const withCallback = (cb, fn)=>{
+        try {
+            fn();
+            if (typeof cb === "function") queueMicrotask(()=>(0,_realm__rspack_import_0.invokeCallback)(ctx, cb, []));
+            return true;
+        } catch (e) {
+            const message = e.message;
+            if (typeof cb === "function") queueMicrotask(()=>(0,_realm__rspack_import_0.invokeCallbackWithError)(ctx, cb, message));
+            else queueMicrotask(()=>console.error(`[sapphire] ${ext.manifest.name}: Unchecked runtime.lastError: ${message}`));
+            return false;
+        }
+    };
+    const normalize = (props, base)=>{
+        const type = props.type ?? base?.type ?? "normal";
+        return {
+            id: base?.id ?? String(props.id),
+            parentId: props.parentId !== undefined ? String(props.parentId) : base?.parentId,
+            title: props.title !== undefined ? String(props.title) : base?.title ?? "",
+            type,
+            checked: props.checked !== undefined ? !!props.checked : base?.checked ?? false,
+            contexts: props.contexts ?? base?.contexts ?? [
+                "page"
+            ],
+            visible: props.visible !== undefined ? !!props.visible : base?.visible ?? true,
+            enabled: props.enabled !== undefined ? !!props.enabled : base?.enabled ?? true,
+            documentUrlPatterns: props.documentUrlPatterns ?? base?.documentUrlPatterns,
+            targetUrlPatterns: props.targetUrlPatterns ?? base?.targetUrlPatterns,
+            onclick: typeof props.onclick === "function" ? props.onclick : base?.onclick,
+            onclickContext: typeof props.onclick === "function" ? ctx : base?.onclickContext
+        };
+    };
+    return {
+        create: (props = {}, cb)=>{
+            let id = props.id !== undefined ? String(props.id) : "";
+            withCallback(cb, ()=>{
+                if (!id) {
+                    if (mv >= 3 && ctx.kind === "background" && ext.manifest.background?.service_worker) {
+                        throw new Error("Extensions using event pages or Service Workers must pass an id parameter to chrome.contextMenus.create");
+                    }
+                    id = String(++generatedId);
+                }
+                if (ext.contextMenuItems.has(id)) throw new Error(`Cannot create item with duplicate id ${id}`);
+                if (props.parentId !== undefined && !ext.contextMenuItems.has(String(props.parentId))) {
+                    throw new Error(`Cannot find menu item with id ${props.parentId}`);
+                }
+                const type = props.type ?? "normal";
+                if (type !== "separator" && props.title === undefined) throw new Error("Title is required for non-separator menu items.");
+                ext.contextMenuItems.set(id, normalize({
+                    ...props,
+                    id
+                }));
+                s.registry.notifyChange();
+            });
+            return id;
+        },
+        update: (id, props = {}, cb)=>{
+            withCallback(cb, ()=>{
+                const item = ext.contextMenuItems.get(String(id));
+                if (!item) throw new Error(`Cannot find menu item with id ${id}`);
+                ext.contextMenuItems.set(item.id, normalize(props, item));
+                s.registry.notifyChange();
+            });
+            return (0,_realm__rspack_import_0.toRealm)(ctx, undefined);
+        },
+        remove: (id, cb)=>{
+            withCallback(cb, ()=>{
+                const key = String(id);
+                if (!ext.contextMenuItems.has(key)) throw new Error(`Cannot find menu item with id ${id}`);
+                const drop = (target)=>{
+                    ext.contextMenuItems.delete(target);
+                    for (const item of [
+                        ...ext.contextMenuItems.values()
+                    ])if (item.parentId === target) drop(item.id);
+                };
+                drop(key);
+                s.registry.notifyChange();
+            });
+        },
+        removeAll: (cb)=>{
+            withCallback(cb, ()=>{
+                ext.contextMenuItems.clear();
+                s.registry.notifyChange();
+            });
+        },
+        onClicked: ctx.events.api("contextMenus.onClicked"),
+        ACTION_MENU_TOP_LEVEL_LIMIT: 6,
+        ContextType: {
+            ALL: "all",
+            PAGE: "page",
+            FRAME: "frame",
+            SELECTION: "selection",
+            LINK: "link",
+            EDITABLE: "editable",
+            IMAGE: "image",
+            VIDEO: "video",
+            AUDIO: "audio",
+            LAUNCHER: "launcher",
+            BROWSER_ACTION: "browser_action",
+            PAGE_ACTION: "page_action",
+            ACTION: "action"
+        },
+        ItemType: {
+            NORMAL: "normal",
+            CHECKBOX: "checkbox",
+            RADIO: "radio",
+            SEPARATOR: "separator"
+        }
+    };
+}
+function itemApplies(item, info) {
+    if (!item.visible) return false;
+    const contexts = item.contexts.includes("all") ? [
+        "page",
+        "frame",
+        "selection",
+        "link",
+        "editable",
+        "image",
+        "video",
+        "audio"
+    ] : item.contexts;
+    if (!contexts.some((c)=>info.contexts.includes(c))) return false;
+    if (item.documentUrlPatterns?.length && !item.documentUrlPatterns.some((p)=>(0,_matchPatterns__rspack_import_1.matchPattern)(p, info.frameUrl ?? info.pageUrl ?? ""))) return false;
+    const target = info.linkUrl ?? info.srcUrl;
+    if (item.targetUrlPatterns?.length && target && !item.targetUrlPatterns.some((p)=>(0,_matchPatterns__rspack_import_1.matchPattern)(p, target))) return false;
+    return true;
+}
+function contextMenuEntries(s, info) {
+    const out = [];
+    for (const ext of s.registry.list()){
+        if (!ext.enabled || !ext.contextMenuItems.size) continue;
+        const build = (parentId)=>[
+                ...ext.contextMenuItems.values()
+            ].filter((item)=>item.parentId === parentId && itemApplies(item, info)).map((item)=>({
+                    extId: ext.id,
+                    extName: ext.manifest.name,
+                    id: item.id,
+                    title: item.title.replace(/%s/g, info.selectionText ?? ""),
+                    type: item.type,
+                    checked: item.checked,
+                    enabled: item.enabled,
+                    children: build(item.id)
+                }));
+        const top = build(undefined);
+        // Chrome folds more than one top-level item under the extension's name.
+        if (top.length > 1) {
+            out.push({
+                extId: ext.id,
+                extName: ext.manifest.name,
+                id: `__sapphire_root_${ext.id}`,
+                title: ext.manifest.name,
+                type: "normal",
+                checked: false,
+                enabled: true,
+                children: top
+            });
+        } else out.push(...top);
+    }
+    return out;
+}
+function clickContextMenuItem(s, ext, itemId, info, tabId) {
+    const item = ext.contextMenuItems.get(itemId);
+    if (!item || !item.enabled) return;
+    const wasChecked = item.checked;
+    if (item.type === "checkbox") item.checked = !item.checked;
+    if (item.type === "radio") {
+        for (const other of ext.contextMenuItems.values())if (other.type === "radio" && other.parentId === item.parentId) other.checked = false;
+        item.checked = true;
+    }
+    const clickInfo = {
+        menuItemId: /^\d+$/.test(item.id) && !ext.manifest.background?.service_worker ? Number(item.id) : item.id,
+        editable: !!info.editable,
+        pageUrl: info.pageUrl
+    };
+    if (item.parentId !== undefined) clickInfo.parentMenuItemId = item.parentId;
+    if (info.frameUrl && info.frameUrl !== info.pageUrl) clickInfo.frameUrl = info.frameUrl;
+    if (info.frameId !== undefined) clickInfo.frameId = info.frameId;
+    if (info.linkUrl) clickInfo.linkUrl = info.linkUrl;
+    if (info.srcUrl) clickInfo.srcUrl = info.srcUrl;
+    if (info.mediaType) clickInfo.mediaType = info.mediaType;
+    if (info.selectionText) clickInfo.selectionText = info.selectionText;
+    if (item.type === "checkbox" || item.type === "radio") {
+        clickInfo.wasChecked = wasChecked;
+        clickInfo.checked = item.checked;
+    }
+    const tab = (0,_tabsModel__rspack_import_2.buildTab)(s, tabId) ?? undefined;
+    s.registry.dispatch(ext.id, "contextMenus.onClicked", (c)=>[
+            (0,_realm__rspack_import_0.toRealm)(c, clickInfo),
+            (0,_realm__rspack_import_0.toRealm)(c, tab)
+        ]);
+    if (item.onclick && item.onclickContext && s.registry.isAlive(item.onclickContext)) {
+        const c = item.onclickContext;
+        queueMicrotask(()=>(0,_realm__rspack_import_0.invokeCallback)(c, item.onclick, [
+                (0,_realm__rspack_import_0.toRealm)(c, clickInfo),
+                (0,_realm__rspack_import_0.toRealm)(c, tab)
+            ]));
+    }
+    s.registry.notifyChange();
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/cookies.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  createCookies: () => (createCookies),
+  notifyCookieChange: () => (notifyCookieChange)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+
+function jarCookies(s) {
+    const jar = s.controller?.cookieJar;
+    if (!jar) return [];
+    try {
+        return Object.values(JSON.parse(jar.dump())).filter((c)=>c.expires === undefined || c.expires > Date.now());
+    } catch  {
+        return [];
+    }
+}
+function toChrome(c) {
+    const hostOnly = !!c.hostOnly;
+    const domain = hostOnly ? String(c.domain ?? "").replace(/^\./, "") : String(c.domain ?? "");
+    const ss = String(c.sameSite ?? "").toLowerCase();
+    return {
+        name: c.name,
+        value: c.value,
+        domain,
+        hostOnly,
+        path: c.path ?? "/",
+        secure: !!c.secure,
+        httpOnly: !!c.httpOnly,
+        sameSite: ss === "none" ? "no_restriction" : ss === "strict" ? "strict" : ss === "lax" ? "lax" : "unspecified",
+        session: c.expires === undefined,
+        ...c.expires !== undefined ? {
+            expirationDate: c.expires / 1000
+        } : {},
+        storeId: "0"
+    };
+}
+function domainMatch(cookieDomain, host, hostOnly) {
+    const d = cookieDomain.replace(/^\./, "");
+    return hostOnly ? host === d : host === d || host.endsWith(`.${d}`);
+}
+function pathMatch(requestPath, cookiePath) {
+    if (requestPath === cookiePath) return true;
+    if (!requestPath.startsWith(cookiePath)) return false;
+    return cookiePath.endsWith("/") || requestPath[cookiePath.length] === "/";
+}
+function select(s, details) {
+    let url = null;
+    if (details.url) {
+        try {
+            url = new URL(details.url);
+        } catch  {
+            throw new _realm__rspack_import_0.ApiError(`Invalid url: "${details.url}".`);
+        }
+    }
+    return jarCookies(s).map(toChrome).filter((c)=>{
+        if (details.name !== undefined && c.name !== details.name) return false;
+        if (details.domain !== undefined) {
+            const d = details.domain.replace(/^\./, "").toLowerCase();
+            const cd = c.domain.replace(/^\./, "");
+            if (cd !== d && !cd.endsWith(`.${d}`)) return false;
+        }
+        if (details.path !== undefined && c.path !== details.path) return false;
+        if (details.secure !== undefined && c.secure !== details.secure) return false;
+        if (details.session !== undefined && c.session !== details.session) return false;
+        if (url) {
+            if (!domainMatch(c.domain, url.hostname, c.hostOnly)) return false;
+            if (!pathMatch(url.pathname || "/", c.path)) return false;
+        }
+        return true;
+    }).sort((a, b)=>b.path.length - a.path.length);
+}
+async function writeCookie(s, url, header) {
+    const controller = s.controller;
+    if (!controller) throw new _realm__rspack_import_0.ApiError("No cookie store is available.");
+    controller.cookieJar.setCookies(header, url);
+    await controller.persistCookies();
+    await controller.propagateCookieSync([
+        {
+            url: url.href,
+            cookie: header
+        }
+    ]).catch(()=>{});
+}
+function notifyCookieChange(s, cookie, removed, cause) {
+    for (const ext of s.registry.list()){
+        if (!ext.enabled || !ext.grantedPermissions.has("cookies")) continue;
+        s.registry.dispatch(ext.id, "cookies.onChanged", (ctx)=>[
+                (0,_realm__rspack_import_0.toRealm)(ctx, {
+                    removed,
+                    cookie,
+                    cause
+                })
+            ]);
+    }
+}
+function createCookies(env) {
+    const { s, ctx } = env;
+    return {
+        get: (0,_realm__rspack_import_0.asyncApi)(ctx, (details)=>select(s, {
+                url: details?.url,
+                name: details?.name
+            })[0] ?? null),
+        getAll: (0,_realm__rspack_import_0.asyncApi)(ctx, (details = {})=>select(s, details)),
+        set: (0,_realm__rspack_import_0.asyncApi)(ctx, async (details)=>{
+            let url;
+            try {
+                url = new URL(details.url);
+            } catch  {
+                throw new _realm__rspack_import_0.ApiError(`Invalid url: "${details?.url}".`);
+            }
+            let header = `${details.name ?? ""}=${details.value ?? ""}`;
+            header += `; Path=${details.path ?? "/"}`;
+            if (details.domain) header += `; Domain=${details.domain}`;
+            if (details.secure) header += "; Secure";
+            if (details.httpOnly) header += "; HttpOnly";
+            if (details.sameSite && details.sameSite !== "unspecified") header += `; SameSite=${details.sameSite === "no_restriction" ? "None" : details.sameSite}`;
+            if (details.expirationDate !== undefined) header += `; Expires=${new Date(details.expirationDate * 1000).toUTCString()}`;
+            await writeCookie(s, url, header);
+            const cookie = select(s, {
+                url: url.href,
+                name: details.name ?? ""
+            })[0] ?? null;
+            if (cookie) notifyCookieChange(s, cookie, false, "explicit");
+            return cookie;
+        }),
+        remove: (0,_realm__rspack_import_0.asyncApi)(ctx, async (details)=>{
+            const url = new URL(details.url);
+            const existing = select(s, {
+                url: url.href,
+                name: details.name
+            })[0];
+            if (!existing) return null;
+            let header = `${details.name}=; Path=${existing.path}; Max-Age=0`;
+            if (!existing.hostOnly) header += `; Domain=${existing.domain}`;
+            await writeCookie(s, url, header);
+            notifyCookieChange(s, existing, true, "explicit");
+            return {
+                url: details.url,
+                name: details.name,
+                storeId: "0"
+            };
+        }),
+        getAllCookieStores: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[
+                {
+                    id: "0",
+                    tabIds: s.host.getAllTabs().map((t)=>t.id)
+                }
+            ]),
+        getPartitionKey: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                partitionKey: {}
+            })),
+        onChanged: ctx.events.api("cookies.onChanged"),
+        OnChangedCause: {
+            EVICTED: "evicted",
+            EXPIRED: "expired",
+            EXPLICIT: "explicit",
+            EXPIRED_OVERWRITE: "expired_overwrite",
+            OVERWRITE: "overwrite"
+        },
+        SameSiteStatus: {
+            NO_RESTRICTION: "no_restriction",
+            LAX: "lax",
+            STRICT: "strict",
+            UNSPECIFIED: "unspecified"
+        }
+    };
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/dnr.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  createDeclarativeNetRequest: () => (createDeclarativeNetRequest),
+  persistDnr: () => (persistDnr)
+});
+/* import */ var _db__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/db.ts");
+/* import */ var _dnr__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/dnr.ts");
+/* import */ var _realm__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+
+
+
+const MAX_DYNAMIC = 30000;
+const MAX_UNSAFE_DYNAMIC = 5000;
+const MAX_SESSION = 5000;
+function persistDnr(ext) {
+    void (0,_db__rspack_import_0.dbPut)(_db__rspack_import_0.EXT_STATE_STORE, `${ext.id}/dnr`, {
+        dynamicRules: ext.dnr.dynamicRules,
+        enabledRulesets: [
+            ...ext.dnr.enabledRulesets
+        ],
+        disabledStaticRules: Object.fromEntries([
+            ...ext.dnr.disabledStaticRules
+        ].map(([k, v])=>[
+                k,
+                [
+                    ...v
+                ]
+            ]))
+    }).catch(()=>{});
+}
+function applyUpdate(list, options, max, label) {
+    const remove = new Set(options?.removeRuleIds ?? []);
+    const next = list.filter((r)=>!remove.has(r.id));
+    const ids = new Set(next.map((r)=>r.id));
+    for (const rule of options?.addRules ?? []){
+        const err = (0,_dnr__rspack_import_1.validateRule)(rule);
+        if (err) throw new _realm__rspack_import_2.ApiError(err);
+        if (ids.has(rule.id)) throw new _realm__rspack_import_2.ApiError(`Rule with id ${rule.id} does not have a unique ID.`);
+        ids.add(rule.id);
+        next.push(rule);
+    }
+    if (next.length > max) throw new _realm__rspack_import_2.ApiError(`${label} rule count exceeded.`);
+    return next;
+}
+function createDeclarativeNetRequest(env) {
+    const { s, ctx, ext } = env;
+    const bump = ()=>{
+        (0,_dnr__rspack_import_1.recomputeStaticRules)(ext);
+        persistDnr(ext);
+        s.registry.notifyChange();
+    };
+    const filterRules = (rules, filter)=>filter?.ruleIds ? rules.filter((r)=>filter.ruleIds.includes(r.id)) : rules;
+    return {
+        updateDynamicRules: (0,_realm__rspack_import_2.asyncApi)(ctx, (options)=>{
+            ext.dnr.dynamicRules = applyUpdate(ext.dnr.dynamicRules, options, MAX_DYNAMIC, "Dynamic");
+            bump();
+        }),
+        getDynamicRules: (0,_realm__rspack_import_2.asyncApi)(ctx, (filter)=>filterRules(ext.dnr.dynamicRules, filter)),
+        updateSessionRules: (0,_realm__rspack_import_2.asyncApi)(ctx, (options)=>{
+            ext.dnr.sessionRules = applyUpdate(ext.dnr.sessionRules, options, MAX_SESSION, "Session");
+            (0,_dnr__rspack_import_1.recomputeStaticRules)(ext);
+            s.registry.notifyChange();
+        }),
+        getSessionRules: (0,_realm__rspack_import_2.asyncApi)(ctx, (filter)=>filterRules(ext.dnr.sessionRules, filter)),
+        getEnabledRulesets: (0,_realm__rspack_import_2.asyncApi)(ctx, ()=>[
+                ...ext.dnr.enabledRulesets
+            ]),
+        getAvailableStaticRuleCount: (0,_realm__rspack_import_2.asyncApi)(ctx, ()=>{
+            let used = 0;
+            for (const id of ext.dnr.enabledRulesets)used += ext.dnr.rulesets.get(id)?.length ?? 0;
+            return Math.max(0, 300000 - used);
+        }),
+        updateEnabledRulesets: (0,_realm__rspack_import_2.asyncApi)(ctx, async (options)=>{
+            await s.ensureRulesetsLoaded(ext, options?.enableRulesetIds ?? []);
+            for (const id of [
+                ...options?.enableRulesetIds ?? [],
+                ...options?.disableRulesetIds ?? []
+            ]){
+                if (!ext.dnr.rulesets.has(id)) throw new _realm__rspack_import_2.ApiError(`Invalid ruleset id: ${id}.`);
+            }
+            for (const id of options?.disableRulesetIds ?? [])ext.dnr.enabledRulesets.delete(id);
+            for (const id of options?.enableRulesetIds ?? [])ext.dnr.enabledRulesets.add(id);
+            bump();
+        }),
+        updateStaticRules: (0,_realm__rspack_import_2.asyncApi)(ctx, (options)=>{
+            if (!ext.dnr.rulesets.has(options?.rulesetId)) throw new _realm__rspack_import_2.ApiError(`Invalid ruleset id: ${options?.rulesetId}.`);
+            const set = ext.dnr.disabledStaticRules.get(options.rulesetId) ?? new Set();
+            for (const id of options.disableRuleIds ?? [])set.add(id);
+            for (const id of options.enableRuleIds ?? [])set.delete(id);
+            ext.dnr.disabledStaticRules.set(options.rulesetId, set);
+            bump();
+        }),
+        getDisabledRuleIds: (0,_realm__rspack_import_2.asyncApi)(ctx, (options)=>[
+                ...ext.dnr.disabledStaticRules.get(options?.rulesetId) ?? []
+            ]),
+        isRegexSupported: (0,_realm__rspack_import_2.asyncApi)(ctx, (options)=>(0,_dnr__rspack_import_1.isRegexSupported)(String(options?.regex ?? ""))),
+        testMatchOutcome: (0,_realm__rspack_import_2.asyncApi)(ctx, (request)=>{
+            const outcome = (0,_dnr__rspack_import_1.evaluateRequest)(s.registry, {
+                url: new URL(request.url),
+                initiator: request.initiator ? new URL(request.initiator) : null,
+                method: request.method ?? "get",
+                type: request.type,
+                tabId: request.tabId ?? -1
+            });
+            return {
+                matchedRules: outcome.matched.filter((m)=>m.extId === ext.id && m.rule.id > 0).map((m)=>({
+                        ruleId: m.rule.id,
+                        rulesetId: m.rulesetId
+                    }))
+            };
+        }),
+        getMatchedRules: (0,_realm__rspack_import_2.asyncApi)(ctx, (filter)=>({
+                rulesMatchedInfo: ext.dnr.matchedRules.filter((m)=>(filter?.tabId === undefined || m.tabId === filter.tabId) && (filter?.minTimeStamp === undefined || m.timeStamp >= filter.minTimeStamp))
+            })),
+        setExtensionActionOptions: (0,_realm__rspack_import_2.asyncApi)(ctx, (options)=>{
+            if (options?.displayActionCountAsBadgeText !== undefined) ext.dnr.displayActionCountAsBadgeText = options.displayActionCountAsBadgeText;
+            if (options?.tabUpdate) {
+                const { tabId, increment } = options.tabUpdate;
+                ext.dnr.tabActionCounts.set(tabId, Math.max(0, (ext.dnr.tabActionCounts.get(tabId) ?? 0) + increment));
+            }
+            s.registry.notifyChange();
+        }),
+        onRuleMatchedDebug: ctx.events.api("declarativeNetRequest.onRuleMatchedDebug"),
+        MAX_NUMBER_OF_RULES: 30000,
+        GUARANTEED_MINIMUM_STATIC_RULES: 30000,
+        MAX_NUMBER_OF_DYNAMIC_RULES: MAX_DYNAMIC,
+        MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES: 5000,
+        MAX_NUMBER_OF_UNSAFE_DYNAMIC_RULES: MAX_UNSAFE_DYNAMIC,
+        MAX_NUMBER_OF_SESSION_RULES: MAX_SESSION,
+        MAX_NUMBER_OF_UNSAFE_SESSION_RULES: 5000,
+        MAX_NUMBER_OF_REGEX_RULES: 1000,
+        MAX_NUMBER_OF_STATIC_RULESETS: 100,
+        MAX_NUMBER_OF_ENABLED_STATIC_RULESETS: 50,
+        MAX_GETMATCHEDRULES_CALLS_PER_INTERVAL: 20,
+        GETMATCHEDRULES_QUOTA_INTERVAL: 10,
+        DYNAMIC_RULESET_ID: "_dynamic",
+        SESSION_RULESET_ID: "_session",
+        ResourceType: Object.fromEntries([
+            "main_frame",
+            "sub_frame",
+            "stylesheet",
+            "script",
+            "image",
+            "font",
+            "object",
+            "xmlhttprequest",
+            "ping",
+            "csp_report",
+            "media",
+            "websocket",
+            "webtransport",
+            "webbundle",
+            "other"
+        ].map((t)=>[
+                t.toUpperCase(),
+                t
+            ])),
+        RuleActionType: {
+            BLOCK: "block",
+            REDIRECT: "redirect",
+            ALLOW: "allow",
+            UPGRADE_SCHEME: "upgradeScheme",
+            MODIFY_HEADERS: "modifyHeaders",
+            ALLOW_ALL_REQUESTS: "allowAllRequests"
+        },
+        HeaderOperation: {
+            APPEND: "append",
+            SET: "set",
+            REMOVE: "remove"
+        },
+        DomainType: {
+            FIRST_PARTY: "firstParty",
+            THIRD_PARTY: "thirdParty"
+        },
+        RequestMethod: Object.fromEntries([
+            "connect",
+            "delete",
+            "get",
+            "head",
+            "options",
+            "patch",
+            "post",
+            "put",
+            "other"
+        ].map((m)=>[
+                m.toUpperCase(),
+                m
+            ])),
+        UnsupportedRegexReason: {
+            SYNTAX_ERROR: "syntaxError",
+            MEMORY_LIMIT_EXCEEDED: "memoryLimitExceeded"
+        }
+    };
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/i18n.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  createI18n: () => (createI18n),
+  getMessage: () => (getMessage),
+  loadLocales: () => (loadLocales),
+  localizeManifest: () => (localizeManifest),
+  uiLocaleFor: () => (uiLocaleFor)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+
+function uiLocaleFor(available, defaultLocale) {
+    const langs = [
+        ...navigator.languages ?? [],
+        navigator.language
+    ].filter(Boolean).map((l)=>l.replace("-", "_"));
+    for (const lang of langs){
+        if (available.includes(lang)) return lang;
+        const base = lang.split("_")[0];
+        if (available.includes(base)) return base;
+    }
+    return defaultLocale ?? available[0] ?? "en";
+}
+function lowerKeys(m) {
+    const out = {};
+    for (const [k, v] of Object.entries(m)){
+        if (!v || typeof v !== "object") continue;
+        const placeholders = {};
+        for (const [pk, pv] of Object.entries(v.placeholders ?? {}))placeholders[pk.toLowerCase()] = pv;
+        out[k.toLowerCase()] = {
+            message: String(v.message ?? ""),
+            placeholders
+        };
+    }
+    return out;
+}
+/** Load every _locales/<l>/messages.json and build the lookup chain Chrome uses. */ async function loadLocales(ext) {
+    const files = await ext.files.listFiles();
+    const locales = [
+        ...new Set(files.map((f)=>f.match(/^_locales\/([^/]+)\/messages\.json$/)?.[1]).filter((l)=>!!l))
+    ];
+    ext.locales.clear();
+    for (const locale of locales){
+        const text = await ext.files.readText(`_locales/${locale}/messages.json`);
+        if (!text) continue;
+        try {
+            ext.locales.set(locale, lowerKeys(JSON.parse(text.replace(/^﻿/, ""))));
+        } catch (e) {
+            console.warn(`[sapphire] ${ext.manifest.name}: bad messages.json for ${locale}`, e);
+        }
+    }
+    ext.uiLocale = uiLocaleFor(locales, ext.manifest.default_locale);
+    const chain = [
+        ext.manifest.default_locale,
+        ext.uiLocale.split("_")[0],
+        ext.uiLocale
+    ].filter((l)=>!!l);
+    const merged = {};
+    for (const l of chain)Object.assign(merged, ext.locales.get(l) ?? {});
+    ext.messages = merged;
+}
+const RTL = new Set([
+    "ar",
+    "he",
+    "fa",
+    "ur",
+    "yi",
+    "ps",
+    "sd",
+    "ug",
+    "dv"
+]);
+function getMessage(ext, name, substitutions, options) {
+    const key = String(name ?? "").toLowerCase();
+    const locale = ext.uiLocale;
+    const rtl = RTL.has(locale.split("_")[0]);
+    const predefined = {
+        "@@extension_id": ext.id,
+        "@@ui_locale": locale,
+        "@@bidi_dir": rtl ? "rtl" : "ltr",
+        "@@bidi_reversed_dir": rtl ? "ltr" : "rtl",
+        "@@bidi_start_edge": rtl ? "right" : "left",
+        "@@bidi_end_edge": rtl ? "left" : "right"
+    };
+    if (key in predefined) return predefined[key];
+    const entry = ext.messages[key];
+    if (!entry) return "";
+    const subs = substitutions === undefined || substitutions === null ? [] : Array.isArray(substitutions) ? substitutions.map(String) : [
+        String(substitutions)
+    ];
+    if (subs.length > 9) return "";
+    const fillNumbers = (text)=>text.replace(/\$(\d)/g, (m, d)=>Number(d) >= 1 ? subs[Number(d) - 1] ?? "" : m);
+    let text = entry.message.replace(/\$([A-Za-z0-9_@]+)\$/g, (m, ph)=>{
+        const p = entry.placeholders?.[ph.toLowerCase()];
+        return p ? fillNumbers(String(p.content ?? "")) : m;
+    });
+    text = fillNumbers(text).replace(/\$\$/g, "$");
+    if (options?.escapeLt) text = text.replace(/</g, "&lt;");
+    return text;
+}
+function localizeManifest(manifest, lookup) {
+    const visit = (value)=>{
+        if (typeof value === "string") {
+            return value.replace(/__MSG_([A-Za-z0-9_@]+)__/g, (m, name)=>lookup(name) || m);
+        }
+        if (Array.isArray(value)) return value.map(visit);
+        if (value && typeof value === "object") {
+            const out = {};
+            for (const [k, v] of Object.entries(value))out[k] = visit(v);
+            return out;
+        }
+        return value;
+    };
+    return visit(manifest);
+}
+function createI18n(env) {
+    const { ctx, ext } = env;
+    return {
+        getMessage: (name, substitutions, options)=>getMessage(ext, name, substitutions, options),
+        getUILanguage: ()=>ext.uiLocale.replace("_", "-"),
+        getAcceptLanguages: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[
+                ...navigator.languages ?? [
+                    navigator.language
+                ]
+            ]),
+        detectLanguage: (0,_realm__rspack_import_0.asyncApi)(ctx, (text)=>{
+            const sample = String(text ?? "");
+            let language = "und";
+            if (/[぀-ヿ]/.test(sample)) language = "ja";
+            else if (/[一-鿿]/.test(sample)) language = "zh";
+            else if (/[가-힯]/.test(sample)) language = "ko";
+            else if (/[Ѐ-ӿ]/.test(sample)) language = "ru";
+            else if (/[؀-ۿ]/.test(sample)) language = "ar";
+            else if (/[֐-׿]/.test(sample)) language = "he";
+            else if (/[a-z]/i.test(sample)) language = navigator.language.split("-")[0] || "en";
+            return {
+                isReliable: false,
+                languages: language === "und" ? [] : [
+                    {
+                        language,
+                        percentage: 100
+                    }
+                ]
+            };
+        })
+    };
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/index.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  buildChromeApi: () => (buildChromeApi),
+  refreshChromeApi: () => (refreshChromeApi)
+});
+/* import */ var _autoStub__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/autoStub.ts");
+/* import */ var _action__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/action.ts");
+/* import */ var _alarms__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/alarms.ts");
+/* import */ var _contextMenus__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/contextMenus.ts");
+/* import */ var _cookies__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/cookies.ts");
+/* import */ var _dnr__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/dnr.ts");
+/* import */ var _i18n__rspack_import_6 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/i18n.ts");
+/* import */ var _misc__rspack_import_7 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/misc.ts");
+/* import */ var _notifications__rspack_import_8 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/notifications.ts");
+/* import */ var _permissions__rspack_import_9 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/permissions.ts");
+/* import */ var _runtime__rspack_import_10 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/runtime.ts");
+/* import */ var _scripting__rspack_import_11 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/scripting.ts");
+/* import */ var _storage__rspack_import_12 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/storage.ts");
+/* import */ var _tabs__rspack_import_13 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/tabs.ts");
+/* import */ var _webNavigation__rspack_import_14 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/webNavigation.ts");
+/* import */ var _webRequest__rspack_import_15 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/webRequest.ts");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/** Namespaces gated by a single permission. */ const PERMISSION_NAMESPACES = [
+    [
+        "storage",
+        "storage",
+        (env)=>(0,_storage__rspack_import_12.createStorage)(env, false)
+    ],
+    [
+        "alarms",
+        "alarms",
+        _alarms__rspack_import_2.createAlarms
+    ],
+    [
+        "contextMenus",
+        "contextMenus",
+        _contextMenus__rspack_import_3.createContextMenus
+    ],
+    [
+        "notifications",
+        "notifications",
+        _notifications__rspack_import_8.createNotifications
+    ],
+    [
+        "cookies",
+        "cookies",
+        _cookies__rspack_import_4.createCookies
+    ],
+    [
+        "webRequest",
+        "webRequest",
+        _webRequest__rspack_import_15.createWebRequest
+    ],
+    [
+        "webNavigation",
+        "webNavigation",
+        _webNavigation__rspack_import_14.createWebNavigation
+    ],
+    [
+        "declarativeNetRequest",
+        [
+            "declarativeNetRequest",
+            "declarativeNetRequestWithHostAccess",
+            "declarativeNetRequestFeedback"
+        ],
+        _dnr__rspack_import_5.createDeclarativeNetRequest
+    ],
+    [
+        "declarativeContent",
+        "declarativeContent",
+        _misc__rspack_import_7.createDeclarativeContent
+    ],
+    [
+        "userScripts",
+        "userScripts",
+        _scripting__rspack_import_11.createUserScripts
+    ],
+    [
+        "history",
+        "history",
+        _misc__rspack_import_7.createHistory
+    ],
+    [
+        "bookmarks",
+        "bookmarks",
+        _misc__rspack_import_7.createBookmarks
+    ],
+    [
+        "topSites",
+        "topSites",
+        _misc__rspack_import_7.createTopSites
+    ],
+    [
+        "sessions",
+        "sessions",
+        _misc__rspack_import_7.createSessions
+    ],
+    [
+        "downloads",
+        "downloads",
+        _misc__rspack_import_7.createDownloads
+    ],
+    [
+        "identity",
+        "identity",
+        _misc__rspack_import_7.createIdentity
+    ],
+    [
+        "idle",
+        "idle",
+        _misc__rspack_import_7.createIdle
+    ],
+    [
+        "tts",
+        "tts",
+        _misc__rspack_import_7.createTts
+    ],
+    [
+        "fontSettings",
+        "fontSettings",
+        _misc__rspack_import_7.createFontSettings
+    ],
+    [
+        "privacy",
+        "privacy",
+        _misc__rspack_import_7.createPrivacy
+    ],
+    [
+        "proxy",
+        "proxy",
+        _misc__rspack_import_7.createProxy
+    ],
+    [
+        "contentSettings",
+        "contentSettings",
+        _misc__rspack_import_7.createContentSettings
+    ],
+    [
+        "search",
+        "search",
+        _misc__rspack_import_7.createSearch
+    ],
+    [
+        "sidePanel",
+        "sidePanel",
+        _misc__rspack_import_7.createSidePanel
+    ],
+    [
+        "offscreen",
+        "offscreen",
+        _misc__rspack_import_7.createOffscreen
+    ],
+    [
+        "tabGroups",
+        "tabGroups",
+        _misc__rspack_import_7.createTabGroups
+    ],
+    [
+        "browsingData",
+        "browsingData",
+        _misc__rspack_import_7.createBrowsingData
+    ],
+    [
+        "readingList",
+        "readingList",
+        _misc__rspack_import_7.createReadingList
+    ],
+    [
+        "power",
+        "power",
+        ()=>(0,_misc__rspack_import_7.createPower)()
+    ],
+    [
+        "management",
+        "management",
+        _misc__rspack_import_7.createManagement
+    ],
+    [
+        "instanceID",
+        [
+            "gcm",
+            "instanceID"
+        ],
+        _misc__rspack_import_7.createInstanceId
+    ],
+    [
+        "gcm",
+        "gcm",
+        (env)=>(0,_misc__rspack_import_7.createUnsupported)(env, "gcm", [
+                "register",
+                "unregister",
+                "send"
+            ], [
+                "onMessage",
+                "onMessagesDeleted",
+                "onSendError"
+            ])
+    ],
+    [
+        "debugger",
+        "debugger",
+        (env)=>(0,_misc__rspack_import_7.createUnsupported)(env, "debugger", [
+                "attach",
+                "detach",
+                "sendCommand",
+                "getTargets"
+            ], [
+                "onEvent",
+                "onDetach"
+            ])
+    ],
+    [
+        "pageCapture",
+        "pageCapture",
+        (env)=>(0,_misc__rspack_import_7.createUnsupported)(env, "pageCapture", [
+                "saveAsMHTML"
+            ])
+    ],
+    [
+        "desktopCapture",
+        "desktopCapture",
+        (env)=>({
+                ...(0,_misc__rspack_import_7.createUnsupported)(env, "desktopCapture", [
+                    "chooseDesktopMedia"
+                ]),
+                cancelChooseDesktopMedia: ()=>{}
+            })
+    ],
+    [
+        "tabCapture",
+        "tabCapture",
+        (env)=>(0,_misc__rspack_import_7.createUnsupported)(env, "tabCapture", [
+                "capture",
+                "getCapturedTabs",
+                "getMediaStreamId"
+            ], [
+                "onStatusChanged"
+            ])
+    ],
+    [
+        "ttsEngine",
+        "ttsEngine",
+        (env)=>(0,_misc__rspack_import_7.createUnsupported)(env, "ttsEngine", [
+                "updateVoices",
+                "updateLanguage",
+                "sendTtsEvent",
+                "sendTtsAudio"
+            ], [
+                "onSpeak",
+                "onStop",
+                "onPause",
+                "onResume"
+            ])
+    ]
+];
+function has(ctx, permission) {
+    const list = Array.isArray(permission) ? permission : [
+        permission
+    ];
+    return list.some((p)=>ctx.ext.grantedPermissions.has(p));
+}
+function nativeChromeExtras(win) {
+    const out = {};
+    try {
+        const native = win.chrome;
+        if (native && typeof native === "object") {
+            for (const key of [
+                "app",
+                "csi",
+                "loadTimes"
+            ])if (key in native) out[key] = native[key];
+        }
+    } catch  {
+    // ignore
+    }
+    return out;
+}
+function buildNamespaces(s, ctx) {
+    const env = {
+        s,
+        ctx,
+        ext: ctx.ext
+    };
+    const manifest = ctx.ext.manifest;
+    const mv = Number(manifest.manifest_version) || 2;
+    if (ctx.kind === "content") {
+        if (ctx.world === "USER_SCRIPT") return {
+            runtime: (0,_runtime__rspack_import_10.createUserScriptRuntime)(env)
+        };
+        const runtime = (0,_runtime__rspack_import_10.createRuntime)(env, true);
+        const api = {
+            runtime,
+            i18n: (0,_i18n__rspack_import_6.createI18n)(env),
+            extension: (0,_runtime__rspack_import_10.createExtensionNamespace)(env, runtime, true),
+            dom: (0,_misc__rspack_import_7.createDom)(env)
+        };
+        if (has(ctx, "storage")) api.storage = (0,_storage__rspack_import_12.createStorage)(env, true);
+        return api;
+    }
+    const runtime = (0,_runtime__rspack_import_10.createRuntime)(env, false);
+    const api = {
+        ...nativeChromeExtras(ctx.window),
+        runtime,
+        extension: (0,_runtime__rspack_import_10.createExtensionNamespace)(env, runtime, false),
+        i18n: (0,_i18n__rspack_import_6.createI18n)(env),
+        tabs: (0,_tabs__rspack_import_13.createTabs)(env),
+        windows: (0,_tabs__rspack_import_13.createWindows)(env),
+        permissions: (0,_permissions__rspack_import_9.createPermissions)(env),
+        management: (0,_misc__rspack_import_7.createManagementSelf)(env),
+        commands: (0,_misc__rspack_import_7.createCommands)(env),
+        dom: (0,_misc__rspack_import_7.createDom)(env)
+    };
+    if (mv >= 3 && manifest.action) api.action = (0,_action__rspack_import_1.createAction)(env, "action");
+    if (mv < 3 && manifest.browser_action) api.browserAction = (0,_action__rspack_import_1.createAction)(env, "browserAction");
+    if (mv < 3 && manifest.page_action) api.pageAction = (0,_action__rspack_import_1.createAction)(env, "pageAction");
+    if (manifest.omnibox) api.omnibox = (0,_misc__rspack_import_7.createOmnibox)(env);
+    if (mv >= 3 ? has(ctx, "scripting") : has(ctx, "scripting")) api.scripting = (0,_scripting__rspack_import_11.createScripting)(env);
+    for (const [name, permission, build] of PERMISSION_NAMESPACES){
+        if (!has(ctx, permission)) continue;
+        try {
+            api[name] = build(env);
+        } catch (e) {
+            console.error(`[sapphire] failed to build chrome.${name}`, e);
+        }
+    }
+    const system = {};
+    for (const part of [
+        "cpu",
+        "memory",
+        "storage",
+        "display"
+    ]){
+        if (has(ctx, `system.${part}`)) system[part] = (0,_misc__rspack_import_7.createSystem)(env, part);
+    }
+    if (Object.keys(system).length) api.system = system;
+    // Anything the manifest asks for that isn't implemented still exists, so
+    // feature checks pass and calls fail softly instead of throwing TypeError.
+    for (const permission of ctx.ext.grantedPermissions){
+        const name = permission.split(".")[0];
+        if (!/^[a-zA-Z]+$/.test(name) || name in api || NON_NAMESPACE_PERMISSIONS.has(name)) continue;
+        api[name] = (0,_autoStub__rspack_import_0.withMissingMemberFallback)({});
+    }
+    return api;
+}
+const NON_NAMESPACE_PERMISSIONS = new Set([
+    "activeTab",
+    "background",
+    "clipboardRead",
+    "clipboardWrite",
+    "geolocation",
+    "tabs",
+    "unlimitedStorage",
+    "webRequestBlocking",
+    "webRequestAuthProvider",
+    "declarativeNetRequestFeedback",
+    "declarativeNetRequestWithHostAccess",
+    "nativeMessaging",
+    "system",
+    "favicon",
+    "sidePanel",
+    "offscreen"
+]);
+function buildChromeApi(s, ctx) {
+    const realm = ctx.window;
+    const api = buildNamespaces(s, ctx);
+    let target;
+    try {
+        target = new realm.Object();
+    } catch  {
+        target = {};
+    }
+    for (const [key, value] of Object.entries(api)){
+        Object.defineProperty(target, key, {
+            value,
+            writable: true,
+            enumerable: true,
+            configurable: true
+        });
+    }
+    return target;
+}
+/** After permissions.request, namespaces for newly granted permissions appear in live contexts. */ function refreshChromeApi(s, ctx) {
+    if (!ctx.chrome) return;
+    const fresh = buildNamespaces(s, ctx);
+    for (const [key, value] of Object.entries(fresh)){
+        if (!(key in ctx.chrome)) Object.defineProperty(ctx.chrome, key, {
+            value,
+            writable: true,
+            enumerable: true,
+            configurable: true
+        });
+    }
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/misc.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  commandShortcut: () => (commandShortcut),
+  createBookmarks: () => (createBookmarks),
+  createBrowsingData: () => (createBrowsingData),
+  createCommands: () => (createCommands),
+  createContentSettings: () => (createContentSettings),
+  createDeclarativeContent: () => (createDeclarativeContent),
+  createDom: () => (createDom),
+  createDownloads: () => (createDownloads),
+  createFontSettings: () => (createFontSettings),
+  createHistory: () => (createHistory),
+  createIdentity: () => (createIdentity),
+  createIdle: () => (createIdle),
+  createInstanceId: () => (createInstanceId),
+  createManagement: () => (createManagement),
+  createManagementSelf: () => (createManagementSelf),
+  createOffscreen: () => (createOffscreen),
+  createOmnibox: () => (createOmnibox),
+  createPower: () => (createPower),
+  createPrivacy: () => (createPrivacy),
+  createProxy: () => (createProxy),
+  createReadingList: () => (createReadingList),
+  createSearch: () => (createSearch),
+  createSessions: () => (createSessions),
+  createSidePanel: () => (createSidePanel),
+  createSystem: () => (createSystem),
+  createTabGroups: () => (createTabGroups),
+  createTopSites: () => (createTopSites),
+  createTts: () => (createTts),
+  createUnsupported: () => (createUnsupported),
+  extensionInfo: () => (extensionInfo)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _urls__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
+/* import */ var _tabsModel__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/tabsModel.ts");
+/* import */ var _frames__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/frames.ts");
+/* import */ var _tabs__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/tabs.ts");
+/* import */ var _permissions__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/permissions.ts");
+
+
+
+
+
+
+// ---- management ---------------------------------------------------------------
+function extensionInfo(s, ext) {
+    const { permissions, origins } = (0,_permissions__rspack_import_5.declaredPermissions)(ext);
+    const icons = Object.entries(ext.manifest.icons ?? {}).map(([size, path])=>({
+            size: Number(size),
+            url: (0,_urls__rspack_import_1.extensionUrl)(ext.id, path)
+        }));
+    const options = ext.manifest.options_ui?.page ?? ext.manifest.options_page;
+    void s;
+    return {
+        id: ext.id,
+        name: ext.manifest.name,
+        shortName: ext.manifest.short_name ?? ext.manifest.name,
+        description: ext.manifest.description ?? "",
+        version: ext.manifest.version ?? "",
+        ...ext.manifest.version_name ? {
+            versionName: ext.manifest.version_name
+        } : {},
+        mayDisable: true,
+        mayEnable: true,
+        enabled: ext.enabled,
+        ...ext.enabled ? {} : {
+            disabledReason: "unknown"
+        },
+        isApp: false,
+        type: "extension",
+        homepageUrl: typeof ext.manifest.homepage_url === "string" ? ext.manifest.homepage_url : "",
+        updateUrl: "",
+        offlineEnabled: false,
+        optionsUrl: options ? (0,_urls__rspack_import_1.extensionUrl)(ext.id, options) : "",
+        icons,
+        permissions: permissions.filter((p)=>ext.grantedPermissions.has(p)),
+        hostPermissions: origins,
+        installType: "normal"
+    };
+}
+function createManagement(env) {
+    const { s, ctx, ext } = env;
+    const require = (id)=>{
+        const target = s.registry.get(id);
+        if (!target) throw new _realm__rspack_import_0.ApiError(`Failed to find extension with id ${id}.`);
+        return target;
+    };
+    return {
+        getSelf: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>extensionInfo(s, ext)),
+        get: (0,_realm__rspack_import_0.asyncApi)(ctx, (id)=>extensionInfo(s, require(id))),
+        getAll: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>s.registry.list().map((e)=>extensionInfo(s, e))),
+        setEnabled: (0,_realm__rspack_import_0.asyncApi)(ctx, async (id, enabled)=>{
+            require(id);
+            if (id === ext.id) throw new _realm__rspack_import_0.ApiError("Cannot change the enabled state of the calling extension.");
+            await s.setExtensionEnabled(id, !!enabled);
+        }),
+        uninstall: (0,_realm__rspack_import_0.asyncApi)(ctx, async (id)=>{
+            require(id);
+            await s.uninstallExtension(id);
+        }),
+        uninstallSelf: (0,_realm__rspack_import_0.asyncApi)(ctx, async ()=>{
+            await s.uninstallExtension(ext.id);
+        }),
+        getPermissionWarningsById: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[]),
+        getPermissionWarningsByManifest: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[]),
+        launchApp: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            throw new _realm__rspack_import_0.ApiError("Apps are not supported.");
+        }),
+        createAppShortcut: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            throw new _realm__rspack_import_0.ApiError("Apps are not supported.");
+        }),
+        setLaunchType: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        generateAppForLink: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            throw new _realm__rspack_import_0.ApiError("Apps are not supported.");
+        }),
+        onInstalled: ctx.events.api("management.onInstalled"),
+        onUninstalled: ctx.events.api("management.onUninstalled"),
+        onEnabled: ctx.events.api("management.onEnabled"),
+        onDisabled: ctx.events.api("management.onDisabled"),
+        ExtensionType: {
+            EXTENSION: "extension",
+            HOSTED_APP: "hosted_app",
+            PACKAGED_APP: "packaged_app",
+            LEGACY_PACKAGED_APP: "legacy_packaged_app",
+            THEME: "theme",
+            LOGIN_SCREEN_EXTENSION: "login_screen_extension"
+        },
+        ExtensionInstallType: {
+            ADMIN: "admin",
+            DEVELOPMENT: "development",
+            NORMAL: "normal",
+            SIDELOAD: "sideload",
+            OTHER: "other"
+        },
+        ExtensionDisabledReason: {
+            UNKNOWN: "unknown",
+            PERMISSIONS_INCREASE: "permissions_increase"
+        },
+        LaunchType: {
+            OPEN_AS_REGULAR_TAB: "OPEN_AS_REGULAR_TAB",
+            OPEN_AS_PINNED_TAB: "OPEN_AS_PINNED_TAB",
+            OPEN_AS_WINDOW: "OPEN_AS_WINDOW",
+            OPEN_FULL_SCREEN: "OPEN_FULL_SCREEN"
+        }
+    };
+}
+/** Content-free subset every extension context has even without "management". */ function createManagementSelf(env) {
+    const full = createManagement(env);
+    return {
+        getSelf: full.getSelf,
+        uninstallSelf: full.uninstallSelf,
+        getPermissionWarningsByManifest: full.getPermissionWarningsByManifest,
+        ExtensionType: full.ExtensionType,
+        ExtensionInstallType: full.ExtensionInstallType,
+        ExtensionDisabledReason: full.ExtensionDisabledReason,
+        LaunchType: full.LaunchType
+    };
+}
+// ---- commands / omnibox -----------------------------------------------------
+function commandShortcut(ext, name) {
+    const key = ext.manifest.commands?.[name]?.suggested_key;
+    if (!key) return "";
+    const mac = /mac/i.test(navigator.platform);
+    const raw = (mac ? key.mac : /cros/i.test(navigator.userAgent) ? key.chromeos : /linux/i.test(navigator.platform) ? key.linux : key.windows) ?? key.default ?? "";
+    return raw.replace(/\bCommand\b/g, "⌘").replace(/\bMacCtrl\b/g, "Ctrl");
+}
+function createCommands(env) {
+    const { ctx, ext } = env;
+    return {
+        getAll: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>Object.entries(ext.manifest.commands ?? {}).map(([name, cmd])=>({
+                    name,
+                    description: cmd.description ?? (name === "_execute_action" || name === "_execute_browser_action" || name === "_execute_page_action" ? "" : ""),
+                    shortcut: commandShortcut(ext, name)
+                }))),
+        onCommand: ctx.events.api("commands.onCommand")
+    };
+}
+function createOmnibox(env) {
+    const { ctx, ext } = env;
+    return {
+        setDefaultSuggestion: (0,_realm__rspack_import_0.asyncApi)(ctx, (suggestion)=>{
+            ext.omniboxDefaultSuggestion = {
+                description: String(suggestion?.description ?? "")
+            };
+        }),
+        onInputStarted: ctx.events.api("omnibox.onInputStarted"),
+        onInputChanged: ctx.events.api("omnibox.onInputChanged"),
+        onInputEntered: ctx.events.api("omnibox.onInputEntered"),
+        onInputCancelled: ctx.events.api("omnibox.onInputCancelled"),
+        onDeleteSuggestion: ctx.events.api("omnibox.onDeleteSuggestion"),
+        OnInputEnteredDisposition: {
+            CURRENT_TAB: "currentTab",
+            NEW_FOREGROUND_TAB: "newForegroundTab",
+            NEW_BACKGROUND_TAB: "newBackgroundTab"
+        },
+        DescriptionStyleType: {
+            URL: "url",
+            MATCH: "match",
+            DIM: "dim"
+        }
+    };
+}
+// ---- identity -----------------------------------------------------------------
+function createIdentity(env) {
+    const { s, ctx, ext } = env;
+    return {
+        getRedirectURL: (path)=>`https://${ext.id}.chromiumapp.org/${String(path ?? "").replace(/^\/+/, "")}`,
+        launchWebAuthFlow: (0,_realm__rspack_import_0.asyncApi)(ctx, (details)=>s.launchWebAuthFlow(ext, details?.url, !!details?.interactive)),
+        getAuthToken: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            throw new _realm__rspack_import_0.ApiError("OAuth2 not granted or revoked.");
+        }),
+        removeCachedAuthToken: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        clearAllCachedAuthTokens: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        getProfileUserInfo: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                email: "",
+                id: ""
+            })),
+        getAccounts: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[]),
+        onSignInChanged: ctx.events.api("identity.onSignInChanged"),
+        AccountStatus: {
+            SYNC: "SYNC",
+            ANY: "ANY"
+        }
+    };
+}
+// ---- idle / power / system / tts ---------------------------------------------
+function createIdle(env) {
+    const { s, ctx, ext } = env;
+    return {
+        queryState: (0,_realm__rspack_import_0.asyncApi)(ctx, (interval)=>s.idleState(Number(interval) || 60)),
+        setDetectionInterval: (interval)=>{
+            ext.settings.set("idle.interval", Math.max(15, Number(interval) || 60));
+        },
+        getAutoLockDelay: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>0),
+        onStateChanged: ctx.events.api("idle.onStateChanged"),
+        IdleState: {
+            ACTIVE: "active",
+            IDLE: "idle",
+            LOCKED: "locked"
+        }
+    };
+}
+function createPower() {
+    return {
+        requestKeepAwake: ()=>{},
+        releaseKeepAwake: ()=>{},
+        reportActivity: ()=>Promise.resolve(),
+        Level: {
+            SYSTEM: "system",
+            DISPLAY: "display"
+        }
+    };
+}
+function createSystem(env, which) {
+    const { ctx } = env;
+    if (which === "cpu") {
+        return {
+            getInfo: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                    numOfProcessors: navigator.hardwareConcurrency || 4,
+                    archName: /arm/i.test(navigator.userAgent) ? "arm64" : "x86_64",
+                    modelName: "",
+                    features: [],
+                    processors: Array.from({
+                        length: navigator.hardwareConcurrency || 4
+                    }, ()=>({
+                            usage: {
+                                user: 0,
+                                kernel: 0,
+                                idle: 0,
+                                total: 0
+                            }
+                        })),
+                    temperatures: []
+                }))
+        };
+    }
+    if (which === "memory") {
+        const gb = (navigator.deviceMemory ?? 8) * 1024 ** 3;
+        return {
+            getInfo: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                    capacity: gb,
+                    availableCapacity: Math.round(gb / 2)
+                }))
+        };
+    }
+    if (which === "storage") {
+        return {
+            getInfo: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[]),
+            ejectDevice: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>"no_such_device"),
+            getAvailableCapacity: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                    id: "",
+                    availableCapacity: 0
+                })),
+            onAttached: ctx.events.api("system.storage.onAttached"),
+            onDetached: ctx.events.api("system.storage.onDetached")
+        };
+    }
+    return {
+        getInfo: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[
+                {
+                    id: "0",
+                    name: "Display",
+                    isPrimary: true,
+                    isInternal: false,
+                    isEnabled: true,
+                    isUnified: false,
+                    dpiX: 96 * devicePixelRatio,
+                    dpiY: 96 * devicePixelRatio,
+                    rotation: 0,
+                    bounds: {
+                        left: 0,
+                        top: 0,
+                        width: screen.width,
+                        height: screen.height
+                    },
+                    workArea: {
+                        left: 0,
+                        top: 0,
+                        width: screen.availWidth,
+                        height: screen.availHeight
+                    },
+                    overscan: {
+                        left: 0,
+                        top: 0,
+                        right: 0,
+                        bottom: 0
+                    },
+                    modes: [],
+                    hasTouchSupport: navigator.maxTouchPoints > 0,
+                    availableDisplayZoomFactors: [
+                        1
+                    ],
+                    displayZoomFactor: 1
+                }
+            ]),
+        getDisplayLayout: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[]),
+        onDisplayChanged: ctx.events.api("system.display.onDisplayChanged")
+    };
+}
+function createTts(env) {
+    const { ctx } = env;
+    const synth = typeof speechSynthesis !== "undefined" ? speechSynthesis : null;
+    return {
+        speak: (0,_realm__rspack_import_0.asyncApi)(ctx, (utterance, options = {})=>{
+            if (!synth) throw new _realm__rspack_import_0.ApiError("Text-to-speech is not available.");
+            if (!options.enqueue) synth.cancel();
+            const u = new SpeechSynthesisUtterance(String(utterance ?? ""));
+            if (options.lang) u.lang = String(options.lang);
+            if (options.rate !== undefined) u.rate = Number(options.rate);
+            if (options.pitch !== undefined) u.pitch = Number(options.pitch);
+            if (options.volume !== undefined) u.volume = Number(options.volume);
+            if (options.voiceName) {
+                const voice = synth.getVoices().find((v)=>v.name === options.voiceName);
+                if (voice) u.voice = voice;
+            }
+            const onEvent = typeof options.onEvent === "function" ? options.onEvent : null;
+            const emit = (type, extra = {})=>{
+                const event = {
+                    type,
+                    charIndex: 0,
+                    ...extra
+                };
+                if (onEvent) (0,_realm__rspack_import_0.invokeCallback)(ctx, onEvent, [
+                    (0,_realm__rspack_import_0.toRealm)(ctx, event)
+                ]);
+                ctx.events.peek("tts.onEvent")?.dispatch((0,_realm__rspack_import_0.toRealm)(ctx, event));
+            };
+            u.onstart = ()=>emit("start");
+            u.onend = ()=>emit("end", {
+                    charIndex: String(utterance ?? "").length
+                });
+            u.onerror = (e)=>emit(e.error === "interrupted" || e.error === "canceled" ? "interrupted" : "error", {
+                    errorMessage: e.error
+                });
+            u.onboundary = (e)=>emit(e.name === "sentence" ? "sentence" : "word", {
+                    charIndex: e.charIndex,
+                    length: e.charLength
+                });
+            synth.speak(u);
+        }),
+        stop: ()=>synth?.cancel(),
+        pause: ()=>synth?.pause(),
+        resume: ()=>synth?.resume(),
+        isSpeaking: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>!!synth?.speaking),
+        getVoices: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>(synth?.getVoices() ?? []).map((v)=>({
+                    voiceName: v.name,
+                    lang: v.lang,
+                    remote: !v.localService,
+                    extensionId: "",
+                    eventTypes: [
+                        "start",
+                        "end",
+                        "word",
+                        "sentence",
+                        "error",
+                        "interrupted"
+                    ]
+                }))),
+        onEvent: ctx.events.api("tts.onEvent"),
+        onVoicesChanged: ctx.events.api("tts.onVoicesChanged"),
+        EventType: Object.fromEntries([
+            "start",
+            "end",
+            "word",
+            "sentence",
+            "marker",
+            "interrupted",
+            "cancelled",
+            "error",
+            "pause",
+            "resume"
+        ].map((t)=>[
+                t.toUpperCase(),
+                t
+            ])),
+        VoiceGender: {
+            MALE: "male",
+            FEMALE: "female"
+        }
+    };
+}
+// ---- settings-style namespaces ------------------------------------------------
+function chromeSetting(env, key, defaultValue) {
+    const { s, ctx, ext } = env;
+    const eventName = `setting.${key}.onChange`;
+    return {
+        get: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            const override = s.settings.get(key);
+            const controlled = override && override.extId === ext.id;
+            return {
+                value: override ? override.value : defaultValue,
+                levelOfControl: override ? controlled ? "controlled_by_this_extension" : "controlled_by_other_extensions" : "controllable_by_this_extension"
+            };
+        }),
+        set: (0,_realm__rspack_import_0.asyncApi)(ctx, (details)=>{
+            s.settings.set(key, {
+                extId: ext.id,
+                value: details?.value
+            });
+            s.registry.dispatchAll(eventName, [
+                {
+                    value: details?.value,
+                    levelOfControl: "controlled_by_this_extension"
+                }
+            ]);
+        }),
+        clear: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            if (s.settings.get(key)?.extId === ext.id) s.settings.delete(key);
+            s.registry.dispatchAll(eventName, [
+                {
+                    value: defaultValue,
+                    levelOfControl: "controllable_by_this_extension"
+                }
+            ]);
+        }),
+        onChange: ctx.events.api(eventName)
+    };
+}
+function createPrivacy(env) {
+    const setting = (k, v)=>chromeSetting(env, `privacy.${k}`, v);
+    return {
+        network: {
+            networkPredictionEnabled: setting("network.networkPredictionEnabled", true),
+            webRTCIPHandlingPolicy: setting("network.webRTCIPHandlingPolicy", "default")
+        },
+        services: {
+            alternateErrorPagesEnabled: setting("services.alternateErrorPagesEnabled", true),
+            autofillAddressEnabled: setting("services.autofillAddressEnabled", true),
+            autofillCreditCardEnabled: setting("services.autofillCreditCardEnabled", true),
+            passwordSavingEnabled: setting("services.passwordSavingEnabled", true),
+            safeBrowsingEnabled: setting("services.safeBrowsingEnabled", true),
+            safeBrowsingExtendedReportingEnabled: setting("services.safeBrowsingExtendedReportingEnabled", false),
+            searchSuggestEnabled: setting("services.searchSuggestEnabled", true),
+            spellingServiceEnabled: setting("services.spellingServiceEnabled", false),
+            translationServiceEnabled: setting("services.translationServiceEnabled", true)
+        },
+        websites: {
+            doNotTrackEnabled: setting("websites.doNotTrackEnabled", false),
+            hyperlinkAuditingEnabled: setting("websites.hyperlinkAuditingEnabled", true),
+            protectedContentEnabled: setting("websites.protectedContentEnabled", true),
+            referrersEnabled: setting("websites.referrersEnabled", true),
+            thirdPartyCookiesAllowed: setting("websites.thirdPartyCookiesAllowed", true),
+            topicsEnabled: setting("websites.topicsEnabled", false),
+            fledgeEnabled: setting("websites.fledgeEnabled", false),
+            adMeasurementEnabled: setting("websites.adMeasurementEnabled", false),
+            relatedWebsiteSetsEnabled: setting("websites.relatedWebsiteSetsEnabled", false)
+        },
+        IPHandlingPolicy: {
+            DEFAULT: "default",
+            DEFAULT_PUBLIC_AND_PRIVATE_INTERFACES: "default_public_and_private_interfaces",
+            DEFAULT_PUBLIC_INTERFACE_ONLY: "default_public_interface_only",
+            DISABLE_NON_PROXIED_UDP: "disable_non_proxied_udp"
+        }
+    };
+}
+function createProxy(env) {
+    return {
+        settings: chromeSetting(env, "proxy.settings", {
+            mode: "system"
+        }),
+        onProxyError: env.ctx.events.api("proxy.onProxyError"),
+        Mode: {
+            DIRECT: "direct",
+            AUTO_DETECT: "auto_detect",
+            PAC_SCRIPT: "pac_script",
+            FIXED_SERVERS: "fixed_servers",
+            SYSTEM: "system"
+        },
+        Scheme: {
+            HTTP: "http",
+            HTTPS: "https",
+            QUIC: "quic",
+            SOCKS4: "socks4",
+            SOCKS5: "socks5"
+        }
+    };
+}
+function createContentSettings(env) {
+    const { s, ctx } = env;
+    const types = {
+        cookies: "allow",
+        images: "allow",
+        javascript: "allow",
+        location: "ask",
+        popups: "block",
+        notifications: "ask",
+        microphone: "ask",
+        camera: "ask",
+        automaticDownloads: "ask",
+        clipboard: "ask",
+        sound: "allow",
+        autoVerify: "allow",
+        unsandboxedPlugins: "block",
+        plugins: "block"
+    };
+    const ns = {
+        ContentSetting: {},
+        CookiesContentSetting: {
+            ALLOW: "allow",
+            BLOCK: "block",
+            SESSION_ONLY: "session_only"
+        },
+        Scope: {
+            REGULAR: "regular",
+            INCOGNITO_SESSION_ONLY: "incognito_session_only"
+        }
+    };
+    for (const [type, def] of Object.entries(types)){
+        const key = `contentSettings.${type}`;
+        ns[type] = {
+            get: (0,_realm__rspack_import_0.asyncApi)(ctx, (details)=>{
+                const rules = s.settings.get(key)?.value ?? [];
+                const match = rules.find((r)=>{
+                    try {
+                        return new RegExp(`^${r.pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`).test(details?.primaryUrl ?? "") || r.pattern === "<all_urls>";
+                    } catch  {
+                        return false;
+                    }
+                });
+                return {
+                    setting: match?.setting ?? def
+                };
+            }),
+            set: (0,_realm__rspack_import_0.asyncApi)(ctx, (details)=>{
+                const rules = (s.settings.get(key)?.value ?? []).filter((r)=>r.pattern !== details.primaryPattern);
+                rules.unshift({
+                    pattern: details.primaryPattern,
+                    setting: details.setting
+                });
+                s.settings.set(key, {
+                    extId: env.ext.id,
+                    value: rules
+                });
+            }),
+            clear: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+                s.settings.delete(key);
+            }),
+            getResourceIdentifiers: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined)
+        };
+    }
+    return ns;
+}
+function createFontSettings(env) {
+    const { ctx } = env;
+    const fonts = [
+        "Arial",
+        "Arial Black",
+        "Comic Sans MS",
+        "Courier New",
+        "Georgia",
+        "Impact",
+        "Segoe UI",
+        "Tahoma",
+        "Times New Roman",
+        "Trebuchet MS",
+        "Verdana",
+        "Roboto",
+        "Noto Sans"
+    ];
+    const sizeSetting = (name, def)=>({
+            [`get${name}`]: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                    pixelSize: env.s.settings.get(`font.${name}`)?.value ?? def,
+                    levelOfControl: "controllable_by_this_extension"
+                })),
+            [`set${name}`]: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>{
+                env.s.settings.set(`font.${name}`, {
+                    extId: env.ext.id,
+                    value: d?.pixelSize
+                });
+            }),
+            [`clear${name}`]: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+                env.s.settings.delete(`font.${name}`);
+            })
+        });
+    return {
+        getFont: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>({
+                fontId: env.s.settings.get(`font.${d?.genericFamily}`)?.value ?? (d?.genericFamily === "fixed" ? "Courier New" : d?.genericFamily === "sansserif" ? "Arial" : "Times New Roman"),
+                levelOfControl: "controllable_by_this_extension"
+            })),
+        setFont: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>{
+            env.s.settings.set(`font.${d?.genericFamily}`, {
+                extId: env.ext.id,
+                value: d?.fontId
+            });
+        }),
+        clearFont: (0,_realm__rspack_import_0.asyncApi)(ctx, (d)=>{
+            env.s.settings.delete(`font.${d?.genericFamily}`);
+        }),
+        getFontList: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>fonts.map((fontId)=>({
+                    fontId,
+                    displayName: fontId
+                }))),
+        ...sizeSetting("DefaultFontSize", 16),
+        ...sizeSetting("DefaultFixedFontSize", 13),
+        ...sizeSetting("MinimumFontSize", 0),
+        onFontChanged: ctx.events.api("fontSettings.onFontChanged"),
+        onDefaultFontSizeChanged: ctx.events.api("fontSettings.onDefaultFontSizeChanged"),
+        onDefaultFixedFontSizeChanged: ctx.events.api("fontSettings.onDefaultFixedFontSizeChanged"),
+        onMinimumFontSizeChanged: ctx.events.api("fontSettings.onMinimumFontSizeChanged"),
+        GenericFamily: {
+            STANDARD: "standard",
+            SANSSERIF: "sansserif",
+            SERIF: "serif",
+            FIXED: "fixed",
+            CURSIVE: "cursive",
+            FANTASY: "fantasy",
+            MATH: "math"
+        },
+        ScriptCode: {}
+    };
+}
+// ---- history / bookmarks / topSites / sessions / search ------------------------
+function historyResult(h) {
+    return {
+        id: h.id,
+        url: h.url,
+        title: h.title,
+        lastVisitTime: h.lastVisitTime,
+        visitCount: h.visitCount,
+        typedCount: h.typedCount
+    };
+}
+function createHistory(env) {
+    const { s, ctx } = env;
+    const data = s.browserData;
+    return {
+        search: (0,_realm__rspack_import_0.asyncApi)(ctx, async (query)=>{
+            await data.load();
+            const text = String(query?.text ?? "").toLowerCase();
+            const start = query?.startTime ?? Date.now() - 24 * 3600 * 1000;
+            const end = query?.endTime ?? Infinity;
+            const words = text.split(/\s+/).filter(Boolean);
+            return data.history.filter((h)=>h.lastVisitTime >= start && h.lastVisitTime <= end).filter((h)=>words.every((w)=>h.url.toLowerCase().includes(w) || h.title.toLowerCase().includes(w))).slice(0, query?.maxResults === 0 ? undefined : query?.maxResults ?? 100).map(historyResult);
+        }),
+        getVisits: (0,_realm__rspack_import_0.asyncApi)(ctx, async (details)=>{
+            await data.load();
+            const h = data.history.find((x)=>x.url === details?.url);
+            return (h?.visits ?? []).map((v)=>({
+                    id: h.id,
+                    ...v,
+                    isLocal: true
+                }));
+        }),
+        addUrl: (0,_realm__rspack_import_0.asyncApi)(ctx, async (details)=>{
+            await data.load();
+            const { item } = data.recordVisit(details.url, details.title ?? "", details.transition ?? "link");
+            s.registry.dispatchAll("history.onVisited", [
+                historyResult(item)
+            ]);
+        }),
+        deleteUrl: (0,_realm__rspack_import_0.asyncApi)(ctx, async (details)=>{
+            await data.load();
+            data.history = data.history.filter((h)=>h.url !== details?.url);
+            data.save();
+            s.registry.dispatchAll("history.onVisitRemoved", [
+                {
+                    allHistory: false,
+                    urls: [
+                        details?.url
+                    ]
+                }
+            ]);
+        }),
+        deleteRange: (0,_realm__rspack_import_0.asyncApi)(ctx, async (range)=>{
+            await data.load();
+            const removed = data.history.filter((h)=>h.lastVisitTime >= range.startTime && h.lastVisitTime <= range.endTime).map((h)=>h.url);
+            data.history = data.history.filter((h)=>!removed.includes(h.url));
+            data.save();
+            s.registry.dispatchAll("history.onVisitRemoved", [
+                {
+                    allHistory: false,
+                    urls: removed
+                }
+            ]);
+        }),
+        deleteAll: (0,_realm__rspack_import_0.asyncApi)(ctx, async ()=>{
+            await data.load();
+            data.history = [];
+            data.save();
+            s.registry.dispatchAll("history.onVisitRemoved", [
+                {
+                    allHistory: true,
+                    urls: []
+                }
+            ]);
+        }),
+        onVisited: ctx.events.api("history.onVisited"),
+        onVisitRemoved: ctx.events.api("history.onVisitRemoved"),
+        TransitionType: Object.fromEntries([
+            "link",
+            "typed",
+            "auto_bookmark",
+            "auto_subframe",
+            "manual_subframe",
+            "generated",
+            "auto_toplevel",
+            "form_submit",
+            "reload",
+            "keyword",
+            "keyword_generated"
+        ].map((t)=>[
+                t.toUpperCase(),
+                t
+            ]))
+    };
+}
+function strip(node, deep) {
+    const { children, ...rest } = node;
+    if (node.url !== undefined) return rest;
+    return {
+        ...rest,
+        ...deep ? {
+            children: (children ?? []).map((c)=>strip(c, true))
+        } : {}
+    };
+}
+function createBookmarks(env) {
+    const { s, ctx } = env;
+    const data = s.browserData;
+    const need = (id)=>{
+        const node = data.findBookmark(String(id));
+        if (!node) throw new _realm__rspack_import_0.ApiError("Can't find bookmark for id.");
+        return node;
+    };
+    const parentOf = (node)=>node.parentId ? data.findBookmark(node.parentId) : null;
+    const emit = (event, args)=>s.registry.dispatchAll(`bookmarks.${event}`, args);
+    return {
+        get: (0,_realm__rspack_import_0.asyncApi)(ctx, async (ids)=>{
+            await data.load();
+            return (Array.isArray(ids) ? ids : [
+                ids
+            ]).map((id)=>strip(need(id), false));
+        }),
+        getChildren: (0,_realm__rspack_import_0.asyncApi)(ctx, async (id)=>{
+            await data.load();
+            return (need(id).children ?? []).map((c)=>strip(c, false));
+        }),
+        getRecent: (0,_realm__rspack_import_0.asyncApi)(ctx, async (n)=>{
+            await data.load();
+            const all = [];
+            data.walkBookmarks((node)=>{
+                if (node.url) all.push(node);
+            });
+            return all.sort((a, b)=>b.dateAdded - a.dateAdded).slice(0, n).map((c)=>strip(c, false));
+        }),
+        getTree: (0,_realm__rspack_import_0.asyncApi)(ctx, async ()=>{
+            await data.load();
+            return [
+                strip(data.bookmarks, true)
+            ];
+        }),
+        getSubTree: (0,_realm__rspack_import_0.asyncApi)(ctx, async (id)=>{
+            await data.load();
+            return [
+                strip(need(id), true)
+            ];
+        }),
+        search: (0,_realm__rspack_import_0.asyncApi)(ctx, async (query)=>{
+            await data.load();
+            const q = typeof query === "string" ? {
+                query
+            } : query ?? {};
+            const words = String(q.query ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+            const out = [];
+            data.walkBookmarks((node)=>{
+                if (node.id === "0") return;
+                if (q.url !== undefined && node.url !== q.url) return;
+                if (q.title !== undefined && node.title !== q.title) return;
+                if (words.length && !words.every((w)=>node.title.toLowerCase().includes(w) || (node.url ?? "").toLowerCase().includes(w))) return;
+                out.push(strip(node, false));
+            });
+            return out;
+        }),
+        create: (0,_realm__rspack_import_0.asyncApi)(ctx, async (props)=>{
+            await data.load();
+            const parent = need(props?.parentId ?? "2");
+            if (parent.url !== undefined) throw new _realm__rspack_import_0.ApiError("Parameter 'parentId' does not specify a folder.");
+            const node = {
+                id: data.id(),
+                parentId: parent.id,
+                title: props?.title ?? "",
+                dateAdded: Date.now(),
+                syncing: false
+            };
+            if (props?.url !== undefined) node.url = props.url;
+            else node.children = [];
+            parent.children ??= [];
+            parent.children.splice(props?.index ?? parent.children.length, 0, node);
+            data.reindex(parent);
+            data.save();
+            emit("onCreated", [
+                node.id,
+                strip(node, false)
+            ]);
+            return strip(node, false);
+        }),
+        move: (0,_realm__rspack_import_0.asyncApi)(ctx, async (id, dest)=>{
+            await data.load();
+            const node = need(id);
+            const oldParent = parentOf(node);
+            const oldIndex = node.index ?? 0;
+            const newParent = need(dest?.parentId ?? oldParent.id);
+            oldParent.children = (oldParent.children ?? []).filter((c)=>c !== node);
+            newParent.children ??= [];
+            newParent.children.splice(Math.min(dest?.index ?? newParent.children.length, newParent.children.length), 0, node);
+            node.parentId = newParent.id;
+            data.reindex(oldParent);
+            data.reindex(newParent);
+            data.save();
+            emit("onMoved", [
+                node.id,
+                {
+                    parentId: newParent.id,
+                    index: node.index,
+                    oldParentId: oldParent.id,
+                    oldIndex
+                }
+            ]);
+            return strip(node, false);
+        }),
+        update: (0,_realm__rspack_import_0.asyncApi)(ctx, async (id, changes)=>{
+            await data.load();
+            const node = need(id);
+            if (changes?.title !== undefined) node.title = changes.title;
+            if (changes?.url !== undefined && node.url !== undefined) node.url = changes.url;
+            data.save();
+            emit("onChanged", [
+                node.id,
+                {
+                    title: node.title,
+                    ...node.url !== undefined ? {
+                        url: node.url
+                    } : {}
+                }
+            ]);
+            return strip(node, false);
+        }),
+        remove: (0,_realm__rspack_import_0.asyncApi)(ctx, async (id)=>{
+            await data.load();
+            const node = need(id);
+            if (node.children?.length) throw new _realm__rspack_import_0.ApiError("Can't remove non-empty folder (use recursive to force).");
+            const parent = parentOf(node);
+            if (!parent || [
+                "0",
+                "1",
+                "2"
+            ].includes(node.id)) throw new _realm__rspack_import_0.ApiError("Can't modify the root bookmark folders.");
+            parent.children = (parent.children ?? []).filter((c)=>c !== node);
+            data.reindex(parent);
+            data.save();
+            emit("onRemoved", [
+                node.id,
+                {
+                    parentId: parent.id,
+                    index: node.index,
+                    node: strip(node, true)
+                }
+            ]);
+        }),
+        removeTree: (0,_realm__rspack_import_0.asyncApi)(ctx, async (id)=>{
+            await data.load();
+            const node = need(id);
+            const parent = parentOf(node);
+            if (!parent || [
+                "0",
+                "1",
+                "2"
+            ].includes(node.id)) throw new _realm__rspack_import_0.ApiError("Can't modify the root bookmark folders.");
+            parent.children = (parent.children ?? []).filter((c)=>c !== node);
+            data.reindex(parent);
+            data.save();
+            emit("onRemoved", [
+                node.id,
+                {
+                    parentId: parent.id,
+                    index: node.index,
+                    node: strip(node, true)
+                }
+            ]);
+        }),
+        onCreated: ctx.events.api("bookmarks.onCreated"),
+        onRemoved: ctx.events.api("bookmarks.onRemoved"),
+        onChanged: ctx.events.api("bookmarks.onChanged"),
+        onMoved: ctx.events.api("bookmarks.onMoved"),
+        onChildrenReordered: ctx.events.api("bookmarks.onChildrenReordered"),
+        onImportBegan: ctx.events.api("bookmarks.onImportBegan"),
+        onImportEnded: ctx.events.api("bookmarks.onImportEnded"),
+        MAX_WRITE_OPERATIONS_PER_HOUR: 1000000,
+        MAX_SUSTAINED_WRITE_OPERATIONS_PER_MINUTE: 1000000,
+        BookmarkTreeNodeUnmodifiable: {
+            MANAGED: "managed"
+        },
+        FolderType: {
+            BOOKMARKS_BAR: "bookmarks-bar",
+            OTHER: "other",
+            MOBILE: "mobile",
+            MANAGED: "managed"
+        }
+    };
+}
+function createTopSites(env) {
+    const { s, ctx } = env;
+    return {
+        get: (0,_realm__rspack_import_0.asyncApi)(ctx, async ()=>{
+            await s.browserData.load();
+            return [
+                ...s.browserData.history
+            ].sort((a, b)=>b.visitCount - a.visitCount).slice(0, 10).map((h)=>({
+                    url: h.url,
+                    title: h.title
+                }));
+        })
+    };
+}
+function createSessions(env) {
+    const { s, ctx } = env;
+    return {
+        getRecentlyClosed: (0,_realm__rspack_import_0.asyncApi)(ctx, (filter)=>s.browserData.closedTabs.slice(0, filter?.maxResults ?? 25).map((t)=>({
+                    lastModified: Math.floor(t.lastModified / 1000),
+                    tab: {
+                        sessionId: t.sessionId,
+                        url: t.url,
+                        title: t.title,
+                        index: 0,
+                        windowId: 1,
+                        active: false,
+                        pinned: false,
+                        highlighted: false,
+                        incognito: false,
+                        selected: false,
+                        discarded: false,
+                        autoDiscardable: true,
+                        groupId: -1
+                    }
+                }))),
+        getDevices: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[]),
+        restore: (0,_realm__rspack_import_0.asyncApi)(ctx, async (sessionId)=>{
+            const list = s.browserData.closedTabs;
+            const idx = sessionId ? list.findIndex((t)=>t.sessionId === sessionId) : 0;
+            if (idx < 0 || !list[idx]) throw new _realm__rspack_import_0.ApiError(`Invalid session id: "${sessionId}".`);
+            const [entry] = list.splice(idx, 1);
+            const id = await s.openTab(entry.url, {
+                active: true
+            });
+            return {
+                lastModified: Math.floor(Date.now() / 1000),
+                tab: (0,_tabsModel__rspack_import_2.buildTab)(s, id) ?? undefined
+            };
+        }),
+        setTabValue: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId, key, value)=>{
+            env.ext.settings.set(`session.tab.${tabId}.${key}`, value);
+        }),
+        getTabValue: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId, key)=>env.ext.settings.get(`session.tab.${tabId}.${key}`)),
+        removeTabValue: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId, key)=>{
+            env.ext.settings.delete(`session.tab.${tabId}.${key}`);
+        }),
+        setWindowValue: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        getWindowValue: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        removeWindowValue: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        onChanged: ctx.events.api("sessions.onChanged"),
+        MAX_SESSION_RESULTS: 25
+    };
+}
+function createSearch(env) {
+    const { s, ctx } = env;
+    return {
+        query: (0,_realm__rspack_import_0.asyncApi)(ctx, (info)=>{
+            const disposition = info?.disposition ?? (info?.tabId !== undefined ? "CURRENT_TAB" : "NEW_TAB");
+            const tabId = info?.tabId ?? (disposition === "CURRENT_TAB" ? s.host.getActiveTabId?.() ?? null : null);
+            if (s.host.search) s.host.search(String(info?.text ?? ""), tabId, disposition);
+            else {
+                const url = `https://www.google.com/search?q=${encodeURIComponent(String(info?.text ?? ""))}`;
+                if (tabId !== null && disposition === "CURRENT_TAB") s.navigate(tabId, url);
+                else void s.openTab(url, {
+                    active: true
+                });
+            }
+        }),
+        Disposition: {
+            CURRENT_TAB: "CURRENT_TAB",
+            NEW_TAB: "NEW_TAB",
+            NEW_WINDOW: "NEW_WINDOW"
+        }
+    };
+}
+// ---- sidePanel / offscreen / tabGroups ------------------------------------------
+function createSidePanel(env) {
+    const { s, ctx, ext } = env;
+    const sp = ext.sidePanel;
+    return {
+        setOptions: (0,_realm__rspack_import_0.asyncApi)(ctx, (options)=>{
+            if (options?.tabId !== undefined) {
+                sp.tabOptions.set(options.tabId, {
+                    ...sp.tabOptions.get(options.tabId) ?? {},
+                    ...options.path !== undefined ? {
+                        path: options.path
+                    } : {},
+                    ...options.enabled !== undefined ? {
+                        enabled: options.enabled
+                    } : {}
+                });
+            } else {
+                if (options?.path !== undefined) sp.path = options.path;
+                if (options?.enabled !== undefined) sp.enabled = options.enabled;
+            }
+            s.registry.notifyChange();
+        }),
+        getOptions: (0,_realm__rspack_import_0.asyncApi)(ctx, (options)=>{
+            const tab = options?.tabId !== undefined ? sp.tabOptions.get(options.tabId) : undefined;
+            return {
+                enabled: tab?.enabled ?? sp.enabled,
+                ...tab?.path ?? sp.path ? {
+                    path: tab?.path ?? sp.path
+                } : {}
+            };
+        }),
+        setPanelBehavior: (0,_realm__rspack_import_0.asyncApi)(ctx, (behavior)=>{
+            if (behavior?.openPanelOnActionClick !== undefined) sp.openOnActionClick = behavior.openPanelOnActionClick;
+        }),
+        getPanelBehavior: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                openPanelOnActionClick: sp.openOnActionClick
+            })),
+        open: (0,_realm__rspack_import_0.asyncApi)(ctx, (options)=>{
+            const tabId = options?.tabId ?? ctx.tabId ?? s.host.getActiveTabId?.() ?? null;
+            const tabOpts = tabId !== null ? sp.tabOptions.get(tabId) : undefined;
+            const path = tabOpts?.path ?? sp.path;
+            if (!path || (tabOpts?.enabled ?? sp.enabled) === false) throw new _realm__rspack_import_0.ApiError("No active side panel for tabId.");
+            if (!s.host.openSidePanel) throw new _realm__rspack_import_0.ApiError("Side panels are not supported by this browser.");
+            s.host.openSidePanel(ext.id, path, tabId);
+            s.registry.dispatch(ext.id, "sidePanel.onOpened", [
+                {
+                    path,
+                    windowId: 1,
+                    ...tabId !== null ? {
+                        tabId
+                    } : {}
+                }
+            ]);
+        }),
+        close: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        getLayout: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                side: "right"
+            })),
+        onOpened: ctx.events.api("sidePanel.onOpened"),
+        onClosed: ctx.events.api("sidePanel.onClosed"),
+        Side: {
+            LEFT: "left",
+            RIGHT: "right"
+        }
+    };
+}
+function createOffscreen(env) {
+    const { s, ctx, ext } = env;
+    return {
+        createDocument: (0,_realm__rspack_import_0.asyncApi)(ctx, async (params)=>{
+            if (ext.offscreen) throw new _realm__rspack_import_0.ApiError("Only a single offscreen document may be created.");
+            if (!params?.url) throw new _realm__rspack_import_0.ApiError("Offscreen document URL is required.");
+            const parsed = (0,_urls__rspack_import_1.parseExtensionUrl)((0,_tabs__rspack_import_4.resolveCreateUrl)(env, params.url));
+            if (!parsed || parsed.extId !== ext.id) throw new _realm__rspack_import_0.ApiError("Offscreen documents must be extension URLs.");
+            await s.createOffscreen(ext, parsed.path + parsed.search, params.reasons ?? []);
+        }),
+        closeDocument: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            if (!ext.offscreen) throw new _realm__rspack_import_0.ApiError("No current offscreen document.");
+            s.closeOffscreen(ext);
+        }),
+        hasDocument: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>!!ext.offscreen),
+        Reason: Object.fromEntries([
+            "TESTING",
+            "AUDIO_PLAYBACK",
+            "IFRAME_SCRIPTING",
+            "DOM_SCRAPING",
+            "BLOBS",
+            "DOM_PARSER",
+            "USER_MEDIA",
+            "DISPLAY_MEDIA",
+            "WEB_RTC",
+            "CLIPBOARD",
+            "LOCAL_STORAGE",
+            "WORKERS",
+            "BATTERY_STATUS",
+            "MATCH_MEDIA",
+            "GEOLOCATION"
+        ].map((r)=>[
+                r,
+                r
+            ]))
+    };
+}
+function createTabGroups(env) {
+    const { ctx } = env;
+    return {
+        get: (0,_realm__rspack_import_0.asyncApi)(ctx, (id)=>{
+            throw new _realm__rspack_import_0.ApiError(`No group with id: ${id}.`);
+        }),
+        query: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[]),
+        update: (0,_realm__rspack_import_0.asyncApi)(ctx, (id)=>{
+            throw new _realm__rspack_import_0.ApiError(`No group with id: ${id}.`);
+        }),
+        move: (0,_realm__rspack_import_0.asyncApi)(ctx, (id)=>{
+            throw new _realm__rspack_import_0.ApiError(`No group with id: ${id}.`);
+        }),
+        onCreated: ctx.events.api("tabGroups.onCreated"),
+        onUpdated: ctx.events.api("tabGroups.onUpdated"),
+        onMoved: ctx.events.api("tabGroups.onMoved"),
+        onRemoved: ctx.events.api("tabGroups.onRemoved"),
+        TAB_GROUP_ID_NONE: -1,
+        Color: Object.fromEntries([
+            "grey",
+            "blue",
+            "red",
+            "yellow",
+            "green",
+            "pink",
+            "purple",
+            "cyan",
+            "orange"
+        ].map((c)=>[
+                c.toUpperCase(),
+                c
+            ]))
+    };
+}
+// ---- declarativeContent -------------------------------------------------------
+function createDeclarativeContent(env) {
+    const { ctx } = env;
+    const ctor = (instanceType)=>function(options) {
+            Object.assign(this, options ?? {});
+            this.instanceType = `declarativeContent.${instanceType}`;
+        };
+    return {
+        onPageChanged: ctx.events.api("declarativeContent.onPageChanged"),
+        PageStateMatcher: ctor("PageStateMatcher"),
+        ShowAction: ctor("ShowAction"),
+        ShowPageAction: ctor("ShowPageAction"),
+        SetIcon: ctor("SetIcon"),
+        RequestContentScript: ctor("RequestContentScript"),
+        PageStateMatcherInstanceType: {
+            DECLARATIVE_CONTENT_PAGE_STATE_MATCHER: "declarativeContent.PageStateMatcher"
+        },
+        ShowActionInstanceType: {
+            DECLARATIVE_CONTENT_SHOW_ACTION: "declarativeContent.ShowAction"
+        },
+        ShowPageActionInstanceType: {
+            DECLARATIVE_CONTENT_SHOW_PAGE_ACTION: "declarativeContent.ShowPageAction"
+        },
+        SetIconInstanceType: {
+            DECLARATIVE_CONTENT_SET_ICON: "declarativeContent.SetIcon"
+        },
+        RequestContentScriptInstanceType: {
+            DECLARATIVE_CONTENT_REQUEST_CONTENT_SCRIPT: "declarativeContent.RequestContentScript"
+        }
+    };
+}
+// ---- dom / browsingData / misc stubs ------------------------------------------
+function createDom(env) {
+    void env;
+    return {
+        openOrClosedShadowRoot: (element)=>{
+            if (!element || typeof element !== "object") return null;
+            return element.shadowRoot ?? (0,_frames__rspack_import_3.closedShadowRoot)(element) ?? null;
+        }
+    };
+}
+function createBrowsingData(env) {
+    const { s, ctx } = env;
+    const clearCookies = async ()=>{
+        const controller = s.controller;
+        if (!controller) return;
+        controller.cookieJar.clear();
+        await controller.persistCookies();
+        await controller.propagateCookieSync([], {
+            clear: true
+        }).catch(()=>{});
+    };
+    const clearHistory = async ()=>{
+        await s.browserData.load();
+        s.browserData.history = [];
+        s.browserData.save();
+    };
+    const remove = async (_options, types)=>{
+        if (types?.cookies) await clearCookies();
+        if (types?.history) await clearHistory();
+    };
+    const single = (fn)=>(0,_realm__rspack_import_0.asyncApi)(ctx, fn);
+    return {
+        remove: (0,_realm__rspack_import_0.asyncApi)(ctx, remove),
+        removeCookies: single(clearCookies),
+        removeHistory: single(clearHistory),
+        removeAppcache: single(async ()=>{}),
+        removeCache: single(async ()=>{}),
+        removeCacheStorage: single(async ()=>{}),
+        removeDownloads: single(async ()=>{}),
+        removeFileSystems: single(async ()=>{}),
+        removeFormData: single(async ()=>{}),
+        removeIndexedDB: single(async ()=>{}),
+        removeLocalStorage: single(async ()=>{}),
+        removePasswords: single(async ()=>{}),
+        removeServiceWorkers: single(async ()=>{}),
+        removeWebSQL: single(async ()=>{}),
+        settings: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                options: {
+                    since: 0
+                },
+                dataToRemove: {},
+                dataRemovalPermitted: {
+                    cookies: true,
+                    history: true
+                }
+            }))
+    };
+}
+function createDownloads(env) {
+    const { s, ctx, ext } = env;
+    return {
+        download: (0,_realm__rspack_import_0.asyncApi)(ctx, (options)=>s.download(ext, options)),
+        search: (0,_realm__rspack_import_0.asyncApi)(ctx, (query = {})=>s.downloads.filter((d)=>query?.id === undefined || d.id === query.id)),
+        pause: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        resume: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        cancel: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        erase: (0,_realm__rspack_import_0.asyncApi)(ctx, (query = {})=>{
+            const removed = s.downloads.filter((d)=>query?.id === undefined || d.id === query.id).map((d)=>d.id);
+            s.downloads = s.downloads.filter((d)=>!removed.includes(d.id));
+            return removed;
+        }),
+        removeFile: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        open: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        show: ()=>true,
+        showDefaultFolder: ()=>{},
+        getFileIcon: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>""),
+        acceptDanger: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        setShelfEnabled: ()=>{},
+        setUiOptions: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        onCreated: ctx.events.api("downloads.onCreated"),
+        onChanged: ctx.events.api("downloads.onChanged"),
+        onErased: ctx.events.api("downloads.onErased"),
+        onDeterminingFilename: ctx.events.api("downloads.onDeterminingFilename"),
+        State: {
+            IN_PROGRESS: "in_progress",
+            INTERRUPTED: "interrupted",
+            COMPLETE: "complete"
+        },
+        FilenameConflictAction: {
+            UNIQUIFY: "uniquify",
+            OVERWRITE: "overwrite",
+            PROMPT: "prompt"
+        },
+        DangerType: {
+            FILE: "file",
+            URL: "url",
+            CONTENT: "content",
+            UNCOMMON: "uncommon",
+            HOST: "host",
+            UNWANTED: "unwanted",
+            SAFE: "safe",
+            ACCEPTED: "accepted"
+        }
+    };
+}
+function createReadingList(env) {
+    const { s, ctx } = env;
+    const list = s.settings.get("readingList")?.value ?? [];
+    s.settings.set("readingList", {
+        extId: "",
+        value: list
+    });
+    return {
+        addEntry: (0,_realm__rspack_import_0.asyncApi)(ctx, (entry)=>{
+            if (list.some((e)=>e.url === entry.url)) throw new _realm__rspack_import_0.ApiError("Duplicate URL.");
+            const now = Date.now();
+            list.push({
+                ...entry,
+                creationTime: now,
+                lastUpdateTime: now
+            });
+        }),
+        query: (0,_realm__rspack_import_0.asyncApi)(ctx, (info = {})=>list.filter((e)=>(info.url === undefined || e.url === info.url) && (info.title === undefined || e.title === info.title) && (info.hasBeenRead === undefined || e.hasBeenRead === info.hasBeenRead))),
+        removeEntry: (0,_realm__rspack_import_0.asyncApi)(ctx, (info)=>{
+            const i = list.findIndex((e)=>e.url === info.url);
+            if (i < 0) throw new _realm__rspack_import_0.ApiError("URL not found.");
+            list.splice(i, 1);
+        }),
+        updateEntry: (0,_realm__rspack_import_0.asyncApi)(ctx, (info)=>{
+            const e = list.find((x)=>x.url === info.url);
+            if (!e) throw new _realm__rspack_import_0.ApiError("URL not found.");
+            Object.assign(e, info, {
+                lastUpdateTime: Date.now()
+            });
+        }),
+        onEntryAdded: ctx.events.api("readingList.onEntryAdded"),
+        onEntryRemoved: ctx.events.api("readingList.onEntryRemoved"),
+        onEntryUpdated: ctx.events.api("readingList.onEntryUpdated")
+    };
+}
+function createUnsupported(env, name, methods, events = []) {
+    const { ctx } = env;
+    const ns = {};
+    for (const m of methods){
+        ns[m] = (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            throw new _realm__rspack_import_0.ApiError(`chrome.${name}.${m} is not supported in this browser.`);
+        });
+    }
+    for (const e of events)ns[e] = ctx.events.api(`${name}.${e}`);
+    return ns;
+}
+function createInstanceId(env) {
+    const { ctx, ext } = env;
+    const id = ()=>{
+        let v = ext.settings.get("instanceID");
+        if (!v) {
+            v = Array.from(crypto.getRandomValues(new Uint8Array(11)), (b)=>b.toString(36)).join("").slice(0, 11);
+            ext.settings.set("instanceID", v);
+        }
+        return v;
+    };
+    return {
+        getID: (0,_realm__rspack_import_0.asyncApi)(ctx, id),
+        getCreationTime: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>ext.installedAt / 1000),
+        getToken: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            throw new _realm__rspack_import_0.ApiError("Asynchronous operation is pending.");
+        }),
+        deleteToken: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        deleteID: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            ext.settings.delete("instanceID");
+        }),
+        onTokenRefresh: ctx.events.api("instanceID.onTokenRefresh")
+    };
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/notifications.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  createNotifications: () => (createNotifications)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _urls__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
+
+
+let counter = 0;
+async function resolveImage(ext, url, fromPath) {
+    if (!url) return undefined;
+    if (/^(data|blob|https?):/i.test(url) && !(0,_urls__rspack_import_1.parseExtensionUrl)(url)) return url;
+    const parsed = (0,_urls__rspack_import_1.parseExtensionUrl)(url);
+    const path = parsed && parsed.extId === ext.id ? parsed.path : (0,_urls__rspack_import_1.resolvePackagePath)(url, fromPath);
+    return await ext.files.dataUrl(path) ?? undefined;
+}
+function show(s, ext, id, options) {
+    const callbacks = {
+        click: ()=>s.registry.dispatch(ext.id, "notifications.onClicked", [
+                id
+            ]),
+        close: (byUser)=>{
+            ext.notifications.delete(id);
+            s.registry.dispatch(ext.id, "notifications.onClosed", [
+                id,
+                byUser
+            ]);
+        },
+        buttonClick: (index)=>s.registry.dispatch(ext.id, "notifications.onButtonClicked", [
+                id,
+                index
+            ])
+    };
+    if (s.host.createNotification) {
+        s.host.createNotification(ext.id, id, options, callbacks);
+        return;
+    }
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        try {
+            const n = new Notification(options.title ?? ext.manifest.name, {
+                body: [
+                    options.message,
+                    options.contextMessage
+                ].filter(Boolean).join("\n"),
+                icon: options.iconUrl,
+                tag: `${ext.id}:${id}`,
+                requireInteraction: options.requireInteraction,
+                silent: options.silent
+            });
+            n.onclick = ()=>callbacks.click();
+            n.onclose = ()=>callbacks.close(true);
+            return;
+        } catch  {
+        // fall through
+        }
+    }
+    s.host.showNotification?.(options.title ?? ext.manifest.name, options.message ?? "");
+}
+function createNotifications(env) {
+    const { s, ctx, ext } = env;
+    const fromPath = ctx.kind === "background" ? "" : (0,_urls__rspack_import_1.parseExtensionUrl)(ctx.url)?.path ?? "";
+    return {
+        create: (0,_realm__rspack_import_0.asyncApi)(ctx, async (idOrOptions, maybeOptions)=>{
+            let id = typeof idOrOptions === "string" ? idOrOptions : "";
+            const raw = (typeof idOrOptions === "string" || idOrOptions === undefined ? maybeOptions : idOrOptions) ?? {};
+            if (!raw.type || !raw.iconUrl || raw.title === undefined || raw.message === undefined) {
+                throw new _realm__rspack_import_0.ApiError("Some of the required properties are missing: type, iconUrl, title and message.");
+            }
+            if (!id) id = `${Date.now()}-${++counter}`;
+            const options = {
+                ...raw,
+                iconUrl: await resolveImage(ext, raw.iconUrl, fromPath),
+                imageUrl: await resolveImage(ext, raw.imageUrl, fromPath),
+                buttons: raw.buttons ? await Promise.all(raw.buttons.map(async (b)=>({
+                        ...b,
+                        iconUrl: await resolveImage(ext, b.iconUrl, fromPath)
+                    }))) : undefined
+            };
+            if (ext.notifications.has(id)) s.host.clearNotification?.(ext.id, id);
+            ext.notifications.set(id, {
+                id,
+                options: options
+            });
+            show(s, ext, id, options);
+            return id;
+        }),
+        update: (0,_realm__rspack_import_0.asyncApi)(ctx, async (id, options)=>{
+            const existing = ext.notifications.get(id);
+            if (!existing) return false;
+            const merged = {
+                ...existing.options,
+                ...options
+            };
+            if (options.iconUrl) merged.iconUrl = await resolveImage(ext, options.iconUrl, fromPath);
+            existing.options = merged;
+            show(s, ext, id, merged);
+            return true;
+        }),
+        clear: (0,_realm__rspack_import_0.asyncApi)(ctx, (id)=>{
+            if (!ext.notifications.delete(id)) return false;
+            s.host.clearNotification?.(ext.id, id);
+            s.registry.dispatch(ext.id, "notifications.onClosed", [
+                id,
+                false
+            ]);
+            return true;
+        }),
+        getAll: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>Object.fromEntries([
+                ...ext.notifications.keys()
+            ].map((k)=>[
+                    k,
+                    true
+                ]))),
+        getPermissionLevel: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>"granted"),
+        onClicked: ctx.events.api("notifications.onClicked"),
+        onClosed: ctx.events.api("notifications.onClosed"),
+        onButtonClicked: ctx.events.api("notifications.onButtonClicked"),
+        onPermissionLevelChanged: ctx.events.api("notifications.onPermissionLevelChanged"),
+        onShowSettings: ctx.events.api("notifications.onShowSettings"),
+        TemplateType: {
+            BASIC: "basic",
+            IMAGE: "image",
+            LIST: "list",
+            PROGRESS: "progress"
+        },
+        PermissionLevel: {
+            GRANTED: "granted",
+            DENIED: "denied"
+        }
+    };
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/permissions.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  createPermissions: () => (createPermissions),
+  declaredPermissions: () => (declaredPermissions),
+  hasPermission: () => (hasPermission),
+  hostAllowed: () => (hostAllowed),
+  isHostPattern: () => (isHostPattern)
+});
+/* import */ var _db__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/db.ts");
+/* import */ var _realm__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _matchPatterns__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/matchPatterns.ts");
+
+
+
+/** Permissions that are really host patterns when they appear in MV2 `permissions`. */ function isHostPattern(p) {
+    return p === "<all_urls>" || /^(\*|https?|wss?|ftp|file|urn):\/\//.test(p);
+}
+function declaredPermissions(ext) {
+    const all = [
+        ...ext.manifest.permissions ?? [],
+        ...ext.manifest.optional_permissions ?? []
+    ];
+    const origins = [
+        ...ext.manifest.host_permissions ?? [],
+        ...ext.manifest.optional_host_permissions ?? [],
+        ...all.filter(isHostPattern)
+    ];
+    return {
+        permissions: all.filter((p)=>!isHostPattern(p)),
+        origins
+    };
+}
+function hasPermission(ext, permission) {
+    return ext.grantedPermissions.has(permission);
+}
+/** Whether a granted origin pattern covers `pattern` (or a URL). */ function originCovered(ext, pattern) {
+    if (ext.grantedOrigins.has(pattern) || ext.grantedOrigins.has("<all_urls>")) return true;
+    const sample = pattern.replace("*://", "https://").replace("://*.", "://x.").replace(/\*/g, "x");
+    for (const granted of ext.grantedOrigins){
+        if ((0,_matchPatterns__rspack_import_2.matchPattern)(granted, sample)) return true;
+    }
+    return false;
+}
+function hostAllowed(ext, url) {
+    for (const granted of ext.grantedOrigins)if ((0,_matchPatterns__rspack_import_2.matchPattern)(granted, url)) return true;
+    for (const p of ext.grantedPermissions)if (isHostPattern(p) && (0,_matchPatterns__rspack_import_2.matchPattern)(p, url)) return true;
+    return false;
+}
+async function persistGrants(ext) {
+    ext.meta.grantedPermissions = [
+        ...ext.grantedPermissions
+    ];
+    ext.meta.grantedOrigins = [
+        ...ext.grantedOrigins
+    ];
+    await (0,_db__rspack_import_0.dbPut)(_db__rspack_import_0.EXT_STORE, null, ext.meta).catch(()=>{});
+}
+function createPermissions(env) {
+    const { s, ctx, ext } = env;
+    const split = (input = {})=>({
+            permissions: (input.permissions ?? []).filter((p)=>!isHostPattern(p)),
+            origins: [
+                ...input.origins ?? [],
+                ...(input.permissions ?? []).filter(isHostPattern)
+            ]
+        });
+    const declared = declaredPermissions(ext);
+    return {
+        getAll: (0,_realm__rspack_import_1.asyncApi)(ctx, ()=>({
+                permissions: [
+                    ...ext.grantedPermissions
+                ].filter((p)=>!isHostPattern(p)),
+                origins: [
+                    ...ext.grantedOrigins
+                ]
+            })),
+        contains: (0,_realm__rspack_import_1.asyncApi)(ctx, (input)=>{
+            const { permissions, origins } = split(input);
+            return permissions.every((p)=>ext.grantedPermissions.has(p)) && origins.every((o)=>originCovered(ext, o));
+        }),
+        request: (0,_realm__rspack_import_1.asyncApi)(ctx, async (input)=>{
+            const { permissions, origins } = split(input);
+            for (const p of permissions){
+                if (!declared.permissions.includes(p)) throw new _realm__rspack_import_1.ApiError(`Only permissions specified in the manifest may be requested.`);
+            }
+            const missingP = permissions.filter((p)=>!ext.grantedPermissions.has(p));
+            const missingO = origins.filter((o)=>!originCovered(ext, o));
+            if (!missingP.length && !missingO.length) return true;
+            const granted = s.host.requestPermissions ? await s.host.requestPermissions(ext.id, missingP, missingO) : true;
+            if (!granted) return false;
+            for (const p of missingP)ext.grantedPermissions.add(p);
+            for (const o of missingO)ext.grantedOrigins.add(o);
+            await persistGrants(ext);
+            s.registry.dispatch(ext.id, "permissions.onAdded", [
+                {
+                    permissions: missingP,
+                    origins: missingO
+                }
+            ]);
+            s.refreshApis(ext);
+            return true;
+        }),
+        remove: (0,_realm__rspack_import_1.asyncApi)(ctx, async (input)=>{
+            const { permissions, origins } = split(input);
+            const required = new Set([
+                ...ext.manifest.permissions ?? [],
+                ...ext.manifest.host_permissions ?? []
+            ]);
+            if ([
+                ...permissions,
+                ...origins
+            ].some((p)=>required.has(p))) throw new _realm__rspack_import_1.ApiError("You cannot remove required permissions.");
+            for (const p of permissions)ext.grantedPermissions.delete(p);
+            for (const o of origins)ext.grantedOrigins.delete(o);
+            await persistGrants(ext);
+            s.registry.dispatch(ext.id, "permissions.onRemoved", [
+                {
+                    permissions,
+                    origins
+                }
+            ]);
+            return true;
+        }),
+        addHostAccessRequest: (0,_realm__rspack_import_1.asyncApi)(ctx, ()=>undefined),
+        removeHostAccessRequest: (0,_realm__rspack_import_1.asyncApi)(ctx, ()=>undefined),
+        onAdded: ctx.events.api("permissions.onAdded"),
+        onRemoved: ctx.events.api("permissions.onRemoved")
+    };
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/runtime.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  completeMessage: () => (completeMessage),
+  createExtensionNamespace: () => (createExtensionNamespace),
+  createRuntime: () => (createRuntime),
+  createUserScriptRuntime: () => (createUserScriptRuntime),
+  normalizeSendMessageArgs: () => (normalizeSendMessageArgs),
+  platformInfo: () => (platformInfo),
+  senderFor: () => (senderFor)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _messaging__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/messaging.ts");
+/* import */ var _compat__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/compat.ts");
+/* import */ var _urls__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
+/* import */ var _tabsModel__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/tabsModel.ts");
+
+
+
+
+
+function platformInfo() {
+    const nav = navigator;
+    const platform = (nav.userAgentData?.platform || navigator.platform || navigator.userAgent).toLowerCase();
+    let os = "linux";
+    if (platform.includes("win")) os = "win";
+    else if (platform.includes("mac") || platform.includes("iphone") || platform.includes("ipad")) os = "mac";
+    else if (platform.includes("cros") || navigator.userAgent.includes("CrOS")) os = "cros";
+    else if (platform.includes("android")) os = "android";
+    const arm = /arm|aarch64/i.test(navigator.userAgent) || /arm/i.test(navigator.platform);
+    return {
+        os,
+        arch: arm ? "arm64" : "x86-64",
+        nacl_arch: arm ? "arm" : "x86-64"
+    };
+}
+function senderFor(env, ctx = env.ctx) {
+    const sender = {
+        id: ctx.ext.id,
+        url: (0,_compat__rspack_import_2.compatFor)(ctx.ext.id).senderUrlAsChromeExtension ? (0,_urls__rspack_import_3.displayExtensionUrl)(ctx.url) : ctx.url,
+        origin: (0,_messaging__rspack_import_1.originOf)(ctx.url)
+    };
+    if (ctx.tabId !== null && (ctx.kind === "content" || ctx.kind === "tab" || ctx.kind === "iframe")) {
+        sender.tab = (0,_tabsModel__rspack_import_4.buildTab)(env.s, ctx.tabId) ?? undefined;
+        sender.frameId = ctx.frameId;
+    }
+    if (ctx.kind !== "background") {
+        sender.documentId = ctx.documentId;
+        sender.documentLifecycle = "active";
+    }
+    return sender;
+}
+/** runtime.sendMessage's overloaded argument list, as Chromium normalises it. */ function normalizeSendMessageArgs(args) {
+    const list = [
+        ...args
+    ];
+    let cb;
+    if (list.length && typeof list[list.length - 1] === "function") cb = list.pop();
+    if (list.length >= 3) return {
+        target: list[0] ?? null,
+        message: list[1],
+        cb
+    };
+    if (list.length === 2) {
+        if (list[0] === null || list[0] === undefined || typeof list[0] === "string") return {
+            target: list[0] ?? null,
+            message: list[1],
+            cb
+        };
+        return {
+            target: null,
+            message: list[0],
+            cb
+        };
+    }
+    return {
+        target: null,
+        message: list[0],
+        cb
+    };
+}
+/** Shared by runtime.sendMessage and tabs.sendMessage: callback / promise plumbing. */ function completeMessage(ctx, p, cb) {
+    if (cb) {
+        p.then((value)=>{
+            if (value === _messaging__rspack_import_1.NO_RESPONSE) (0,_realm__rspack_import_0.invokeCallbackWithError)(ctx, cb, _messaging__rspack_import_1.PORT_CLOSED);
+            else (0,_realm__rspack_import_0.invokeCallback)(ctx, cb, [
+                (0,_realm__rspack_import_0.jsonToRealm)(ctx, value)
+            ]);
+        }, (e)=>(0,_realm__rspack_import_0.invokeCallbackWithError)(ctx, cb, (0,_realm__rspack_import_0.errorMessage)(e)));
+        return undefined;
+    }
+    return (0,_realm__rspack_import_0.realmPromise)(ctx, p.then((value)=>value === _messaging__rspack_import_1.NO_RESPONSE ? undefined : (0,_realm__rspack_import_0.jsonToRealm)(ctx, value)), true);
+}
+function messageTargets(env, targetId) {
+    const { s, ctx } = env;
+    if (targetId === ctx.ext.id) {
+        return {
+            contexts: s.registry.extensionContexts(targetId).filter((c)=>c !== ctx),
+            event: "runtime.onMessage"
+        };
+    }
+    const target = s.registry.get(targetId);
+    if (!target || !target.enabled) return {
+        contexts: [],
+        event: "runtime.onMessageExternal"
+    };
+    return {
+        contexts: s.registry.extensionContexts(targetId),
+        event: "runtime.onMessageExternal"
+    };
+}
+function createRuntime(env, content) {
+    const { s, ctx, ext } = env;
+    const mv = Number(ext.manifest.manifest_version) || 2;
+    const sendMessage = (...args)=>{
+        const { target, message, cb } = normalizeSendMessageArgs(args);
+        const targetId = target ?? ext.id;
+        const { contexts, event } = messageTargets(env, targetId);
+        const p = contexts.length ? (0,_messaging__rspack_import_1.deliverMessage)(contexts, event, message, senderFor(env)) : Promise.reject(new _realm__rspack_import_0.ApiError(_messaging__rspack_import_1.NO_RECEIVER));
+        return completeMessage(ctx, p, cb);
+    };
+    const connect = (idOrInfo, maybeInfo)=>{
+        const targetId = typeof idOrInfo === "string" ? idOrInfo : ext.id;
+        const info = typeof idOrInfo === "string" ? maybeInfo : idOrInfo;
+        const { contexts } = messageTargets(env, targetId);
+        const event = targetId === ext.id ? "runtime.onConnect" : "runtime.onConnectExternal";
+        return (0,_messaging__rspack_import_1.openPort)(s.registry, ctx, contexts, event, String(info?.name ?? ""), senderFor(env));
+    };
+    const runtime = {
+        id: ext.id,
+        getManifest: ()=>(0,_realm__rspack_import_0.toRealm)(ctx, ext.manifest),
+        getURL: (path)=>(0,_urls__rspack_import_3.extensionUrl)(ext.id, path == null ? "" : String(path)),
+        sendMessage,
+        connect,
+        onMessage: ctx.events.api("runtime.onMessage"),
+        onConnect: ctx.events.api("runtime.onConnect"),
+        // Messages/ports from a chrome.userScripts-world script land here, not onMessage/onConnect
+        // (real Chrome keeps the two separate since USER_SCRIPT is a more restricted sandbox).
+        onUserScriptMessage: ctx.events.api("runtime.onUserScriptMessage"),
+        onUserScriptConnect: ctx.events.api("runtime.onUserScriptConnect"),
+        OnInstalledReason: {
+            INSTALL: "install",
+            UPDATE: "update",
+            CHROME_UPDATE: "chrome_update",
+            SHARED_MODULE_UPDATE: "shared_module_update"
+        },
+        OnRestartRequiredReason: {
+            APP_UPDATE: "app_update",
+            OS_UPDATE: "os_update",
+            PERIODIC: "periodic"
+        },
+        PlatformArch: {
+            ARM: "arm",
+            ARM64: "arm64",
+            X86_32: "x86-32",
+            X86_64: "x86-64",
+            MIPS: "mips",
+            MIPS64: "mips64",
+            RISCV64: "riscv64"
+        },
+        PlatformNaclArch: {
+            ARM: "arm",
+            X86_32: "x86-32",
+            X86_64: "x86-64",
+            MIPS: "mips",
+            MIPS64: "mips64"
+        },
+        PlatformOs: {
+            MAC: "mac",
+            WIN: "win",
+            ANDROID: "android",
+            CROS: "cros",
+            LINUX: "linux",
+            OPENBSD: "openbsd",
+            FUCHSIA: "fuchsia"
+        },
+        RequestUpdateCheckStatus: {
+            THROTTLED: "throttled",
+            NO_UPDATE: "no_update",
+            UPDATE_AVAILABLE: "update_available"
+        },
+        ContextType: {
+            TAB: "TAB",
+            POPUP: "POPUP",
+            BACKGROUND: "BACKGROUND",
+            OFFSCREEN_DOCUMENT: "OFFSCREEN_DOCUMENT",
+            SIDE_PANEL: "SIDE_PANEL",
+            DEVELOPER_TOOLS: "DEVELOPER_TOOLS"
+        }
+    };
+    Object.defineProperty(runtime, "lastError", (0,_realm__rspack_import_0.lastErrorGetter)(ctx));
+    if (content) {
+        return runtime;
+    }
+    Object.assign(runtime, {
+        onMessageExternal: ctx.events.api("runtime.onMessageExternal"),
+        onConnectExternal: ctx.events.api("runtime.onConnectExternal"),
+        onInstalled: ctx.events.api("runtime.onInstalled"),
+        onStartup: ctx.events.api("runtime.onStartup"),
+        onSuspend: ctx.events.api("runtime.onSuspend"),
+        onSuspendCanceled: ctx.events.api("runtime.onSuspendCanceled"),
+        onUpdateAvailable: ctx.events.api("runtime.onUpdateAvailable"),
+        onRestartRequired: ctx.events.api("runtime.onRestartRequired"),
+        onUserScriptMessage: ctx.events.api("runtime.onUserScriptMessage"),
+        onUserScriptConnect: ctx.events.api("runtime.onUserScriptConnect"),
+        onBrowserUpdateAvailable: ctx.events.api("runtime.onBrowserUpdateAvailable"),
+        getPlatformInfo: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>platformInfo()),
+        getBackgroundPage: (0,_realm__rspack_import_0.asyncApi)(ctx, async ()=>{
+            if (mv >= 3 || ext.manifest.background?.service_worker) throw new _realm__rspack_import_0.ApiError("You do not have a background page.");
+            await ext.backgroundReady;
+            const bg = s.registry.contextsOf(ext.id, (c)=>c.kind === "background")[0];
+            if (!bg) throw new _realm__rspack_import_0.ApiError("You do not have a background page.");
+            return bg.window;
+        }, {
+            raw: true
+        }),
+        openOptionsPage: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            const page = ext.manifest.options_ui?.page ?? ext.manifest.options_page;
+            if (!page) throw new _realm__rspack_import_0.ApiError("Could not create an options page.");
+            s.openExtensionPage(ext.id, page, null);
+        }),
+        setUninstallURL: (0,_realm__rspack_import_0.asyncApi)(ctx, (url)=>{
+            if (url && !/^https?:\/\//i.test(url)) throw new _realm__rspack_import_0.ApiError("Invalid URL: " + url);
+            ext.settings.set("uninstallUrl", url ?? "");
+        }),
+        reload: ()=>{
+            setTimeout(()=>void s.reloadExtension(ext.id), 0);
+        },
+        restart: ()=>{
+            ctx.lastError = {
+                message: "Function available only for ChromeOS kiosk mode."
+            };
+        },
+        restartAfterDelay: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            throw new _realm__rspack_import_0.ApiError("Function available only for ChromeOS kiosk mode.");
+        }),
+        requestUpdateCheck: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                status: "no_update",
+                version: ""
+            }), {
+            callbackArgs: (v)=>mv >= 3 ? [
+                    v
+                ] : [
+                    v.status,
+                    {}
+                ]
+        }),
+        getPackageDirectoryEntry: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            throw new _realm__rspack_import_0.ApiError("getPackageDirectoryEntry is not supported.");
+        }),
+        connectNative: (application)=>{
+            const side = new _messaging__rspack_import_1.PortSide(ctx, String(application ?? ""), undefined);
+            side.connected = false;
+            ctx.ports.delete(side);
+            side.fireDisconnect("Specified native messaging host not found.");
+            return side.api;
+        },
+        sendNativeMessage: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            throw new _realm__rspack_import_0.ApiError("Specified native messaging host not found.");
+        }),
+        getContexts: (0,_realm__rspack_import_0.asyncApi)(ctx, (filter = {})=>{
+            return s.registry.extensionContexts(ext.id).filter((c)=>c.kind !== "iframe").map((c)=>({
+                    contextType: c.kind === "background" ? "BACKGROUND" : c.kind === "popup" ? "POPUP" : c.kind === "offscreen" ? "OFFSCREEN_DOCUMENT" : c.kind === "sidepanel" ? "SIDE_PANEL" : c.kind === "devtools" ? "DEVELOPER_TOOLS" : "TAB",
+                    contextId: `${c.id}`,
+                    tabId: c.tabId ?? -1,
+                    windowId: c.tabId !== null ? s.host.getTab(c.tabId)?.windowId ?? 1 : -1,
+                    documentId: c.kind === "background" && ext.manifest.background?.service_worker ? undefined : c.documentId,
+                    frameId: c.kind === "background" ? -1 : c.frameId,
+                    documentUrl: c.kind === "background" && ext.manifest.background?.service_worker ? undefined : c.url,
+                    documentOrigin: c.kind === "background" && ext.manifest.background?.service_worker ? undefined : (0,_messaging__rspack_import_1.originOf)(c.url),
+                    incognito: false
+                })).filter((info)=>{
+                for (const [key, values] of Object.entries(filter)){
+                    if (!Array.isArray(values)) continue;
+                    const map = {
+                        contextTypes: "contextType",
+                        contextIds: "contextId",
+                        tabIds: "tabId",
+                        windowIds: "windowId",
+                        documentIds: "documentId",
+                        frameIds: "frameId",
+                        documentUrls: "documentUrl",
+                        documentOrigins: "documentOrigin"
+                    };
+                    const field = map[key];
+                    if (field && !values.includes(info[field])) return false;
+                    if (key === "incognito" && values.length) return false;
+                }
+                return true;
+            });
+        })
+    });
+    return runtime;
+}
+function createExtensionNamespace(env, runtime, content) {
+    const { s, ctx, ext } = env;
+    const mv = Number(ext.manifest.manifest_version) || 2;
+    const ns = {
+        inIncognitoContext: false,
+        ViewType: {
+            TAB: "tab",
+            POPUP: "popup"
+        }
+    };
+    if (mv < 3) {
+        Object.defineProperty(ns, "lastError", (0,_realm__rspack_import_0.lastErrorGetter)(ctx));
+        ns.getURL = runtime.getURL;
+        ns.sendRequest = (...args)=>runtime.sendMessage(...args);
+        ns.onRequest = runtime.onMessage;
+        if (!content) ns.onRequestExternal = runtime.onMessageExternal;
+    }
+    if (content) return ns;
+    const views = (filter = {})=>{
+        const realm = (0,_realm__rspack_import_0.realmOf)(ctx);
+        const out = new realm.Array();
+        for (const c of s.registry.extensionContexts(ext.id)){
+            if (c.kind === "iframe" || c.kind === "offscreen") continue;
+            const type = c.kind === "popup" ? "popup" : c.kind === "tab" ? "tab" : c.kind === "background" ? "background" : "other";
+            if (filter.type && filter.type !== type) continue;
+            if (filter.tabId !== undefined && filter.tabId !== c.tabId) continue;
+            if (type === "background" && filter.type === undefined && mv >= 3) continue;
+            out.push(c.window);
+        }
+        return out;
+    };
+    Object.assign(ns, {
+        getViews: (filter)=>views(filter),
+        getExtensionTabs: (windowId)=>views({
+                type: "tab",
+                windowId
+            }),
+        getBackgroundPage: ()=>{
+            if (mv >= 3 || ext.manifest.background?.service_worker) return null;
+            return s.registry.contextsOf(ext.id, (c)=>c.kind === "background")[0]?.window ?? null;
+        },
+        isAllowedIncognitoAccess: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>false),
+        isAllowedFileSchemeAccess: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>false),
+        setUpdateUrlData: ()=>{}
+    });
+    return ns;
+}
+/** USER_SCRIPT world: only messaging, and only once configureWorld({messaging: true}). */ function createUserScriptRuntime(env) {
+    const { s, ctx, ext } = env;
+    const enabled = ()=>[
+            ...ext.userScriptWorlds.values()
+        ].some((w)=>w.messaging);
+    const runtime = {
+        id: ext.id,
+        onMessage: ctx.events.api("runtime.onMessage"),
+        onConnect: ctx.events.api("runtime.onConnect"),
+        sendMessage: (...args)=>{
+            const { message, cb } = normalizeSendMessageArgs(args);
+            if (!enabled()) return completeMessage(ctx, Promise.reject(new _realm__rspack_import_0.ApiError(_messaging__rspack_import_1.NO_RECEIVER)), cb);
+            const targets = s.registry.extensionContexts(ext.id);
+            return completeMessage(ctx, (0,_messaging__rspack_import_1.deliverMessage)(targets, "runtime.onUserScriptMessage", message, senderFor(env)), cb);
+        },
+        connect: (info)=>{
+            const targets = enabled() ? s.registry.extensionContexts(ext.id) : [];
+            return (0,_messaging__rspack_import_1.openPort)(s.registry, ctx, targets, "runtime.onUserScriptConnect", String(info?.name ?? ""), senderFor(env));
+        }
+    };
+    Object.defineProperty(runtime, "lastError", (0,_realm__rspack_import_0.lastErrorGetter)(ctx));
+    return runtime;
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/scripting.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  createScripting: () => (createScripting),
+  createUserScripts: () => (createUserScripts),
+  toRegistration: () => (toRegistration)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _matchPatterns__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/matchPatterns.ts");
+
+
+function validateTarget(target) {
+    if (!target || typeof target.tabId !== "number") throw new TypeError("Error in invocation of scripting: target.tabId is required.");
+    if (target.allFrames && (target.frameIds || target.documentIds)) throw new _realm__rspack_import_0.ApiError("Cannot specify both 'allFrames' and 'frameIds' or 'documentIds'.");
+    return target;
+}
+function toRegistration(extId, input, source, existing) {
+    const js = (input.js ?? existing?.js ?? []).map((entry)=>{
+        if (typeof entry === "string") return {
+            file: entry.replace(/^\/+/, "")
+        };
+        if ("file" in entry && typeof entry.file === "string") return {
+            file: entry.file.replace(/^\/+/, "")
+        };
+        if ("code" in entry && typeof entry.code === "string") return {
+            code: entry.code
+        };
+        throw new _realm__rspack_import_0.ApiError("Each script source must specify exactly one of 'file' or 'code'.");
+    });
+    const matches = input.matches ?? existing?.matches ?? [];
+    for (const m of matches)if (!(0,_matchPatterns__rspack_import_1.isValidMatchPattern)(m)) throw new _realm__rspack_import_0.ApiError(`Script with ID '${input.id}' has invalid value for matches: ${m}`);
+    return {
+        extId,
+        id: input.id,
+        source,
+        matches,
+        excludeMatches: input.excludeMatches ?? existing?.excludeMatches ?? [],
+        includeGlobs: input.includeGlobs ?? existing?.includeGlobs ?? [],
+        excludeGlobs: input.excludeGlobs ?? existing?.excludeGlobs ?? [],
+        js,
+        css: (input.css ?? existing?.css ?? []).map((c)=>c.replace(/^\/+/, "")),
+        runAt: input.runAt ?? existing?.runAt ?? "document_idle",
+        allFrames: input.allFrames ?? existing?.allFrames ?? false,
+        matchAboutBlank: input.matchOriginAsFallback ?? existing?.matchAboutBlank ?? false,
+        world: input.world ?? existing?.world ?? (source === "userScripts" ? "USER_SCRIPT" : "ISOLATED"),
+        worldId: input.worldId ?? existing?.worldId,
+        persistAcrossSessions: input.persistAcrossSessions ?? existing?.persistAcrossSessions ?? true
+    };
+}
+function describe(cs, source) {
+    if (source === "userScripts") {
+        return {
+            id: cs.id,
+            matches: cs.matches,
+            excludeMatches: cs.excludeMatches,
+            includeGlobs: cs.includeGlobs,
+            excludeGlobs: cs.excludeGlobs,
+            js: cs.js,
+            runAt: cs.runAt,
+            allFrames: cs.allFrames,
+            world: cs.world,
+            ...cs.worldId ? {
+                worldId: cs.worldId
+            } : {}
+        };
+    }
+    return {
+        id: cs.id,
+        matches: cs.matches,
+        excludeMatches: cs.excludeMatches,
+        js: cs.js.map((j)=>"file" in j ? j.file : ""),
+        css: cs.css,
+        runAt: cs.runAt,
+        allFrames: cs.allFrames,
+        matchOriginAsFallback: cs.matchAboutBlank,
+        world: cs.world,
+        persistAcrossSessions: cs.persistAcrossSessions ?? true
+    };
+}
+function registrationApi(env, source) {
+    const { s, ctx, ext } = env;
+    const mine = ()=>s.registry.contentScripts.filter((cs)=>cs.extId === ext.id && cs.source === source);
+    const register = async (scripts)=>{
+        const ids = new Set(mine().map((cs)=>cs.id));
+        const seen = new Set();
+        const regs = (scripts ?? []).map((input)=>{
+            if (!input?.id) throw new _realm__rspack_import_0.ApiError("Script ID must not be empty.");
+            if (input.id.startsWith("_")) throw new _realm__rspack_import_0.ApiError(`Script's ID '${input.id}' must not start with '_'`);
+            if (ids.has(input.id) || seen.has(input.id)) throw new _realm__rspack_import_0.ApiError(`Duplicate script ID '${input.id}'`);
+            seen.add(input.id);
+            if (!input.matches?.length) throw new _realm__rspack_import_0.ApiError(`Script with ID '${input.id}' must specify 'matches'.`);
+            const reg = toRegistration(ext.id, input, source);
+            if (!reg.js.length && !reg.css.length) throw new _realm__rspack_import_0.ApiError(`Script with ID '${input.id}' must specify at least one js or css file.`);
+            return reg;
+        });
+        await s.addContentScripts(ext, regs);
+    };
+    const update = async (scripts)=>{
+        const current = mine();
+        const regs = (scripts ?? []).map((input)=>{
+            const existing = current.find((cs)=>cs.id === input.id);
+            if (!existing) throw new _realm__rspack_import_0.ApiError(`Script with ID '${input.id}' does not exist.`);
+            return toRegistration(ext.id, input, source, existing);
+        });
+        await s.removeContentScripts(ext, source, regs.map((r)=>r.id));
+        await s.addContentScripts(ext, regs);
+    };
+    const unregister = async (filter)=>{
+        if (filter?.ids) {
+            const known = new Set(mine().map((cs)=>cs.id));
+            for (const id of filter.ids)if (!known.has(id)) throw new _realm__rspack_import_0.ApiError(`Nonexistent script ID '${id}'`);
+        }
+        await s.removeContentScripts(ext, source, filter?.ids ?? null);
+    };
+    const get = (filter)=>mine().filter((cs)=>!filter?.ids || filter.ids.includes(cs.id)).map((cs)=>describe(cs, source));
+    return {
+        register: (0,_realm__rspack_import_0.asyncApi)(ctx, register),
+        update: (0,_realm__rspack_import_0.asyncApi)(ctx, update),
+        unregister: (0,_realm__rspack_import_0.asyncApi)(ctx, unregister),
+        get: (0,_realm__rspack_import_0.asyncApi)(ctx, get)
+    };
+}
+function createScripting(env) {
+    const { s, ctx, ext } = env;
+    const reg = registrationApi(env, "scripting");
+    return {
+        executeScript: (0,_realm__rspack_import_0.asyncApi)(ctx, async (injection)=>{
+            const target = validateTarget(injection?.target);
+            const func = injection.func ?? injection.function;
+            if (!!func === !!injection.files?.length) throw new _realm__rspack_import_0.ApiError("Exactly one of 'func' and 'files' must be specified");
+            if (injection.files) {
+                for (const f of injection.files){
+                    if (await ext.files.readText(f) === null) throw new _realm__rspack_import_0.ApiError(`Could not load file: '${f}'.`);
+                }
+            }
+            return s.executeScript(ext, target, {
+                func: func ? String(func) : undefined,
+                args: injection.args,
+                files: injection.files?.map((f)=>f.replace(/^\/+/, "")),
+                world: injection.world ?? "ISOLATED",
+                injectImmediately: injection.injectImmediately
+            });
+        }),
+        insertCSS: (0,_realm__rspack_import_0.asyncApi)(ctx, async (injection)=>{
+            const target = validateTarget(injection?.target);
+            if (!!injection.css === !!injection.files?.length) throw new _realm__rspack_import_0.ApiError("Exactly one of 'css' and 'files' must be specified.");
+            if (injection.css !== undefined) return s.insertCss(ext, target, injection.css, `code:${injection.css}`);
+            for (const f of injection.files){
+                const css = await ext.files.readText(f);
+                if (css === null) throw new _realm__rspack_import_0.ApiError(`Could not load file: '${f}'.`);
+                await s.insertCss(ext, target, css, `file:${f.replace(/^\/+/, "")}`);
+            }
+        }),
+        removeCSS: (0,_realm__rspack_import_0.asyncApi)(ctx, async (injection)=>{
+            const target = validateTarget(injection?.target);
+            if (injection.css !== undefined) return s.removeCss(ext, target, `code:${injection.css}`);
+            for (const f of injection.files ?? [])await s.removeCss(ext, target, `file:${f.replace(/^\/+/, "")}`);
+        }),
+        registerContentScripts: reg.register,
+        updateContentScripts: reg.update,
+        unregisterContentScripts: reg.unregister,
+        getRegisteredContentScripts: reg.get,
+        ExecutionWorld: {
+            ISOLATED: "ISOLATED",
+            MAIN: "MAIN"
+        },
+        StyleOrigin: {
+            AUTHOR: "AUTHOR",
+            USER: "USER"
+        }
+    };
+}
+function createUserScripts(env) {
+    const { s, ctx, ext } = env;
+    const reg = registrationApi(env, "userScripts");
+    return {
+        register: reg.register,
+        update: reg.update,
+        unregister: reg.unregister,
+        getScripts: reg.get,
+        configureWorld: (0,_realm__rspack_import_0.asyncApi)(ctx, (config)=>{
+            ext.userScriptWorlds.set(config?.worldId ?? "", {
+                csp: config?.csp,
+                messaging: config?.messaging
+            });
+        }),
+        getWorldConfigurations: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>[
+                ...ext.userScriptWorlds
+            ].map(([worldId, c])=>({
+                    ...c,
+                    ...worldId ? {
+                        worldId
+                    } : {}
+                }))),
+        resetWorldConfiguration: (0,_realm__rspack_import_0.asyncApi)(ctx, (worldId)=>{
+            ext.userScriptWorlds.delete(worldId ?? "");
+        }),
+        execute: (0,_realm__rspack_import_0.asyncApi)(ctx, async (injection)=>{
+            const target = validateTarget(injection?.target);
+            const results = [];
+            for (const source of injection.js ?? []){
+                results.push(await s.executeScript(ext, target, {
+                    code: source.code,
+                    files: source.file ? [
+                        source.file
+                    ] : undefined,
+                    world: injection.world ?? "USER_SCRIPT",
+                    injectImmediately: injection.injectImmediately
+                }));
+            }
+            return results[results.length - 1] ?? [];
+        }),
+        ExecutionWorld: {
+            MAIN: "MAIN",
+            USER_SCRIPT: "USER_SCRIPT"
+        }
+    };
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/storage.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  broadcastStorageChange: () => (broadcastStorageChange),
+  createStorage: () => (createStorage)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _storage__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/storage.ts");
+
+
+function broadcastStorageChange(registry, ext, area, changes) {
+    if (!Object.keys(changes).length) return;
+    for (const ctx of registry.contextsOf(ext.id)){
+        // storage.session is hidden from content scripts unless the access level was raised.
+        if (area === "session" && ctx.kind === "content" && ext.settings.get("session.accessLevel") !== "TRUSTED_AND_UNTRUSTED_CONTEXTS") continue;
+        ctx.events.peek("storage.onChanged")?.dispatchFiltered(()=>true, ()=>[
+                (0,_realm__rspack_import_0.toRealm)(ctx, changes),
+                area
+            ]);
+        ctx.events.peek(`storage.${area}.onChanged`)?.dispatchFiltered(()=>true, ()=>[
+                (0,_realm__rspack_import_0.toRealm)(ctx, changes)
+            ]);
+    }
+}
+function createStorage(env, content) {
+    const { s, ctx, ext } = env;
+    const area = (name)=>{
+        const backend = ext.storage[name];
+        const readonly = name === "managed";
+        const guardSession = ()=>{
+            if (name === "session" && content && ext.settings.get("session.accessLevel") !== "TRUSTED_AND_UNTRUSTED_CONTEXTS") {
+                throw new _realm__rspack_import_0.ApiError("Access to storage is not allowed from this context.");
+            }
+        };
+        const write = async (op)=>{
+            if (readonly) throw new _realm__rspack_import_0.ApiError("This is a read-only store.");
+            guardSession();
+            const changes = await op();
+            broadcastStorageChange(s.registry, ext, name, changes);
+        };
+        const ns = {
+            get: (0,_realm__rspack_import_0.asyncApi)(ctx, (keys)=>{
+                guardSession();
+                return backend.get(keys);
+            }),
+            getKeys: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+                guardSession();
+                return backend.getKeys();
+            }),
+            set: (0,_realm__rspack_import_0.asyncApi)(ctx, (items)=>write(()=>backend.set(items))),
+            remove: (0,_realm__rspack_import_0.asyncApi)(ctx, (keys)=>write(()=>backend.remove(keys))),
+            clear: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>write(()=>backend.clear())),
+            getBytesInUse: (0,_realm__rspack_import_0.asyncApi)(ctx, (keys)=>backend.bytesInUse(keys)),
+            onChanged: ctx.events.api(`storage.${name}.onChanged`),
+            ..._storage__rspack_import_1.QUOTAS[name]
+        };
+        if (name === "session") {
+            ns.setAccessLevel = (0,_realm__rspack_import_0.asyncApi)(ctx, (opts)=>{
+                if (content) throw new _realm__rspack_import_0.ApiError("Access to storage is not allowed from this context.");
+                ext.settings.set("session.accessLevel", opts?.accessLevel ?? "TRUSTED_CONTEXTS");
+            });
+        } else if (!readonly) {
+            ns.setAccessLevel = (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+                throw new _realm__rspack_import_0.ApiError("This StorageArea does not support setAccessLevel.");
+            });
+        }
+        return ns;
+    };
+    return {
+        local: area("local"),
+        sync: area("sync"),
+        session: area("session"),
+        managed: area("managed"),
+        onChanged: ctx.events.api("storage.onChanged"),
+        AccessLevel: {
+            TRUSTED_AND_UNTRUSTED_CONTEXTS: "TRUSTED_AND_UNTRUSTED_CONTEXTS",
+            TRUSTED_CONTEXTS: "TRUSTED_CONTEXTS"
+        }
+    };
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/tabs.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  createTabs: () => (createTabs),
+  createWindows: () => (createWindows),
+  resolveCreateUrl: () => (resolveCreateUrl)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _messaging__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/messaging.ts");
+/* import */ var _matchPatterns__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/matchPatterns.ts");
+/* import */ var _tabsModel__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/tabsModel.ts");
+/* import */ var _urls__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
+/* import */ var _runtime__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/runtime.ts");
+/* import */ var _capture__rspack_import_6 = __webpack_require__("./node_modules/@x8r/sapphire/src/capture.ts");
+
+
+
+
+
+
+
+function resolveCreateUrl(env, url) {
+    if (!url) return "";
+    // Relative URLs in tabs.create / windows.create resolve against the extension root.
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) return (0,_urls__rspack_import_4.extensionUrl)(env.ext.id, url.replace(/^\.?\//, ""));
+    return (0,_urls__rspack_import_4.normalizeExtensionUrl)(url);
+}
+function createTabs(env) {
+    const { s, ctx, ext } = env;
+    const callerTab = ()=>ctx.tabId !== null ? ctx.tabId : null;
+    const requireTab = (id)=>{
+        const tabId = id === undefined || id === null ? callerTab() ?? s.host.getActiveTabId?.() ?? null : Number(id);
+        if (tabId === null || !(0,_tabsModel__rspack_import_3.buildTab)(s, tabId)) throw new _realm__rspack_import_0.ApiError(`No tab with id: ${id}.`);
+        return tabId;
+    };
+    const query = (q = {})=>{
+        const current = (0,_tabsModel__rspack_import_3.currentWindowId)(s, callerTab());
+        const urlPatterns = q.url === undefined ? null : Array.isArray(q.url) ? q.url : [
+            q.url
+        ];
+        return (0,_tabsModel__rspack_import_3.allTabInfos)(s).map((t)=>(0,_tabsModel__rspack_import_3.buildTab)(s, t.id)).filter((t)=>{
+            if (!t) return false;
+            if (q.active !== undefined && t.active !== q.active) return false;
+            if (q.highlighted !== undefined && t.highlighted !== q.highlighted) return false;
+            if (q.pinned !== undefined && t.pinned !== q.pinned) return false;
+            if (q.audible !== undefined && t.audible !== q.audible) return false;
+            if (q.muted !== undefined && t.mutedInfo.muted !== q.muted) return false;
+            if (q.discarded !== undefined && t.discarded !== q.discarded) return false;
+            if (q.autoDiscardable !== undefined && t.autoDiscardable !== q.autoDiscardable) return false;
+            if (q.frozen !== undefined && t.frozen !== q.frozen) return false;
+            if (q.status !== undefined && t.status !== q.status) return false;
+            if (q.index !== undefined && t.index !== q.index) return false;
+            if (q.groupId !== undefined && t.groupId !== q.groupId) return false;
+            if ((q.currentWindow === true || q.lastFocusedWindow === true) && t.windowId !== current) return false;
+            if ((q.currentWindow === false || q.lastFocusedWindow === false) && t.windowId === current) return false;
+            if (q.windowId !== undefined) {
+                const wanted = q.windowId === -2 ? current : q.windowId;
+                if (t.windowId !== wanted) return false;
+            }
+            if (q.windowType !== undefined && q.windowType !== "normal") return false;
+            if (typeof q.title === "string" && !(0,_matchPatterns__rspack_import_2.matchGlob)(q.title, t.title)) return false;
+            if (urlPatterns && !urlPatterns.some((p)=>(0,_matchPatterns__rspack_import_2.matchPattern)(p, t.url))) return false;
+            return true;
+        }).sort((a, b)=>a.windowId - b.windowId || a.index - b.index);
+    };
+    const create = async (props = {})=>{
+        const url = resolveCreateUrl(env, props.url);
+        const active = props.active ?? props.selected ?? true;
+        const id = await s.openTab(url, {
+            active,
+            openerTabId: props.openerTabId ?? callerTab() ?? undefined
+        });
+        if (id === null) throw new _realm__rspack_import_0.ApiError("Unable to create tab.");
+        return (0,_tabsModel__rspack_import_3.buildTab)(s, id) ?? {
+            id,
+            index: 0,
+            windowId: 1,
+            active,
+            url,
+            pendingUrl: url,
+            title: "",
+            status: "loading"
+        };
+    };
+    const update = async (tabIdOrProps, maybeProps)=>{
+        const tabId = requireTab(typeof tabIdOrProps === "number" ? tabIdOrProps : undefined);
+        const props = (typeof tabIdOrProps === "number" ? maybeProps : tabIdOrProps) ?? {};
+        if (props.url !== undefined) s.navigate(tabId, resolveCreateUrl(env, props.url));
+        if (props.active || props.highlighted || props.selected) s.activateTab(tabId);
+        return (0,_tabsModel__rspack_import_3.buildTab)(s, tabId);
+    };
+    const sendMessage = (tabIdArg, ...rest)=>{
+        const tabId = Number(tabIdArg);
+        const list = [
+            ...rest
+        ];
+        let cb;
+        if (list.length && typeof list[list.length - 1] === "function") cb = list.pop();
+        const { message } = (0,_runtime__rspack_import_5.normalizeSendMessageArgs)([
+            null,
+            list[0]
+        ]);
+        const options = list[1] ?? {};
+        const targets = s.registry.contextsOf(ext.id, (c)=>c.kind === "content" && c.tabId === tabId && (options.frameId === undefined || c.frameId === options.frameId) && (options.documentId === undefined || c.documentId === options.documentId));
+        const p = targets.length ? (0,_messaging__rspack_import_1.deliverMessage)(targets, "runtime.onMessage", message, (0,_runtime__rspack_import_5.senderFor)(env)) : Promise.reject(new _realm__rspack_import_0.ApiError(_messaging__rspack_import_1.NO_RECEIVER));
+        return (0,_runtime__rspack_import_5.completeMessage)(ctx, p, cb);
+    };
+    const connect = (tabIdArg, info = {})=>{
+        const tabId = Number(tabIdArg);
+        const targets = s.registry.contextsOf(ext.id, (c)=>c.kind === "content" && c.tabId === tabId && (info.frameId === undefined || c.frameId === info.frameId) && (info.documentId === undefined || c.documentId === info.documentId));
+        return (0,_messaging__rspack_import_1.openPort)(s.registry, ctx, targets, "runtime.onConnect", String(info.name ?? ""), (0,_runtime__rspack_import_5.senderFor)(env));
+    };
+    const mv2Inject = (kind)=>(0,_realm__rspack_import_0.asyncApi)(ctx, async (tabIdOrDetails, maybeDetails)=>{
+            const tabId = requireTab(typeof tabIdOrDetails === "number" ? tabIdOrDetails : undefined);
+            const details = (typeof tabIdOrDetails === "number" ? maybeDetails : tabIdOrDetails) ?? {};
+            if (!details.code && !details.file) throw new _realm__rspack_import_0.ApiError("Either 'code' or 'file' must be specified.");
+            const target = {
+                tabId,
+                allFrames: details.allFrames,
+                frameIds: details.frameId !== undefined ? [
+                    details.frameId
+                ] : undefined
+            };
+            if (kind === "js") {
+                const results = await s.executeScript(ext, target, {
+                    world: "ISOLATED",
+                    code: details.code,
+                    files: details.file ? [
+                        details.file
+                    ] : undefined,
+                    injectImmediately: details.runAt === "document_start"
+                });
+                return results.map((r)=>r.result);
+            }
+            const css = details.code ?? (details.file ? await ext.files.readText(details.file) : null);
+            if (css === null) throw new _realm__rspack_import_0.ApiError(`Failed to load file: "${details.file}".`);
+            if (kind === "css") await s.insertCss(ext, target, css, details.file ? `file:${details.file}` : `code:${css}`);
+            else await s.removeCss(ext, target, details.file ? `file:${details.file}` : `code:${css}`);
+            return undefined;
+        });
+    return {
+        query: (0,_realm__rspack_import_0.asyncApi)(ctx, query),
+        get: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId)=>{
+            const tab = (0,_tabsModel__rspack_import_3.buildTab)(s, Number(tabId));
+            if (!tab) throw new _realm__rspack_import_0.ApiError(`No tab with id: ${tabId}.`);
+            return tab;
+        }),
+        getCurrent: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>ctx.kind === "tab" || ctx.kind === "iframe" ? (0,_tabsModel__rspack_import_3.buildTab)(s, ctx.tabId) ?? undefined : undefined),
+        getSelected: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>query({
+                active: true,
+                currentWindow: true
+            })[0]),
+        getAllInWindow: (0,_realm__rspack_import_0.asyncApi)(ctx, (windowId)=>query({
+                windowId: windowId ?? -2
+            })),
+        create: (0,_realm__rspack_import_0.asyncApi)(ctx, create),
+        duplicate: (0,_realm__rspack_import_0.asyncApi)(ctx, async (tabId)=>{
+            const tab = (0,_tabsModel__rspack_import_3.buildTab)(s, requireTab(tabId));
+            return create({
+                url: tab.url,
+                active: true,
+                openerTabId: tabId
+            });
+        }),
+        update: (0,_realm__rspack_import_0.asyncApi)(ctx, update),
+        remove: (0,_realm__rspack_import_0.asyncApi)(ctx, (ids)=>{
+            for (const id of Array.isArray(ids) ? ids : [
+                ids
+            ]){
+                if (!(0,_tabsModel__rspack_import_3.buildTab)(s, id)) throw new _realm__rspack_import_0.ApiError(`No tab with id: ${id}.`);
+                s.closeTab(id);
+            }
+        }),
+        reload: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabIdOrProps)=>{
+            s.reloadTab(requireTab(typeof tabIdOrProps === "number" ? tabIdOrProps : undefined));
+        }),
+        goBack: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId)=>s.historyGo(requireTab(tabId), -1)),
+        goForward: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId)=>s.historyGo(requireTab(tabId), 1)),
+        discard: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId)=>(0,_tabsModel__rspack_import_3.buildTab)(s, requireTab(tabId))),
+        highlight: (0,_realm__rspack_import_0.asyncApi)(ctx, (info)=>{
+            const list = Array.isArray(info.tabs) ? info.tabs : [
+                info.tabs
+            ];
+            const all = query({
+                windowId: info.windowId ?? -2
+            });
+            const first = all.find((t)=>t.index === list[0]);
+            if (first) s.activateTab(first.id);
+            return (0,_tabsModel__rspack_import_3.buildWindow)(s, info.windowId ?? (0,_tabsModel__rspack_import_3.currentWindowId)(s, callerTab()), true);
+        }),
+        move: (0,_realm__rspack_import_0.asyncApi)(ctx, (ids)=>{
+            const tabs = (Array.isArray(ids) ? ids : [
+                ids
+            ]).map((id)=>(0,_tabsModel__rspack_import_3.buildTab)(s, id)).filter(Boolean);
+            return Array.isArray(ids) ? tabs : tabs[0];
+        }),
+        group: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>{
+            throw new _realm__rspack_import_0.ApiError("Tab groups are not supported in this browser.");
+        }),
+        ungroup: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        detectLanguage: (0,_realm__rspack_import_0.asyncApi)(ctx, (tabId)=>{
+            const win = s.host.getTabWindow?.(requireTab(tabId));
+            let lang = "";
+            try {
+                lang = win?.document.documentElement.lang ?? "";
+            } catch  {
+                lang = "";
+            }
+            return lang ? lang.split("-")[0] : "und";
+        }),
+        captureVisibleTab: (0,_realm__rspack_import_0.asyncApi)(ctx, (windowIdOrOpts, maybeOpts)=>{
+            const opts = typeof windowIdOrOpts === "object" && windowIdOrOpts ? windowIdOrOpts : maybeOpts;
+            const tabId = callerTab() ?? s.host.getActiveTabId?.() ?? null;
+            return (0,_capture__rspack_import_6.captureVisibleTab)(s, tabId, opts?.format === "jpeg" ? "image/jpeg" : "image/png", opts?.quality);
+        }),
+        getZoom: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>1),
+        setZoom: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        getZoomSettings: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>({
+                mode: "automatic",
+                scope: "per-origin",
+                defaultZoomFactor: 1
+            })),
+        setZoomSettings: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        sendMessage,
+        sendRequest: sendMessage,
+        connect,
+        executeScript: mv2Inject("js"),
+        insertCSS: mv2Inject("css"),
+        removeCSS: mv2Inject("removeCss"),
+        onCreated: ctx.events.api("tabs.onCreated"),
+        onUpdated: ctx.events.api("tabs.onUpdated"),
+        onRemoved: ctx.events.api("tabs.onRemoved"),
+        onActivated: ctx.events.api("tabs.onActivated"),
+        onHighlighted: ctx.events.api("tabs.onHighlighted"),
+        onMoved: ctx.events.api("tabs.onMoved"),
+        onDetached: ctx.events.api("tabs.onDetached"),
+        onAttached: ctx.events.api("tabs.onAttached"),
+        onReplaced: ctx.events.api("tabs.onReplaced"),
+        onZoomChange: ctx.events.api("tabs.onZoomChange"),
+        onSelectionChanged: ctx.events.api("tabs.onSelectionChanged"),
+        onActiveChanged: ctx.events.api("tabs.onActiveChanged"),
+        onHighlightChanged: ctx.events.api("tabs.onHighlightChanged"),
+        TAB_ID_NONE: -1,
+        TAB_INDEX_NONE: -1,
+        MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND: 2,
+        TabStatus: {
+            UNLOADED: "unloaded",
+            LOADING: "loading",
+            COMPLETE: "complete"
+        },
+        MutedInfoReason: {
+            USER: "user",
+            CAPTURE: "capture",
+            EXTENSION: "extension"
+        },
+        WindowType: {
+            NORMAL: "normal",
+            POPUP: "popup",
+            PANEL: "panel",
+            APP: "app",
+            DEVTOOLS: "devtools"
+        },
+        ZoomSettingsMode: {
+            AUTOMATIC: "automatic",
+            MANUAL: "manual",
+            DISABLED: "disabled"
+        },
+        ZoomSettingsScope: {
+            PER_ORIGIN: "per-origin",
+            PER_TAB: "per-tab"
+        }
+    };
+}
+function createWindows(env) {
+    const { s, ctx } = env;
+    const callerWindow = ()=>(0,_tabsModel__rspack_import_3.currentWindowId)(s, ctx.tabId);
+    const getWindow = (id, populate)=>{
+        const wid = id === -2 ? callerWindow() : id;
+        if (!(0,_tabsModel__rspack_import_3.windowIds)(s).includes(wid)) throw new _realm__rspack_import_0.ApiError(`No window with id: ${id}.`);
+        return (0,_tabsModel__rspack_import_3.buildWindow)(s, wid, populate);
+    };
+    return {
+        get: (0,_realm__rspack_import_0.asyncApi)(ctx, (id, opts)=>getWindow(id, !!opts?.populate)),
+        getCurrent: (0,_realm__rspack_import_0.asyncApi)(ctx, (opts)=>getWindow(callerWindow(), !!opts?.populate)),
+        getLastFocused: (0,_realm__rspack_import_0.asyncApi)(ctx, (opts)=>getWindow((0,_tabsModel__rspack_import_3.currentWindowId)(s, null), !!opts?.populate)),
+        getAll: (0,_realm__rspack_import_0.asyncApi)(ctx, (opts)=>(0,_tabsModel__rspack_import_3.windowIds)(s).map((id)=>(0,_tabsModel__rspack_import_3.buildWindow)(s, id, !!opts?.populate))),
+        create: (0,_realm__rspack_import_0.asyncApi)(ctx, async (data = {})=>{
+            const urls = data.url === undefined ? [
+                ""
+            ] : Array.isArray(data.url) ? data.url : [
+                data.url
+            ];
+            let first = null;
+            for (const url of urls){
+                const id = await s.openTab(resolveCreateUrl(env, url), {
+                    active: data.focused !== false,
+                    popup: data.type === "popup"
+                });
+                if (first === null) first = id;
+            }
+            const win = (0,_tabsModel__rspack_import_3.buildWindow)(s, first !== null ? s.host.getTab(first)?.windowId ?? 1 : callerWindow(), true);
+            return win;
+        }),
+        update: (0,_realm__rspack_import_0.asyncApi)(ctx, (id)=>getWindow(id, false)),
+        remove: (0,_realm__rspack_import_0.asyncApi)(ctx, (id)=>{
+            getWindow(id, false);
+        }),
+        onCreated: ctx.events.api("windows.onCreated"),
+        onRemoved: ctx.events.api("windows.onRemoved"),
+        onFocusChanged: ctx.events.api("windows.onFocusChanged"),
+        onBoundsChanged: ctx.events.api("windows.onBoundsChanged"),
+        WINDOW_ID_NONE: -1,
+        WINDOW_ID_CURRENT: -2,
+        WindowType: {
+            NORMAL: "normal",
+            POPUP: "popup",
+            PANEL: "panel",
+            APP: "app",
+            DEVTOOLS: "devtools"
+        },
+        WindowState: {
+            NORMAL: "normal",
+            MINIMIZED: "minimized",
+            MAXIMIZED: "maximized",
+            FULLSCREEN: "fullscreen",
+            LOCKED_FULLSCREEN: "locked-fullscreen"
+        },
+        CreateType: {
+            NORMAL: "normal",
+            POPUP: "popup",
+            PANEL: "panel"
+        }
+    };
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/webNavigation.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  createWebNavigation: () => (createWebNavigation),
+  dispatchNavigation: () => (dispatchNavigation),
+  matchUrlFilter: () => (matchUrlFilter)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+
+function matchUrlFilter(f, input) {
+    let u;
+    try {
+        u = new URL(input);
+    } catch  {
+        return false;
+    }
+    const host = u.hostname;
+    const path = u.pathname;
+    const query = u.search.replace(/^\?/, "");
+    const full = u.href.split("#")[0];
+    if (f.hostContains !== undefined && !`.${host}`.includes(f.hostContains)) return false;
+    if (f.hostEquals !== undefined && host !== f.hostEquals) return false;
+    if (f.hostPrefix !== undefined && !host.startsWith(f.hostPrefix)) return false;
+    if (f.hostSuffix !== undefined && !host.endsWith(f.hostSuffix)) return false;
+    if (f.pathContains !== undefined && !path.includes(f.pathContains)) return false;
+    if (f.pathEquals !== undefined && path !== f.pathEquals) return false;
+    if (f.pathPrefix !== undefined && !path.startsWith(f.pathPrefix)) return false;
+    if (f.pathSuffix !== undefined && !path.endsWith(f.pathSuffix)) return false;
+    if (f.queryContains !== undefined && !query.includes(f.queryContains)) return false;
+    if (f.queryEquals !== undefined && query !== f.queryEquals) return false;
+    if (f.queryPrefix !== undefined && !query.startsWith(f.queryPrefix)) return false;
+    if (f.querySuffix !== undefined && !query.endsWith(f.querySuffix)) return false;
+    if (f.urlContains !== undefined && !full.includes(f.urlContains)) return false;
+    if (f.urlEquals !== undefined && full !== f.urlEquals) return false;
+    if (f.urlPrefix !== undefined && !full.startsWith(f.urlPrefix)) return false;
+    if (f.urlSuffix !== undefined && !full.endsWith(f.urlSuffix)) return false;
+    try {
+        if (f.urlMatches !== undefined && !new RegExp(f.urlMatches).test(full)) return false;
+        if (f.originAndPathMatches !== undefined && !new RegExp(f.originAndPathMatches).test(u.origin + path)) return false;
+    } catch  {
+        return false;
+    }
+    if (f.schemes && !f.schemes.includes(u.protocol.slice(0, -1))) return false;
+    if (f.ports) {
+        const port = Number(u.port || (u.protocol === "https:" ? 443 : 80));
+        if (!f.ports.some((p)=>Array.isArray(p) ? port >= p[0] && port <= p[1] : port === p)) return false;
+    }
+    return true;
+}
+/** Deliver a webNavigation event, honouring each listener's `{url: [UrlFilter]}`. */ function dispatchNavigation(s, event, details) {
+    for (const ext of s.registry.list()){
+        if (!ext.enabled || !ext.grantedPermissions.has("webNavigation")) continue;
+        for (const ctx of s.registry.extensionContexts(ext.id)){
+            const ev = ctx.events.peek(`webNavigation.${event}`);
+            if (!ev?.hasListeners()) continue;
+            ev.dispatchFiltered((entry)=>{
+                const filters = entry.extra[0]?.url;
+                return !filters?.length || filters.some((f)=>matchUrlFilter(f, String(details.url ?? "")));
+            }, ()=>[
+                    (0,_realm__rspack_import_0.toRealm)(ctx, details)
+                ]);
+        }
+    }
+}
+function createWebNavigation(env) {
+    const { s, ctx } = env;
+    const describe = (tabId, frameId)=>{
+        const frame = s.registry.liveFrames(tabId).find((f)=>f.frameId === frameId);
+        if (!frame) return null;
+        const parent = s.registry.liveFrames(tabId).find((f)=>f.frameId === frame.parentFrameId);
+        return {
+            errorOccurred: frame.errorOccurred,
+            url: frame.url,
+            parentFrameId: frame.parentFrameId,
+            documentId: frame.documentId,
+            documentLifecycle: frame.documentLifecycle,
+            frameType: frame.frameId === 0 ? "outermost_frame" : "sub_frame",
+            ...parent ? {
+                parentDocumentId: parent.documentId
+            } : {}
+        };
+    };
+    const ns = {
+        getFrame: (0,_realm__rspack_import_0.asyncApi)(ctx, (details)=>{
+            let tabId = details?.tabId;
+            let frameId = details?.frameId;
+            if (details?.documentId) {
+                for (const [id] of s.registry.tabs){
+                    const f = s.registry.liveFrames(id).find((fr)=>fr.documentId === details.documentId);
+                    if (f) {
+                        tabId = id;
+                        frameId = f.frameId;
+                    }
+                }
+            }
+            if (tabId === undefined || frameId === undefined) throw new _realm__rspack_import_0.ApiError("Either documentId or both tabId and frameId must be specified.");
+            return describe(tabId, frameId);
+        }),
+        getAllFrames: (0,_realm__rspack_import_0.asyncApi)(ctx, (details)=>{
+            if (!s.host.getTab(details?.tabId)) return null;
+            return s.registry.liveFrames(details.tabId).map((f)=>({
+                    ...describe(details.tabId, f.frameId),
+                    frameId: f.frameId,
+                    processId: 1
+                }));
+        }),
+        TransitionType: Object.fromEntries([
+            "link",
+            "typed",
+            "auto_bookmark",
+            "auto_subframe",
+            "manual_subframe",
+            "generated",
+            "start_page",
+            "form_submit",
+            "reload",
+            "keyword",
+            "keyword_generated"
+        ].map((t)=>[
+                t.toUpperCase(),
+                t
+            ])),
+        TransitionQualifier: {
+            CLIENT_REDIRECT: "client_redirect",
+            SERVER_REDIRECT: "server_redirect",
+            FORWARD_BACK: "forward_back",
+            FROM_ADDRESS_BAR: "from_address_bar"
+        }
+    };
+    for (const ev of [
+        "onBeforeNavigate",
+        "onCommitted",
+        "onDOMContentLoaded",
+        "onCompleted",
+        "onErrorOccurred",
+        "onCreatedNavigationTarget",
+        "onReferenceFragmentUpdated",
+        "onTabReplaced",
+        "onHistoryStateUpdated"
+    ]){
+        ns[ev] = ctx.events.api(`webNavigation.${ev}`);
+    }
+    return ns;
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/api/webRequest.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  createWebRequest: () => (createWebRequest),
+  dispatchWebRequest: () => (dispatchWebRequest),
+  hasWebRequestListeners: () => (hasWebRequestListeners)
+});
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _matchPatterns__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/matchPatterns.ts");
+/* import */ var _permissions__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/permissions.ts");
+
+
+
+const STAGES = [
+    "onBeforeRequest",
+    "onBeforeSendHeaders",
+    "onSendHeaders",
+    "onHeadersReceived",
+    "onAuthRequired",
+    "onResponseStarted",
+    "onBeforeRedirect",
+    "onCompleted",
+    "onErrorOccurred"
+];
+function validateFilter(extra) {
+    const filter = extra[0];
+    if (!filter || !Array.isArray(filter.urls)) {
+        throw new TypeError("Error in invocation of webRequest.addListener: filter must contain 'urls'.");
+    }
+}
+function filterMatches(filter, details) {
+    if (!filter) return false;
+    if (filter.urls && !filter.urls.some((p)=>(0,_matchPatterns__rspack_import_1.matchPattern)(p, details.url))) return false;
+    if (filter.types && !filter.types.includes(details.type)) return false;
+    if (filter.tabId !== undefined && filter.tabId !== details.tabId) return false;
+    return true;
+}
+function hasWebRequestListeners(s) {
+    for (const ctx of s.registry.contexts){
+        for (const stage of STAGES)if (ctx.events.peek(`webRequest.${stage}`)?.hasListeners()) return true;
+    }
+    return false;
+}
+/**
+ * Run one webRequest stage across every extension. Listeners registered with
+ * "blocking" are called synchronously and may cancel/redirect/rewrite headers;
+ * everything else is informational.
+ */ function dispatchWebRequest(s, stage, details) {
+    const outcome = {
+        cancel: false
+    };
+    const contexts = [];
+    for (const ext of [
+        ...s.registry.list()
+    ].sort((a, b)=>a.installedAt - b.installedAt)){
+        if (!ext.enabled || !ext.grantedPermissions.has("webRequest")) continue;
+        if (!(0,_permissions__rspack_import_2.hostAllowed)(ext, details.url)) continue;
+        // Requests for another extension's resources are invisible to webRequest.
+        for (const ctx of s.registry.extensionContexts(ext.id))contexts.push(ctx);
+    }
+    for (const ctx of contexts){
+        const ev = ctx.events.peek(`webRequest.${stage}`);
+        if (!ev?.hasListeners()) continue;
+        for (const entry of [
+            ...ev.entries
+        ]){
+            const filter = entry.extra[0];
+            if (!filterMatches(filter, details)) continue;
+            const spec = entry.extra[1] ?? [];
+            const shaped = {
+                ...details
+            };
+            if (!spec.includes("requestHeaders")) delete shaped.requestHeaders;
+            if (!spec.includes("responseHeaders")) delete shaped.responseHeaders;
+            if (!spec.includes("requestBody")) delete shaped.requestBody;
+            if (spec.includes("blocking")) {
+                const result = ev.invoke(entry, [
+                    (0,_realm__rspack_import_0.toRealm)(ctx, shaped)
+                ]);
+                if (result && typeof result === "object") {
+                    if (result.cancel) outcome.cancel = true;
+                    if (result.redirectUrl && !outcome.redirectUrl) outcome.redirectUrl = String(result.redirectUrl);
+                    if (Array.isArray(result.requestHeaders)) outcome.requestHeaders = result.requestHeaders.map((h)=>({
+                            name: String(h.name),
+                            value: h.value === undefined ? undefined : String(h.value)
+                        }));
+                    if (Array.isArray(result.responseHeaders)) outcome.responseHeaders = result.responseHeaders.map((h)=>({
+                            name: String(h.name),
+                            value: h.value === undefined ? undefined : String(h.value)
+                        }));
+                }
+            } else {
+                const snapshot = (0,_realm__rspack_import_0.toRealm)(ctx, shaped);
+                queueMicrotask(()=>ev.invoke(entry, [
+                        snapshot
+                    ]));
+            }
+        }
+    }
+    return outcome;
+}
+function createWebRequest(env) {
+    const { ctx } = env;
+    const ns = {
+        handlerBehaviorChanged: (0,_realm__rspack_import_0.asyncApi)(ctx, ()=>undefined),
+        MAX_HANDLER_BEHAVIOR_CHANGED_CALLS_PER_10_MINUTES: 20,
+        ResourceType: Object.fromEntries([
+            "main_frame",
+            "sub_frame",
+            "stylesheet",
+            "script",
+            "image",
+            "font",
+            "object",
+            "xmlhttprequest",
+            "ping",
+            "csp_report",
+            "media",
+            "websocket",
+            "webbundle",
+            "other"
+        ].map((t)=>[
+                t.toUpperCase(),
+                t
+            ])),
+        OnBeforeRequestOptions: {
+            BLOCKING: "blocking",
+            REQUEST_BODY: "requestBody",
+            EXTRA_HEADERS: "extraHeaders"
+        },
+        OnBeforeSendHeadersOptions: {
+            REQUEST_HEADERS: "requestHeaders",
+            BLOCKING: "blocking",
+            EXTRA_HEADERS: "extraHeaders"
+        },
+        OnSendHeadersOptions: {
+            REQUEST_HEADERS: "requestHeaders",
+            EXTRA_HEADERS: "extraHeaders"
+        },
+        OnHeadersReceivedOptions: {
+            BLOCKING: "blocking",
+            RESPONSE_HEADERS: "responseHeaders",
+            EXTRA_HEADERS: "extraHeaders"
+        },
+        OnResponseStartedOptions: {
+            RESPONSE_HEADERS: "responseHeaders",
+            EXTRA_HEADERS: "extraHeaders"
+        },
+        OnCompletedOptions: {
+            RESPONSE_HEADERS: "responseHeaders",
+            EXTRA_HEADERS: "extraHeaders"
+        },
+        OnErrorOccurredOptions: {
+            EXTRA_HEADERS: "extraHeaders"
+        }
+    };
+    for (const stage of STAGES)ns[stage] = ctx.events.api(`webRequest.${stage}`, validateFilter);
+    return ns;
 }
 
 
@@ -485,182 +5034,168 @@ function createAutoStub() {
 
 
 },
-"./node_modules/@x8r/sapphire/src/background.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+"./node_modules/@x8r/sapphire/src/browserData.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  startBackground: () => (startBackground),
-  stopBackground: () => (stopBackground)
+  BrowserData: () => (BrowserData)
 });
-/* import */ var _chromeApi__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/chromeApi.ts");
-/* import */ var _fileStore__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/fileStore.ts");
-/* import */ var _htmlInject__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/htmlInject.ts");
-/* import */ var _manifest__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/manifest.ts");
-/* import */ var _urlScheme__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/urlScheme.ts");
+/* import */ var _db__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/db.ts");
+// Browser-level state that extensions read through chrome.history /
+// chrome.bookmarks / chrome.topSites / chrome.sessions. Sapphire sees every
+// top-level navigation in every tab, so history is real, not a stub.
 
-
-
-
-
-function stopBackground(ext) {
-    if (ext.background?.kind === "frame") ext.background.frame?.remove();
-    if (ext.background?.kind === "worker") ext.background.worker?.terminate();
-    ext.background = null;
-}
-async function startBackground(ext, registry, host, rootEl) {
-    const bgInfo = (0,_manifest__rspack_import_3.getBackgroundInfo)(ext.manifest);
-    if (!bgInfo) return;
-    stopBackground(ext);
-    const frame = document.createElement("iframe");
-    frame.style.cssText = "position:fixed;width:0;height:0;border:none;opacity:0;pointer-events:none;z-index:-1;";
-    frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
-    frame.setAttribute("aria-hidden", "true");
-    rootEl.appendChild(frame);
-    let win;
-    try {
-        win = await (0,_htmlInject__rspack_import_2.bootstrapExtensionFrame)(frame, ext.id);
-    } catch (e) {
-        console.error(`[sapphire] failed to bootstrap background frame for ${ext.manifest.name}`, e);
-        frame.remove();
-        return;
+const MAX_HISTORY = 5000;
+class BrowserData {
+    history = [];
+    bookmarks;
+    closedTabs = [];
+    nextId = 1;
+    nextVisit = 1;
+    loaded = null;
+    saveTimer = null;
+    constructor(){
+        this.bookmarks = BrowserData.emptyTree();
     }
-    const backgroundPath = bgInfo.type === "page" ? bgInfo.page : bgInfo.type === "worker" ? bgInfo.script : bgInfo.scripts[0];
-    const events = (0,_chromeApi__rspack_import_0.installChromeApi)(win, {
-        extId: ext.id,
-        tabId: null,
-        isBackground: true,
-        registry,
-        host,
-        senderUrl: backgroundPath ? (0,_urlScheme__rspack_import_4.chromeExtensionUrl)(ext.id, backgroundPath) : undefined
-    });
-    ext.background = {
-        kind: "frame",
-        frame,
-        events
-    };
-    if (bgInfo.type === "page") {
-        const raw = await (0,_fileStore__rspack_import_1.readExtFileText)(ext.id, bgInfo.page);
-        const html = raw !== null ? await (0,_htmlInject__rspack_import_2.rewriteExtHtml)(ext.id, raw, bgInfo.page) : "<!DOCTYPE html><html><head></head><body></body></html>";
-        (0,_htmlInject__rspack_import_2.writeDocument)(win, html);
-    } else {
-        (0,_htmlInject__rspack_import_2.writeDocument)(win, "<!DOCTYPE html><html><head></head><body></body></html>");
-        const scriptPaths = bgInfo.type === "worker" ? [
-            bgInfo.script
-        ] : bgInfo.scripts;
-        const isModule = bgInfo.type === "worker" && bgInfo.isModule;
-        for (const path of scriptPaths){
-            await (0,_htmlInject__rspack_import_2.injectScriptFromUrl)(win, (0,_urlScheme__rspack_import_4.buildExtensionUrl)(ext.id, path), isModule);
+    static emptyTree() {
+        const now = Date.now();
+        return {
+            id: "0",
+            title: "",
+            dateAdded: now,
+            syncing: false,
+            children: [
+                {
+                    id: "1",
+                    parentId: "0",
+                    index: 0,
+                    title: "Bookmarks bar",
+                    dateAdded: now,
+                    folderType: "bookmarks-bar",
+                    syncing: false,
+                    children: []
+                },
+                {
+                    id: "2",
+                    parentId: "0",
+                    index: 1,
+                    title: "Other bookmarks",
+                    dateAdded: now,
+                    folderType: "other",
+                    syncing: false,
+                    children: []
+                }
+            ]
+        };
+    }
+    load() {
+        if (!this.loaded) {
+            this.loaded = (async ()=>{
+                const stored = await (0,_db__rspack_import_0.dbGet)(_db__rspack_import_0.EXT_STATE_STORE, "__browser/data").catch(()=>undefined);
+                if (stored) {
+                    this.history = stored.history ?? [];
+                    this.bookmarks = stored.bookmarks ?? BrowserData.emptyTree();
+                    this.nextId = stored.nextId ?? 100;
+                    this.nextVisit = stored.nextVisit ?? 1;
+                } else {
+                    this.nextId = 100;
+                }
+            })();
+        }
+        return this.loaded;
+    }
+    save() {
+        if (this.saveTimer) return;
+        this.saveTimer = setTimeout(()=>{
+            this.saveTimer = null;
+            void (0,_db__rspack_import_0.dbPut)(_db__rspack_import_0.EXT_STATE_STORE, "__browser/data", {
+                history: this.history,
+                bookmarks: this.bookmarks,
+                nextId: this.nextId,
+                nextVisit: this.nextVisit
+            }).catch(()=>{});
+        }, 500);
+    }
+    id() {
+        return String(this.nextId++);
+    }
+    recordVisit(url, title, transition = "link") {
+        const now = Date.now();
+        let item = this.history.find((h)=>h.url === url);
+        const isNew = !item;
+        if (!item) {
+            item = {
+                id: this.id(),
+                url,
+                title,
+                lastVisitTime: now,
+                visitCount: 0,
+                typedCount: 0,
+                visits: []
+            };
+            this.history.unshift(item);
+            if (this.history.length > MAX_HISTORY) this.history.length = MAX_HISTORY;
+        }
+        item.visitCount++;
+        item.lastVisitTime = now;
+        if (title) item.title = title;
+        if (transition === "typed") item.typedCount++;
+        item.visits.push({
+            visitId: String(this.nextVisit++),
+            visitTime: now,
+            referringVisitId: "0",
+            transition
+        });
+        if (item.visits.length > 50) item.visits.splice(0, item.visits.length - 50);
+        this.history.sort((a, b)=>b.lastVisitTime - a.lastVisitTime);
+        this.save();
+        return {
+            item,
+            isNew
+        };
+    }
+    updateTitle(url, title) {
+        const item = this.history.find((h)=>h.url === url);
+        if (item && title && item.title !== title) {
+            item.title = title;
+            this.save();
         }
     }
-    events.runtimeOnInstalled.fire({
-        reason: "install"
-    });
-    events.runtimeOnStartup.fire();
+    findBookmark(id, node = this.bookmarks) {
+        if (node.id === id) return node;
+        for (const child of node.children ?? []){
+            const found = this.findBookmark(id, child);
+            if (found) return found;
+        }
+        return null;
+    }
+    walkBookmarks(fn, node = this.bookmarks) {
+        fn(node);
+        for (const child of node.children ?? [])this.walkBookmarks(fn, child);
+    }
+    reindex(parent) {
+        (parent.children ?? []).forEach((c, i)=>c.index = i);
+    }
 }
 
 
 },
-"./node_modules/@x8r/sapphire/src/chromeApi.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+"./node_modules/@x8r/sapphire/src/capture.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  buildTabObject: () => (buildTabObject),
-  installChromeApi: () => (installChromeApi)
+  captureVisibleTab: () => (captureVisibleTab)
 });
-/* import */ var _autoStub__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/autoStub.ts");
-/* import */ var _db__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/db.ts");
-/* import */ var _fileStore__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/fileStore.ts");
-/* import */ var _registry__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/registry.ts");
-/* import */ var _dnr__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/dnr.ts");
-/* import */ var _eventHub__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/eventHub.ts");
-/* import */ var _htmlInject__rspack_import_6 = __webpack_require__("./node_modules/@x8r/sapphire/src/htmlInject.ts");
-/* import */ var _urlScheme__rspack_import_7 = __webpack_require__("./node_modules/@x8r/sapphire/src/urlScheme.ts");
+/* import */ var _realm__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
 
-
-
-
-
-
-
-
-let sapphireTraceCallCounter = 0;
-function sapphireTraceLog(...args) {
-    if (globalThis.SAPPHIRE_TRACE) console.debug("[sapphire-trace]", ...args);
-}
-function traceCalls(obj, path = "") {
-    return new Proxy(obj, {
-        get (target, prop, receiver) {
-            const value = Reflect.get(target, prop, receiver);
-            if (typeof prop !== "string") return value;
-            const fullPath = path ? `${path}.${prop}` : prop;
-            if (typeof value === "function") {
-                return new Proxy(value, {
-                    apply (fnTarget, thisArg, args) {
-                        const callId = ++sapphireTraceCallCounter;
-                        sapphireTraceLog(`#${callId} call ${fullPath}(`, args, `)`);
-                        const result = Reflect.apply(fnTarget, thisArg, args);
-                        if (result && typeof result.then === "function") {
-                            result.then((r)=>sapphireTraceLog(`#${callId} resolved ${fullPath} =>`, r), (e)=>sapphireTraceLog(`#${callId} REJECTED ${fullPath} =>`, e));
-                        }
-                        return result;
-                    },
-                    get (fnTarget, fnProp, fnReceiver) {
-                        const fnValue = Reflect.get(fnTarget, fnProp, fnReceiver);
-                        if (typeof fnProp !== "string") return fnValue;
-                        if (typeof fnValue === "object" && fnValue !== null) return traceCalls(fnValue, `${fullPath}.${fnProp}`);
-                        return fnValue;
-                    }
-                });
-            }
-            if (value && typeof value === "object") return traceCalls(value, fullPath);
-            return value;
-        }
-    });
-}
-function cloneForRealm(realm, value) {
-    if (!realm) return value;
-    try {
-        return realm.structuredClone(value);
-    } catch  {
-        return value;
+/**
+ * tabs.captureVisibleTab. A page can't screenshot another frame by itself, so
+ * this asks the host first and otherwise falls back to getDisplayMedia (which
+ * prompts the user) and crops to the tab's iframe.
+ */ async function captureVisibleTab(s, tabId, format, quality) {
+    if (s.host.captureTab) {
+        const url = await s.host.captureTab(tabId, format, quality);
+        if (url) return url;
     }
-}
-function buildTabObject(host, tabId, realm) {
-    if (tabId === null) return null;
-    const tab = host.getTab(tabId);
-    if (!tab) return null;
-    const activeId = host.getActiveTabId?.() ?? null;
-    const obj = {
-        id: tab.id,
-        index: Math.max(0, tab.id - 1),
-        windowId: tab.windowId,
-        highlighted: tab.active,
-        active: tab.active || tab.id === activeId,
-        pinned: false,
-        audible: false,
-        discarded: false,
-        autoDiscardable: false,
-        mutedInfo: {
-            muted: false
-        },
-        url: tab.url,
-        title: tab.title,
-        favIconUrl: "",
-        status: "complete",
-        incognito: false,
-        width: 800,
-        height: 600
-    };
-    return cloneForRealm(realm, obj);
-}
-function openUrlInTab(host, tabId, url) {
-    const decoded = (0,_urlScheme__rspack_import_7.decodeSapphireUrl)(url);
-    if (decoded) {
-        host.openExtensionTab?.(decoded.extId, decoded.path, tabId);
-    } else {
-        host.navigateTab?.(tabId, url);
-    }
-}
-async function captureVisibleTabViaDisplayMedia(targetWin) {
-    if (!navigator.mediaDevices?.getDisplayMedia) return null;
+    if (!navigator.mediaDevices?.getDisplayMedia) throw new _realm__rspack_import_0.ApiError("Failed to capture tab: capture is not supported.");
     let stream = null;
     try {
         stream = await navigator.mediaDevices.getDisplayMedia({
@@ -669,8 +5204,6 @@ async function captureVisibleTabViaDisplayMedia(targetWin) {
             },
             preferCurrentTab: true
         });
-        const track = stream.getVideoTracks()[0];
-        if (!track) return null;
         const video = document.createElement("video");
         video.srcObject = stream;
         video.muted = true;
@@ -682,1330 +5215,19 @@ async function captureVisibleTabViaDisplayMedia(targetWin) {
             });
         });
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return null;
-        ctx.drawImage(video, 0, 0);
-        const frameElement = targetWin?.frameElement;
-        if (frameElement) {
-            const rect = frameElement.getBoundingClientRect();
-            const scaleX = video.videoWidth / window.innerWidth;
-            const scaleY = video.videoHeight / window.innerHeight;
-            const cropCanvas = document.createElement("canvas");
-            cropCanvas.width = Math.max(1, Math.round(rect.width * scaleX));
-            cropCanvas.height = Math.max(1, Math.round(rect.height * scaleY));
-            const cropCtx = cropCanvas.getContext("2d");
-            if (cropCtx) {
-                cropCtx.drawImage(canvas, rect.left * scaleX, rect.top * scaleY, rect.width * scaleX, rect.height * scaleY, 0, 0, cropCanvas.width, cropCanvas.height);
-                return cropCanvas.toDataURL("image/png");
-            }
-        }
-        return canvas.toDataURL("image/png");
+        const frameEl = tabId !== null ? s.host.getTabWindow?.(tabId)?.frameElement : null;
+        const scaleX = video.videoWidth / window.innerWidth;
+        const scaleY = video.videoHeight / window.innerHeight;
+        const rect = frameEl?.getBoundingClientRect() ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+        canvas.width = Math.max(1, Math.round(rect.width * scaleX));
+        canvas.height = Math.max(1, Math.round(rect.height * scaleY));
+        canvas.getContext("2d")?.drawImage(video, rect.left * scaleX, rect.top * scaleY, rect.width * scaleX, rect.height * scaleY, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL(format, quality !== undefined ? quality / 100 : undefined);
     } catch (e) {
-        console.warn("[sapphire] captureVisibleTab: getDisplayMedia failed or was cancelled", e);
-        return null;
+        throw new _realm__rspack_import_0.ApiError(`Failed to capture tab: ${e?.message ?? e}`);
     } finally{
         stream?.getTracks().forEach((t)=>t.stop());
     }
-}
-function generateDocumentId() {
-    return typeof crypto?.randomUUID === "function" ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).slice(2).padEnd(32, "0");
-}
-function originOf(url) {
-    if (!url) return undefined;
-    try {
-        const parsed = new URL(url);
-        return parsed.protocol === "chrome-extension:" ? `chrome-extension://${parsed.hostname}` : parsed.origin;
-    } catch  {
-        return undefined;
-    }
-}
-function dispatchMessage(hubs, message, sender) {
-    return new Promise((resolve)=>{
-        queueMicrotask(()=>dispatchMessageNow(hubs, message, sender, resolve));
-    });
-}
-function dispatchMessageNow(hubs, message, sender, resolve) {
-    let responded = false;
-    const sendResponse = (resp)=>{
-        sapphireTraceLog("sendResponse called with", resp, "already responded:", responded, "for", message);
-        if (responded) return;
-        responded = true;
-        resolve(resp);
-    };
-    const listeners = hubs.flatMap((hub)=>hub.snapshot());
-    if (listeners.length === 0) {
-        console.warn("[sapphire] runtime.sendMessage: no onMessage listeners registered yet for this extension", message);
-    }
-    let anyAsync = false;
-    for (const [i, fn] of listeners.entries()){
-        sapphireTraceLog(`dispatchMessage listener #${i} invoked for`, message);
-        const result = fn(message, sender, sendResponse);
-        sapphireTraceLog(`dispatchMessage listener #${i} returned`, result, "responded so far:", responded);
-        if (result === true) {
-            anyAsync = true;
-        } else if (result && typeof result.then === "function") {
-            anyAsync = true;
-            result.then((r)=>{
-                sapphireTraceLog(`dispatchMessage listener #${i} thenable resolved`, r);
-                sendResponse(r);
-            }, (e)=>{
-                sapphireTraceLog(`dispatchMessage listener #${i} thenable REJECTED`, e);
-                sendResponse(undefined);
-            });
-        } else if (!responded) {
-            console.debug("[sapphire] runtime.sendMessage: a listener ran but didn't signal it would respond (returned", result, ") — treating as not handled", message);
-        }
-    }
-    if (!anyAsync && !responded) sendResponse(undefined);
-}
-async function storageGet(extId, area, keys) {
-    const result = {};
-    const allKeys = await (0,_db__rspack_import_1.dbGetAllKeys)(_db__rspack_import_1.EXT_STORAGE_STORE);
-    const prefix = `${extId}/${area}/`;
-    const relevant = allKeys.filter((k)=>typeof k === "string" && k.startsWith(prefix));
-    for (const k of relevant){
-        const shortKey = k.slice(prefix.length);
-        let include = false;
-        if (keys === null || keys === undefined) include = true;
-        else if (typeof keys === "string") include = shortKey === keys;
-        else if (Array.isArray(keys)) include = keys.includes(shortKey);
-        else if (typeof keys === "object") include = shortKey in keys;
-        if (include) result[shortKey] = await (0,_db__rspack_import_1.dbGet)(_db__rspack_import_1.EXT_STORAGE_STORE, k);
-    }
-    if (typeof keys === "object" && keys !== null && !Array.isArray(keys)) {
-        for (const [k, v] of Object.entries(keys)){
-            if (!(k in result)) result[k] = v;
-        }
-    }
-    return result;
-}
-async function storageSet(extId, area, items) {
-    for (const [key, value] of Object.entries(items)){
-        await (0,_db__rspack_import_1.dbPut)(_db__rspack_import_1.EXT_STORAGE_STORE, `${extId}/${area}/${key}`, value);
-    }
-}
-async function storageRemove(extId, area, keys) {
-    const arr = Array.isArray(keys) ? keys : [
-        keys
-    ];
-    for (const key of arr){
-        await (0,_db__rspack_import_1.dbDelete)(_db__rspack_import_1.EXT_STORAGE_STORE, `${extId}/${area}/${key}`);
-    }
-}
-async function storageClear(extId, area) {
-    const allKeys = await (0,_db__rspack_import_1.dbGetAllKeys)(_db__rspack_import_1.EXT_STORAGE_STORE);
-    const prefix = `${extId}/${area}/`;
-    for (const k of allKeys.filter((key)=>typeof key === "string" && key.startsWith(prefix))){
-        await (0,_db__rspack_import_1.dbDelete)(_db__rspack_import_1.EXT_STORAGE_STORE, k);
-    }
-}
-async function storageGetKeys(extId, area) {
-    const allKeys = await (0,_db__rspack_import_1.dbGetAllKeys)(_db__rspack_import_1.EXT_STORAGE_STORE);
-    const prefix = `${extId}/${area}/`;
-    return allKeys.filter((k)=>typeof k === "string" && k.startsWith(prefix)).map((k)=>k.slice(prefix.length));
-}
-function makeStorageArea(extId, area, realm) {
-    return {
-        get: (keys, cb)=>{
-            const p = storageGet(extId, area, keys).then((result)=>cloneForRealm(realm, result));
-            if (cb) p.then(cb);
-            return p;
-        },
-        set: (items, cb)=>{
-            const p = storageSet(extId, area, items);
-            if (cb) p.then(cb);
-            return p;
-        },
-        remove: (keys, cb)=>{
-            const p = storageRemove(extId, area, keys);
-            if (cb) p.then(cb);
-            return p;
-        },
-        clear: (cb)=>{
-            const p = storageClear(extId, area);
-            if (cb) p.then(cb);
-            return p;
-        },
-        getBytesInUse: (_keys, cb)=>{
-            const result = 0;
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getKeys: (cb)=>{
-            const p = storageGetKeys(extId, area);
-            if (cb) p.then(cb);
-            return p;
-        }
-    };
-}
-function installChromeApi(realm, opts) {
-    const { extId, tabId, isBackground, registry, host, skipTabRegistration, senderUrl, senderFrameId, senderDocumentId } = opts;
-    const ext = registry.get(extId);
-    if (!ext) throw new Error(`sapphire: installChromeApi called for unknown extension ${extId}`);
-    const events = (0,_registry__rspack_import_3.createRealmEvents)();
-    if (isBackground) {} else if (tabId !== null && !skipTabRegistration) {
-        ext.tabEvents.set(tabId, events);
-    }
-    let portIdCounter = 0;
-    const runtime = {
-        id: extId,
-        getManifest: ()=>ext.manifest,
-        getURL: (path)=>(0,_urlScheme__rspack_import_7.chromeExtensionUrl)(extId, path == null ? "" : String(path)),
-        sendMessage: (extIdOrMsg, msgOrOpts, optsOrCb, maybeCb)=>{
-            let targetExt;
-            let message;
-            let callback;
-            if (typeof extIdOrMsg === "object") {
-                message = extIdOrMsg;
-                callback = msgOrOpts;
-                targetExt = extId;
-            } else if (typeof extIdOrMsg === "string" && typeof msgOrOpts === "object") {
-                targetExt = extIdOrMsg;
-                message = msgOrOpts;
-                callback = typeof optsOrCb === "function" ? optsOrCb : maybeCb;
-            } else {
-                message = extIdOrMsg;
-                callback = msgOrOpts;
-                targetExt = extId;
-            }
-            const target = registry.get(targetExt);
-            const hubs = [
-                target?.background?.events.runtimeOnMessage,
-                target?.popupEvents?.runtimeOnMessage
-            ].filter((h)=>h !== undefined);
-            if (hubs.length === 0) {
-                if (callback) {
-                    callback(undefined);
-                    return undefined;
-                }
-                return Promise.resolve(undefined);
-            }
-            const sender = {
-                id: extId,
-                url: senderUrl,
-                origin: originOf(senderUrl),
-                frameId: senderFrameId,
-                documentId: senderDocumentId,
-                tab: tabId !== null ? buildTabObject(host, tabId, realm) : undefined
-            };
-            const responsePromise = dispatchMessage(hubs, message, sender).then((resp)=>cloneForRealm(realm, resp));
-            if (callback) {
-                void responsePromise.then(callback);
-                return undefined;
-            }
-            return responsePromise;
-        },
-        onMessage: events.runtimeOnMessage.toApi(),
-        onInstalled: events.runtimeOnInstalled.toApi(),
-        onStartup: events.runtimeOnStartup.toApi(),
-        onConnect: events.runtimeOnConnect.toApi(),
-        connect: (extIdOrInfo, maybeInfo)=>{
-            const targetExt = typeof extIdOrInfo === "string" ? extIdOrInfo : extId;
-            const connectInfo = typeof extIdOrInfo === "string" ? maybeInfo : extIdOrInfo;
-            const name = connectInfo?.name ?? "";
-            const portId = `port_${++portIdCounter}`;
-            const callerSide = {
-                onMessage: new _eventHub__rspack_import_5.EventHub(),
-                onDisconnect: new _eventHub__rspack_import_5.EventHub()
-            };
-            const remoteSide = {
-                onMessage: new _eventHub__rspack_import_5.EventHub(),
-                onDisconnect: new _eventHub__rspack_import_5.EventHub()
-            };
-            const disconnectBoth = ()=>{
-                callerSide.onDisconnect.fire();
-                remoteSide.onDisconnect.fire();
-                ext.ports.delete(portId);
-            };
-            const sender = {
-                id: extId,
-                url: senderUrl,
-                origin: originOf(senderUrl),
-                frameId: senderFrameId,
-                documentId: senderDocumentId,
-                tab: tabId !== null ? buildTabObject(host, tabId, realm) : undefined
-            };
-            let callerPort;
-            let remotePort;
-            callerPort = {
-                name,
-                sender,
-                postMessage: (msg)=>remoteSide.onMessage.fire(msg, remotePort),
-                disconnect: disconnectBoth,
-                onMessage: callerSide.onMessage.toApi(),
-                onDisconnect: callerSide.onDisconnect.toApi()
-            };
-            remotePort = {
-                name,
-                sender,
-                postMessage: (msg)=>callerSide.onMessage.fire(msg, callerPort),
-                disconnect: disconnectBoth,
-                onMessage: remoteSide.onMessage.toApi(),
-                onDisconnect: remoteSide.onDisconnect.toApi()
-            };
-            const record = {
-                id: portId,
-                name,
-                extId: targetExt,
-                remote: remoteSide
-            };
-            ext.ports.set(portId, record);
-            const target = registry.get(targetExt);
-            target?.background?.events.runtimeOnConnect.fire(remotePort);
-            return callerPort;
-        },
-        lastError: null,
-        getPlatformInfo: (cb)=>{
-            const result = {
-                os: "linux",
-                arch: "x86-64",
-                nacl_arch: "x86_64"
-            };
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        openOptionsPage: (cb)=>{
-            const page = ext.manifest.options_page ?? ext.manifest.options_ui?.page;
-            if (page) host.openExtensionTab?.(extId, page, tabId);
-            cb?.();
-        },
-        setUninstallURL: (_url, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        requestUpdateCheck: (cb)=>{
-            cb?.("no_update", {});
-            return Promise.resolve({
-                status: "no_update",
-                details: {}
-            });
-        }
-    };
-    const storage = {
-        local: makeStorageArea(extId, "local", realm),
-        sync: makeStorageArea(extId, "sync", realm),
-        session: makeStorageArea(extId, "session", realm),
-        managed: makeStorageArea(extId, "managed", realm),
-        onChanged: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const tabs = {
-        query: (queryInfo = {}, cb)=>{
-            const active = host.getActiveTabId?.();
-            const result = host.getAllTabs().filter((t)=>{
-                if (queryInfo.active !== undefined && queryInfo.active !== (t.id === active)) return false;
-                if (queryInfo.url && !t.url.includes(queryInfo.url)) return false;
-                return true;
-            }).map((t)=>buildTabObject(host, t.id, realm));
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        get: (id, cb)=>{
-            const tab = buildTabObject(host, id, realm);
-            cb?.(tab);
-            return Promise.resolve(tab);
-        },
-        getCurrent: (cb)=>{
-            const tab = buildTabObject(host, tabId, realm);
-            cb?.(tab);
-            return Promise.resolve(tab);
-        },
-        create: (createProps = {}, cb)=>{
-            if (createProps.url) openUrlInTab(host, null, createProps.url);
-            const tab = buildTabObject(host, tabId, realm);
-            cb?.(tab);
-            return Promise.resolve(tab);
-        },
-        update: (tabIdOrProps, updatePropsOrCb, maybeCb)=>{
-            const targetTabId = typeof tabIdOrProps === "number" ? tabIdOrProps : tabId;
-            const updateProps = typeof tabIdOrProps === "number" ? updatePropsOrCb : tabIdOrProps;
-            const cb = typeof updatePropsOrCb === "function" ? updatePropsOrCb : maybeCb;
-            if (updateProps?.url) openUrlInTab(host, targetTabId, updateProps.url);
-            const tab = buildTabObject(host, targetTabId, realm);
-            cb?.(tab);
-            return Promise.resolve(tab);
-        },
-        remove: (_tabIds, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        sendMessage: (targetTabId, message, optsOrCb, maybeCb)=>{
-            const callback = typeof optsOrCb === "function" ? optsOrCb : typeof maybeCb === "function" ? maybeCb : undefined;
-            const targetEvents = ext.tabEvents.get(targetTabId);
-            if (!targetEvents) {
-                if (callback) {
-                    callback(undefined);
-                    return undefined;
-                }
-                return Promise.resolve(undefined);
-            }
-            const sender = {
-                id: extId,
-                url: senderUrl,
-                frameId: senderFrameId,
-                documentId: senderDocumentId,
-                tab: buildTabObject(host, tabId, realm)
-            };
-            const responsePromise = dispatchMessage([
-                targetEvents.runtimeOnMessage
-            ], message, sender).then((resp)=>cloneForRealm(realm, resp));
-            if (callback) {
-                void responsePromise.then(callback);
-                return undefined;
-            }
-            return responsePromise;
-        },
-        onCreated: events.tabsOnCreated.toApi(),
-        onUpdated: events.tabsOnUpdated.toApi(),
-        onRemoved: events.tabsOnRemoved.toApi(),
-        onActivated: events.tabsOnActivated.toApi(),
-        executeScript: (tabIdOrDetails, detailsOrCb, maybeCb)=>{
-            const actualTabId = typeof tabIdOrDetails === "number" ? tabIdOrDetails : tabId;
-            const details = typeof tabIdOrDetails === "object" ? tabIdOrDetails : detailsOrCb;
-            const cb = typeof detailsOrCb === "function" ? detailsOrCb : maybeCb;
-            const win = actualTabId !== null ? host.getTabWindow?.(actualTabId) : null;
-            let result = [];
-            if (win && details?.code) {
-                try {
-                    result = [
-                        win.eval(details.code)
-                    ];
-                } catch  {
-                    result = [];
-                }
-            }
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        insertCSS: (tabIdOrDetails, detailsOrCb, maybeCb)=>{
-            const actualTabId = typeof tabIdOrDetails === "number" ? tabIdOrDetails : tabId;
-            const details = typeof tabIdOrDetails === "object" ? tabIdOrDetails : detailsOrCb;
-            const cb = typeof detailsOrCb === "function" ? detailsOrCb : maybeCb;
-            const win = actualTabId !== null ? host.getTabWindow?.(actualTabId) : null;
-            if (win && details?.code) injectCss(win, details.code);
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        captureVisibleTab: (windowIdOrOpts, optsOrCb, maybeCb)=>{
-            const cb = typeof windowIdOrOpts === "function" ? windowIdOrOpts : typeof optsOrCb === "function" ? optsOrCb : maybeCb;
-            const targetWin = tabId !== null ? host.getTabWindow?.(tabId) ?? null : null;
-            const p = captureVisibleTabViaDisplayMedia(targetWin);
-            p.then(cb);
-            return p;
-        },
-        TAB_ID_NONE: -1
-    };
-    const windows = {
-        getCurrent: (cb)=>{
-            const w = {
-                id: 1,
-                focused: true,
-                type: "normal",
-                state: "normal"
-            };
-            cb?.(w);
-            return Promise.resolve(w);
-        },
-        getAll: (cb)=>{
-            const all = [
-                {
-                    id: 1,
-                    focused: true,
-                    type: "normal",
-                    state: "normal"
-                }
-            ];
-            cb?.(all);
-            return Promise.resolve(all);
-        },
-        create: (createData = {}, cb)=>{
-            if (createData.url) host.navigateTab?.(null, createData.url);
-            const w = {
-                id: 1,
-                focused: true,
-                type: "normal",
-                state: "normal"
-            };
-            cb?.(w);
-            return Promise.resolve(w);
-        },
-        onFocusChanged: new _eventHub__rspack_import_5.EventHub().toApi(),
-        WINDOW_ID_NONE: -1,
-        WINDOW_ID_CURRENT: -2
-    };
-    const i18n = {
-        getMessage: (messageName, substitutions)=>{
-            const msg = ext.messages[messageName];
-            if (!msg) return "";
-            let text = msg.message ?? "";
-            if (substitutions) {
-                const subs = Array.isArray(substitutions) ? substitutions : [
-                    substitutions
-                ];
-                subs.forEach((s, i)=>{
-                    text = text.replace(new RegExp(`\\$${i + 1}`, "g"), s);
-                });
-            }
-            return text;
-        },
-        getUILanguage: ()=>realm.navigator.language || "en",
-        detectLanguage: (_text, cb)=>{
-            const result = {
-                isReliable: false,
-                languages: []
-            };
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getAcceptLanguage: (cb)=>{
-            const result = [
-                realm.navigator.language || "en"
-            ];
-            cb?.(result);
-            return Promise.resolve(result);
-        }
-    };
-    const contextMenus = {
-        create: (props, cb)=>{
-            const id = props.id ?? Math.random().toString(36).slice(2);
-            ext.contextMenuItems.push({
-                id,
-                title: props.title,
-                contexts: props.contexts ?? [
-                    "all"
-                ]
-            });
-            cb?.();
-            return id;
-        },
-        update: (id, props, cb)=>{
-            const item = ext.contextMenuItems.find((i)=>i.id === id);
-            if (item) Object.assign(item, props);
-            cb?.();
-        },
-        remove: (id, cb)=>{
-            const idx = ext.contextMenuItems.findIndex((i)=>i.id === id);
-            if (idx > -1) ext.contextMenuItems.splice(idx, 1);
-            cb?.();
-        },
-        removeAll: (cb)=>{
-            ext.contextMenuItems.length = 0;
-            cb?.();
-        },
-        onClicked: events.contextMenusOnClicked.toApi()
-    };
-    const notifications = {
-        create: (idOrOptions, optionsOrCb, maybeCb)=>{
-            const notifId = typeof idOrOptions === "string" ? idOrOptions : `notif_${Date.now()}`;
-            const options = typeof idOrOptions === "string" ? optionsOrCb : idOrOptions;
-            const cb = typeof optionsOrCb === "function" ? optionsOrCb : maybeCb;
-            host.showNotification?.(options?.title ?? ext.manifest.name, options?.message ?? "");
-            cb?.(notifId);
-            return notifId;
-        },
-        update: (_id, _options, cb)=>{
-            const result = true;
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        clear: (_id, cb)=>{
-            const result = true;
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getAll: (cb)=>{
-            const result = {};
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        onClicked: events.notificationsOnClicked.toApi(),
-        onClosed: events.notificationsOnClosed.toApi(),
-        onButtonClicked: events.notificationsOnButtonClicked.toApi()
-    };
-    const cookies = {
-        get: (details, cb)=>{
-            const win = tabId !== null ? host.getTabWindow?.(tabId) : realm;
-            let val = null;
-            try {
-                const all = win?.document?.cookie?.split(";") ?? [];
-                const found = all.find((c)=>c.trim().startsWith(`${details.name}=`));
-                if (found) {
-                    const value = found.split("=").slice(1).join("=").trim();
-                    val = {
-                        name: details.name,
-                        value,
-                        domain: details.domain ?? "",
-                        path: "/"
-                    };
-                }
-            } catch  {}
-            cb?.(val);
-            return val;
-        },
-        set: (details, cb)=>{
-            const win = tabId !== null ? host.getTabWindow?.(tabId) : realm;
-            try {
-                let c = `${details.name}=${details.value}`;
-                if (details.path) c += `;path=${details.path}`;
-                if (details.domain) c += `;domain=${details.domain}`;
-                if (win) win.document.cookie = c;
-            } catch  {}
-            cb?.();
-        },
-        getAll: (_details, cb)=>{
-            const result = [];
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        remove: (_details, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        onChanged: events.cookiesOnChanged.toApi()
-    };
-    function mkWebRequestEvent() {
-        const hub = new _eventHub__rspack_import_5.EventHub();
-        return {
-            addListener: (fn, _filter, _extraInfoSpec)=>hub.addListener(fn),
-            removeListener: hub.removeListener,
-            hasListener: hub.hasListener
-        };
-    }
-    const webRequest = {
-        onBeforeRequest: mkWebRequestEvent(),
-        onBeforeSendHeaders: mkWebRequestEvent(),
-        onSendHeaders: mkWebRequestEvent(),
-        onHeadersReceived: mkWebRequestEvent(),
-        onCompleted: mkWebRequestEvent(),
-        onErrorOccurred: mkWebRequestEvent(),
-        onBeforeRedirect: mkWebRequestEvent(),
-        handlerBehaviorChanged: (cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        }
-    };
-    const declarativeNetRequest = {
-        updateDynamicRules: (options, cb)=>{
-            if (options.removeRuleIds) {
-                ext.dynamicRules = ext.dynamicRules.filter((r)=>!options.removeRuleIds.includes(r.id));
-            }
-            if (options.addRules) ext.dynamicRules.push(...options.addRules);
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        getDynamicRules: (filterOrCb, maybeCb)=>{
-            const filter = typeof filterOrCb === "function" ? undefined : filterOrCb;
-            const cb = typeof filterOrCb === "function" ? filterOrCb : maybeCb;
-            const rules = filter?.ruleIds ? ext.dynamicRules.filter((r)=>filter.ruleIds.includes(r.id)) : ext.dynamicRules;
-            cb?.(rules);
-            return Promise.resolve(rules);
-        },
-        updateSessionRules: (_options, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        getSessionRules: (filterOrCb, maybeCb)=>{
-            const cb = typeof filterOrCb === "function" ? filterOrCb : maybeCb;
-            cb?.([]);
-            return Promise.resolve([]);
-        },
-        isRegexSupported: (_opts, cb)=>{
-            const result = {
-                isSupported: true
-            };
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        testMatchOutcome: (_req, cb)=>{
-            const result = {
-                matchedRules: []
-            };
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getAvailableRulesets: (cb)=>{
-            const ids = [
-                ...ext.rulesetRules.keys()
-            ];
-            cb?.(ids);
-            return Promise.resolve(ids);
-        },
-        getEnabledRulesets: (cb)=>{
-            const ids = [
-                ...ext.enabledRulesetIds
-            ];
-            cb?.(ids);
-            return Promise.resolve(ids);
-        },
-        updateEnabledRulesets: (options, cb)=>{
-            for (const id of options.disableRulesetIds ?? [])ext.enabledRulesetIds.delete(id);
-            for (const id of options.enableRulesetIds ?? []){
-                if (ext.rulesetRules.has(id)) ext.enabledRulesetIds.add(id);
-            }
-            (0,_dnr__rspack_import_4.recomputeStaticRules)(ext);
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        MAX_NUMBER_OF_RULES: 30000,
-        MAX_NUMBER_OF_DYNAMIC_RULES: 5000,
-        GUARANTEED_MINIMUM_STATIC_RULES: 30000
-    };
-    function injectCss(win, css) {
-        try {
-            const doc = win.document;
-            const style = doc.createElement("style");
-            style.textContent = css;
-            (doc.head || doc.documentElement).appendChild(style);
-        } catch  {}
-    }
-    const scripting = {
-        executeScript: async (injection, cb)=>{
-            const targetTabId = injection.target?.tabId ?? tabId;
-            const win = targetTabId !== null ? host.getTabWindow?.(targetTabId) : null;
-            if (win && targetTabId !== null && !win.chrome) {
-                installChromeApi(win, {
-                    extId,
-                    tabId: targetTabId,
-                    isBackground: false,
-                    registry,
-                    host,
-                    senderUrl: host.getTab(targetTabId)?.url,
-                    senderFrameId: 0,
-                    senderDocumentId: generateDocumentId()
-                });
-            }
-            let results = [];
-            if (win && injection.func) {
-                try {
-                    results = [
-                        {
-                            result: injection.func(...injection.args ?? [])
-                        }
-                    ];
-                } catch  {
-                    results = [];
-                }
-            } else if (win && injection.files?.length) {
-                for (const file of injection.files){
-                    const code = await (0,_fileStore__rspack_import_2.readExtFileText)(extId, file);
-                    if (code !== null) (0,_htmlInject__rspack_import_6.injectScript)(win, code);
-                }
-                results = injection.files.map(()=>({
-                        result: undefined
-                    }));
-            }
-            cb?.(results);
-            return Promise.resolve(results);
-        },
-        insertCSS: (injection, cb)=>{
-            const targetTabId = injection.target?.tabId ?? tabId;
-            const win = targetTabId !== null ? host.getTabWindow?.(targetTabId) : null;
-            if (win && injection.css) injectCss(win, injection.css);
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        removeCSS: (_injection, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        registerContentScripts: (scripts, cb)=>{
-            for (const s of scripts){
-                const idx = registry.contentScripts.findIndex((cs)=>cs.extId === extId && cs.id === s.id);
-                const entry = {
-                    extId,
-                    id: s.id,
-                    matches: s.matches ?? [],
-                    excludeMatches: s.excludeMatches ?? [],
-                    js: s.js ?? [],
-                    css: s.css ?? [],
-                    runAt: s.runAt ?? "document_idle",
-                    allFrames: s.allFrames ?? false
-                };
-                if (idx === -1) registry.contentScripts.push(entry);
-                else registry.contentScripts[idx] = entry;
-            }
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        unregisterContentScripts: (filter, cb)=>{
-            for(let i = registry.contentScripts.length - 1; i >= 0; i--){
-                const cs = registry.contentScripts[i];
-                if (cs.extId !== extId || cs.id === undefined) continue;
-                if (filter?.ids && !filter.ids.includes(cs.id)) continue;
-                registry.contentScripts.splice(i, 1);
-            }
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        getRegisteredContentScripts: (filter, cb)=>{
-            const result = registry.contentScripts.filter((cs)=>cs.extId === extId && cs.id !== undefined && (!filter?.ids || filter.ids.includes(cs.id))).map((cs)=>({
-                    id: cs.id,
-                    matches: cs.matches,
-                    excludeMatches: cs.excludeMatches,
-                    js: cs.js,
-                    css: cs.css,
-                    runAt: cs.runAt,
-                    allFrames: cs.allFrames
-                }));
-            cb?.(result);
-            return Promise.resolve(result);
-        }
-    };
-    function makeAction(clickHub) {
-        const extRef = ext;
-        return {
-            setIcon: (details, cb)=>{
-                if (details.imageData) {
-                    extRef.iconUrl = typeof details.imageData === "object" ? Object.values(details.imageData)[0] : details.imageData;
-                    registry.notifyChange();
-                    cb?.();
-                } else if (details.path) {
-                    const p = typeof details.path === "object" ? Object.values(details.path)[0] : details.path;
-                    (0,_fileStore__rspack_import_2.readExtFileURL)(extRef.id, p).then((url)=>{
-                        if (url) extRef.iconUrl = url;
-                        registry.notifyChange();
-                        cb?.();
-                    });
-                } else {
-                    cb?.();
-                }
-            },
-            setTitle: (details, cb)=>{
-                extRef.title = details.title;
-                registry.notifyChange();
-                cb?.();
-            },
-            setBadgeText: (details, cb)=>{
-                extRef.badgeText = details.text ?? "";
-                registry.notifyChange();
-                cb?.();
-            },
-            setBadgeBackgroundColor: (details, cb)=>{
-                extRef.badgeColor = details.color;
-                registry.notifyChange();
-                cb?.();
-            },
-            getBadgeText: (_details, cb)=>{
-                const result = extRef.badgeText;
-                cb?.(result);
-                return Promise.resolve(result);
-            },
-            enable: (_tabId, cb)=>{
-                cb?.();
-                return Promise.resolve(undefined);
-            },
-            disable: (_tabId, cb)=>{
-                cb?.();
-                return Promise.resolve(undefined);
-            },
-            onClicked: clickHub.toApi(),
-            openPopup: (_options, cb)=>{
-                cb?.();
-                return Promise.resolve(undefined);
-            },
-            setPopup: (details, cb)=>{
-                extRef.popupPage = details.popup;
-                registry.notifyChange();
-                cb?.();
-            },
-            getPopup: (_details, cb)=>{
-                const result = extRef.popupPage ?? "";
-                cb?.(result);
-                return Promise.resolve(result);
-            }
-        };
-    }
-    const action = makeAction(events.actionOnClicked);
-    const browserAction = makeAction(events.browserActionOnClicked);
-    const pageAction = makeAction(events.actionOnClicked);
-    const alarms = {
-        create: (nameOrInfo, maybeInfo)=>{
-            const name = typeof nameOrInfo === "string" ? nameOrInfo : "";
-            const alarmInfo = typeof nameOrInfo === "string" ? maybeInfo : nameOrInfo;
-            const existing = ext.alarms.get(name);
-            if (existing) clearTimeout(existing.timer);
-            const delayMs = alarmInfo?.when !== undefined ? Math.max(0, alarmInfo.when - Date.now()) : (alarmInfo?.delayInMinutes ?? 0) * 60000;
-            const periodMs = alarmInfo?.periodInMinutes ? alarmInfo.periodInMinutes * 60000 : null;
-            const scheduledTime = Date.now() + delayMs;
-            const fire = ()=>registry.broadcast(extId, (e)=>e.alarmsOnAlarm, [
-                    {
-                        name,
-                        scheduledTime,
-                        periodInMinutes: alarmInfo?.periodInMinutes
-                    }
-                ]);
-            const timer = periodMs ? setTimeout(()=>{
-                fire();
-                ext.alarms.set(name, {
-                    name,
-                    scheduledTime,
-                    periodInMinutes: alarmInfo?.periodInMinutes,
-                    timer: setInterval(fire, periodMs)
-                });
-            }, delayMs) : setTimeout(fire, delayMs);
-            ext.alarms.set(name, {
-                name,
-                scheduledTime,
-                periodInMinutes: alarmInfo?.periodInMinutes,
-                timer
-            });
-        },
-        get: (name, cb)=>{
-            const alarm = ext.alarms.get(name);
-            cb?.(alarm ? {
-                name,
-                scheduledTime: alarm.scheduledTime,
-                periodInMinutes: alarm.periodInMinutes
-            } : null);
-        },
-        getAll: (cb)=>{
-            const result = [
-                ...ext.alarms.values()
-            ].map((a)=>({
-                    name: a.name,
-                    scheduledTime: a.scheduledTime,
-                    periodInMinutes: a.periodInMinutes
-                }));
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        clear: (name, cb)=>{
-            const alarm = ext.alarms.get(name);
-            if (alarm) clearTimeout(alarm.timer);
-            const existed = ext.alarms.delete(name);
-            cb?.(existed);
-        },
-        clearAll: (cb)=>{
-            for (const alarm of ext.alarms.values())clearTimeout(alarm.timer);
-            ext.alarms.clear();
-            cb?.(true);
-        },
-        onAlarm: events.alarmsOnAlarm.toApi()
-    };
-    const permissions = {
-        request: (_perms, cb)=>{
-            cb?.(true);
-            return Promise.resolve(true);
-        },
-        contains: (_perms, cb)=>{
-            cb?.(true);
-            return Promise.resolve(true);
-        },
-        getAll: (cb)=>{
-            const result = {
-                permissions: ext.manifest.permissions ?? [],
-                origins: ext.manifest.host_permissions ?? []
-            };
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        remove: (_perms, cb)=>{
-            cb?.(true);
-            return Promise.resolve(true);
-        },
-        onAdded: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onRemoved: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const history = {
-        search: (_query, cb)=>{
-            const result = [];
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getVisits: (_details, cb)=>{
-            const result = [];
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        addUrl: (_details, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        deleteUrl: (_details, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        deleteAll: (cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        onVisited: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onVisitRemoved: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const bookmarks = {
-        get: (_idOrList, cb)=>{
-            const result = [];
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getTree: (cb)=>{
-            const result = [
-                {
-                    id: "0",
-                    title: "Bookmarks",
-                    children: []
-                }
-            ];
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        search: (_query, cb)=>{
-            const result = [];
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        create: (bookmark, cb)=>{
-            const result = {
-                id: "0",
-                ...bookmark
-            };
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        remove: (_id, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        onCreated: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onRemoved: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onChanged: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const downloads = {
-        download: (options, cb)=>{
-            try {
-                const doc = realm.document;
-                const a = doc.createElement("a");
-                a.href = options.url;
-                a.download = options.filename ?? "";
-                doc.body.appendChild(a);
-                a.click();
-                a.remove();
-            } catch  {}
-            cb?.(1);
-        },
-        search: (_query, cb)=>{
-            const result = [];
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        pause: (_id, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        resume: (_id, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        cancel: (_id, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        onCreated: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onChanged: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const identity = {
-        getAuthToken: (_details, cb)=>{
-            const result = undefined;
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        launchWebAuthFlow: (_details, cb)=>{
-            const result = undefined;
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getRedirectURL: (path)=>`https://sapphire.invalid/${extId}/${path ?? ""}`,
-        removeCachedAuthToken: (_details, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        }
-    };
-    const commands = {
-        getAll: (cb)=>{
-            const cmds = ext.manifest.commands ?? {};
-            const list = Object.entries(cmds).map(([name, cmd])=>({
-                    name,
-                    description: cmd.description ?? "",
-                    shortcut: cmd.suggested_key?.default ?? ""
-                }));
-            cb?.(list);
-            return Promise.resolve(list);
-        },
-        onCommand: events.commandsOnCommand.toApi()
-    };
-    const omnibox = {
-        setDefaultSuggestion: (_suggestion)=>{},
-        onInputStarted: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onInputChanged: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onInputEntered: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onInputCancelled: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const proxy = {
-        settings: {
-            get: (_details, cb)=>{
-                const result = {
-                    value: {
-                        mode: "direct"
-                    },
-                    levelOfControl: "controlled_by_this_extension"
-                };
-                cb?.(result);
-                return Promise.resolve(result);
-            },
-            set: (_details, cb)=>{
-                cb?.();
-                return Promise.resolve(undefined);
-            },
-            clear: (_details, cb)=>{
-                cb?.();
-                return Promise.resolve(undefined);
-            }
-        },
-        onProxyError: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const system = {
-        cpu: {
-            getInfo: (cb)=>{
-                const result = {
-                    numOfProcessors: 4,
-                    "arch-name": "x86-64",
-                    modelName: "Sapphire vCPU",
-                    features: []
-                };
-                cb?.(result);
-                return Promise.resolve(result);
-            }
-        },
-        memory: {
-            getInfo: (cb)=>{
-                const result = {
-                    capacity: 8 * 1024 * 1024 * 1024,
-                    availableCapacity: 4 * 1024 * 1024 * 1024
-                };
-                cb?.(result);
-                return Promise.resolve(result);
-            }
-        },
-        storage: {
-            getInfo: (cb)=>{
-                cb?.([]);
-                return Promise.resolve([]);
-            }
-        },
-        display: {
-            getInfo: (cb)=>cb?.([
-                    {
-                        id: "0",
-                        isPrimary: true,
-                        isInternal: false,
-                        isEnabled: true,
-                        bounds: {
-                            left: 0,
-                            top: 0,
-                            width: realm.screen.width,
-                            height: realm.screen.height
-                        }
-                    }
-                ])
-        }
-    };
-    const power = {
-        requestKeepAwake: (_level)=>{},
-        releaseKeepAwake: ()=>{}
-    };
-    const management = {
-        getSelf: (cb)=>{
-            const result = {
-                id: extId,
-                name: ext.manifest.name,
-                version: ext.manifest.version ?? "",
-                enabled: ext.enabled,
-                type: "extension"
-            };
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getAll: (cb)=>cb?.(registry.list().map((e)=>({
-                    id: e.id,
-                    name: e.manifest.name,
-                    version: e.manifest.version ?? "",
-                    enabled: e.enabled,
-                    type: "extension"
-                }))),
-        setEnabled: (_id, _enabled, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        uninstallSelf: (_options, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        onEnabled: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onDisabled: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const webNavigation = {
-        getFrame: (_details, cb)=>{
-            const result = null;
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getAllFrames: (_details, cb)=>{
-            const result = [];
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        onBeforeNavigate: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onCommitted: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onCompleted: events.webNavigationOnCompleted.toApi(),
-        onDOMContentLoaded: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onErrorOccurred: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onHistoryStateUpdated: new _eventHub__rspack_import_5.EventHub().toApi(),
-        onReferenceFragmentUpdated: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const tts = {
-        speak: (utterance, options, cb)=>{
-            try {
-                const SpeechSynthesisUtteranceCtor = realm.SpeechSynthesisUtterance;
-                const u = new SpeechSynthesisUtteranceCtor(utterance);
-                if (options?.lang) u.lang = options.lang;
-                if (options?.rate) u.rate = options.rate;
-                if (options?.pitch) u.pitch = options.pitch;
-                if (options?.volume) u.volume = options.volume;
-                realm.speechSynthesis.speak(u);
-            } catch  {}
-            cb?.();
-        },
-        stop: ()=>realm.speechSynthesis?.cancel(),
-        isSpeaking: (cb)=>{
-            const result = realm.speechSynthesis?.speaking ?? false;
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        getVoices: (cb)=>cb?.((realm.speechSynthesis?.getVoices() ?? []).map((v)=>({
-                    voiceName: v.name,
-                    lang: v.lang,
-                    remote: false,
-                    extensionId: ""
-                }))),
-        onEvent: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const clipboard = {
-        setImageData: (_imageData, _type, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        }
-    };
-    const fontSettings = {
-        getFont: (_details, cb)=>{
-            const result = {
-                fontId: "Arial",
-                levelOfControl: "controllable_by_this_extension"
-            };
-            cb?.(result);
-            return Promise.resolve(result);
-        },
-        setFont: (_details, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        clearFont: (_details, cb)=>{
-            cb?.();
-            return Promise.resolve(undefined);
-        },
-        getFontList: (cb)=>{
-            const fonts = [
-                "Arial",
-                "Arial Black",
-                "Comic Sans MS",
-                "Courier New",
-                "Georgia",
-                "Impact",
-                "Segoe UI",
-                "Tahoma",
-                "Times New Roman",
-                "Trebuchet MS",
-                "Verdana"
-            ].map((fontId)=>({
-                    fontId,
-                    displayName: fontId
-                }));
-            cb?.(fonts);
-            return Promise.resolve(fonts);
-        },
-        onFontChanged: new _eventHub__rspack_import_5.EventHub().toApi()
-    };
-    const extensionNs = {
-        getURL: runtime.getURL,
-        getBackgroundPage: ()=>null,
-        isAllowedIncognitoAccess: (cb)=>{
-            cb?.(false);
-            return Promise.resolve(false);
-        },
-        isAllowedFileSchemeAccess: (cb)=>{
-            cb?.(false);
-            return Promise.resolve(false);
-        },
-        onMessage: runtime.onMessage,
-        onMessageExternal: new _eventHub__rspack_import_5.EventHub().toApi(),
-        sendMessage: runtime.sendMessage
-    };
-    const chromeApi = {
-        runtime,
-        storage,
-        tabs,
-        windows,
-        extension: extensionNs,
-        i18n,
-        contextMenus,
-        notifications,
-        cookies,
-        webRequest,
-        declarativeNetRequest,
-        scripting,
-        action,
-        browserAction,
-        pageAction,
-        alarms,
-        permissions,
-        history,
-        bookmarks,
-        downloads,
-        identity,
-        commands,
-        omnibox,
-        contentSettings: {},
-        proxy,
-        system,
-        power,
-        management,
-        webNavigation,
-        tts,
-        clipboard,
-        fontSettings,
-        app: {
-            getDetails: ()=>null,
-            isInstalled: false,
-            InstallState: {
-                DISABLED: "disabled",
-                INSTALLED: "installed",
-                NOT_INSTALLED: "not_installed"
-            },
-            RunningState: {
-                CANNOT_RUN: "cannot_run",
-                READY_TO_RUN: "ready_to_run",
-                RUNNING: "running"
-            }
-        },
-        csi: ()=>({}),
-        loadTimes: ()=>({})
-    };
-    const chromeApiWithFallback = globalThis.SAPPHIRE_TRACE ? traceCalls((0,_autoStub__rspack_import_0.withMissingMemberFallback)(chromeApi)) : (0,_autoStub__rspack_import_0.withMissingMemberFallback)(chromeApi);
-    realm.chrome = chromeApiWithFallback;
-    if (!realm.browser) {
-        realm.browser = chromeApiWithFallback;
-    }
-    return events;
 }
 
 
@@ -2014,145 +5236,709 @@ function installChromeApi(realm, opts) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   findMatchingCommand: () => (findMatchingCommand),
+  shortcutFor: () => (shortcutFor),
+  shortcutMatches: () => (shortcutMatches),
   triggerCommand: () => (triggerCommand)
 });
+const NAMED_KEYS = {
+    comma: [
+        ","
+    ],
+    period: [
+        "."
+    ],
+    home: [
+        "home"
+    ],
+    end: [
+        "end"
+    ],
+    pageup: [
+        "pageup"
+    ],
+    pagedown: [
+        "pagedown"
+    ],
+    space: [
+        " ",
+        "spacebar"
+    ],
+    insert: [
+        "insert"
+    ],
+    delete: [
+        "delete",
+        "del"
+    ],
+    up: [
+        "arrowup",
+        "up"
+    ],
+    down: [
+        "arrowdown",
+        "down"
+    ],
+    left: [
+        "arrowleft",
+        "left"
+    ],
+    right: [
+        "arrowright",
+        "right"
+    ],
+    medianexttrack: [
+        "mediatracknext",
+        "medianexttrack"
+    ],
+    mediaprevioustrack: [
+        "mediatrackprevious",
+        "mediaprevioustrack"
+    ],
+    mediaplaypause: [
+        "mediaplaypause"
+    ],
+    mediastop: [
+        "mediastop"
+    ]
+};
+function isMac() {
+    return /mac/i.test(navigator.platform);
+}
+function shortcutFor(suggested) {
+    if (!suggested) return "";
+    const platform = isMac() ? "mac" : /cros/i.test(navigator.userAgent) ? "chromeos" : /linux/i.test(navigator.platform) ? "linux" : "windows";
+    return suggested[platform] ?? suggested.default ?? "";
+}
+function shortcutMatches(shortcut, e) {
+    if (!shortcut) return false;
+    const parts = shortcut.split("+").map((p)=>p.trim().toLowerCase());
+    const mac = isMac();
+    // On macOS Chrome maps "Ctrl" to Command; "MacCtrl" is the real Control key.
+    const needMeta = mac && (parts.includes("command") || parts.includes("ctrl"));
+    const needCtrl = mac ? parts.includes("macctrl") : parts.includes("ctrl") || parts.includes("command") || parts.includes("macctrl");
+    const key = parts.find((p)=>![
+            "ctrl",
+            "shift",
+            "alt",
+            "command",
+            "macctrl"
+        ].includes(p));
+    if (!key) return false;
+    if (e.ctrlKey !== needCtrl) return false;
+    if (mac && e.metaKey !== needMeta) return false;
+    if (e.shiftKey !== parts.includes("shift") || e.altKey !== parts.includes("alt")) return false;
+    const pressed = e.key.toLowerCase();
+    const candidates = NAMED_KEYS[key] ?? [
+        key
+    ];
+    if (candidates.includes(pressed)) return true;
+    // With Shift/Alt held, `key` is the shifted glyph; fall back to the physical key.
+    if (e.code) {
+        const code = e.code.toLowerCase();
+        if (code === `key${key}` || code === `digit${key}`) return true;
+    }
+    return false;
+}
 function findMatchingCommand(registry, e) {
     for (const ext of registry.list()){
         if (!ext.enabled) continue;
-        const commands = ext.manifest.commands ?? {};
-        for (const [name, cmd] of Object.entries(commands)){
-            const shortcut = cmd.suggested_key?.default ?? cmd.suggested_key?.windows ?? "";
-            if (!shortcut) continue;
-            const parts = shortcut.toLowerCase().split("+").map((s)=>s.trim());
-            const needsCtrl = parts.includes("ctrl");
-            const needsShift = parts.includes("shift");
-            const needsAlt = parts.includes("alt");
-            const key = parts.find((p)=>![
-                    "ctrl",
-                    "shift",
-                    "alt",
-                    "command"
-                ].includes(p));
-            if (key && e.key.toLowerCase() === key && (needsCtrl ? e.ctrlKey || e.metaKey : true) && (needsShift ? e.shiftKey : !e.shiftKey) && (needsAlt ? e.altKey : !e.altKey)) {
-                return {
-                    extId: ext.id,
-                    name
-                };
-            }
+        for (const [name, cmd] of Object.entries(ext.manifest.commands ?? {})){
+            const shortcut = shortcutFor(cmd.suggested_key);
+            if (shortcutMatches(shortcut, e)) return {
+                extId: ext.id,
+                name
+            };
         }
     }
     return null;
 }
-function triggerCommand(registry, extId, name) {
-    registry.broadcast(extId, (e)=>e.commandsOnCommand, [
+function triggerCommand(registry, extId, name, tab) {
+    registry.dispatch(extId, "commands.onCommand", tab === undefined ? [
         name
+    ] : [
+        name,
+        tab
     ]);
 }
 
 
 },
-"./node_modules/@x8r/sapphire/src/contentScripts.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+"./node_modules/@x8r/sapphire/src/compat.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  injectContentScripts: () => (injectContentScripts),
-  registerContentScripts: () => (registerContentScripts),
-  unregisterContentScripts: () => (unregisterContentScripts)
+  compatFor: () => (compatFor)
 });
-/* import */ var _chromeApi__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/chromeApi.ts");
-/* import */ var _fileStore__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/fileStore.ts");
-/* import */ var _htmlInject__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/htmlInject.ts");
-/* import */ var _manifest__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/manifest.ts");
-
-
-
-
-function registerContentScripts(ext, registry) {
-    const scripts = ext.manifest.content_scripts ?? [];
-    for (const cs of scripts){
-        registry.contentScripts.push({
-            extId: ext.id,
-            matches: cs.matches ?? [],
-            excludeMatches: cs.exclude_matches ?? [],
-            js: cs.js ?? [],
-            css: cs.css ?? [],
-            runAt: cs.run_at ?? "document_idle",
-            allFrames: cs.all_frames ?? false
-        });
+// Per-extension web-compat interventions, in the spirit of browsers' site
+// interventions. Sapphire keeps one consistent URL scheme (the https alias
+// origin) for getURL, location, sender.url and tab.url, which is what the vast
+// majority of extensions rely on (they compare these against each other).
+// A few hard-code the literal "chrome-extension://" and need a nudge.
+const TABLE = {
+    // Tampermonkey: `sender.url.indexOf("chrome-extension://") === 0 && sender.origin === location.origin`
+    dhdgffkkebhmkfjojejmpbldmpobfkfo: {
+        senderUrlAsChromeExtension: true
     }
+};
+function compatFor(extId) {
+    return TABLE[extId] ?? {};
 }
-function unregisterContentScripts(extId, registry) {
-    for(let i = registry.contentScripts.length - 1; i >= 0; i--){
-        if (registry.contentScripts[i].extId === extId) registry.contentScripts.splice(i, 1);
+
+
+},
+"./node_modules/@x8r/sapphire/src/content.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  contentContext: () => (contentContext),
+  contentWorldOf: () => (contentWorldOf),
+  executeInWorld: () => (executeInWorld),
+  injectStyle: () => (injectStyle),
+  installContentWorld: () => (installContentWorld),
+  localizeCss: () => (localizeCss),
+  matchingRegistrations: () => (matchingRegistrations),
+  removeStyle: () => (removeStyle),
+  repairFunctionSource: () => (repairFunctionSource),
+  runScript: () => (runScript),
+  startContentScripts: () => (startContentScripts),
+  whenReady: () => (whenReady)
+});
+/* import */ var _api__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/index.ts");
+/* import */ var _matchPatterns__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/matchPatterns.ts");
+/* import */ var _realm__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _storage__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/storage.ts");
+/* import */ var _urls__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
+// Content scripts run in the page's own JS world (Scramjet rewrites them like
+// any inline script, so `location`, `document.cookie`, `fetch('/api')` all
+// behave as on the real site). What Chrome gives them on top — a per-extension
+// `chrome` object while page scripts keep seeing the page's own `window.chrome`
+// — is done with a getter on `window.chrome` that looks at who is asking: each
+// injected script carries a `//# sourceURL=` on its extension's alias origin,
+// and V8 stack frames report that URL, so the calling extension is right there
+// in `new Error().stack`. This also covers `globalThis.chrome` /
+// `window.chrome` lookups (webextension-polyfill checks those) and callbacks
+// that run long after injection.
+
+
+
+
+
+const worlds = new WeakMap();
+/** Everything a content script's `chrome` can hold, across worlds. */ const CONTENT_NAMESPACES = [
+    "runtime",
+    "storage",
+    "i18n",
+    "extension",
+    "dom"
+];
+function contentWorldOf(win) {
+    return worlds.get(win);
+}
+const V8Error = Error;
+function stackExtension() {
+    const holder = {};
+    const limit = V8Error.stackTraceLimit;
+    if (limit < 50) V8Error.stackTraceLimit = 50;
+    V8Error.captureStackTrace(holder);
+    V8Error.stackTraceLimit = limit;
+    const stack = holder.stack ?? "";
+    const suffix = (0,_urls__rspack_import_4.extensionHostSuffix)();
+    let at = stack.indexOf(`.${suffix}/`);
+    while(at !== -1){
+        const start = stack.lastIndexOf("https://", at);
+        if (start !== -1 && at - start - 8 <= 64) {
+            const host = stack.slice(start + 8, at + suffix.length + 1);
+            const extId = (0,_urls__rspack_import_4.isExtensionHost)(host);
+            if (extId) {
+                const pathStart = at + suffix.length + 2;
+                return {
+                    extId,
+                    user: stack.startsWith("__sapphire_user_script__/", pathStart)
+                };
+            }
+        }
+        at = stack.indexOf(`.${suffix}/`, at + 1);
     }
+    // USER_SCRIPT-world bridge files (e.g. an installed userscript manager's own sandboxed
+    // injector) are labeled with a real chrome-extension:// sourceURL, matching what real
+    // Chrome would show for any extension-injected code — some extensions parse their own
+    // call stack expecting exactly that scheme, so it can't use the fake https:// alias
+    // like other isolated-world files do.
+    const marker = "__sapphire_user_script__/";
+    let m = stack.indexOf(`/${marker}`);
+    while(m !== -1){
+        const start = stack.lastIndexOf("chrome-extension://", m);
+        if (start !== -1 && m - start - "chrome-extension://".length <= 64) {
+            const id = stack.slice(start + "chrome-extension://".length, m);
+            if (/^[a-p]{32}$/.test(id)) return {
+                extId: id,
+                user: true
+            };
+        }
+        m = stack.indexOf(`/${marker}`, m + 1);
+    }
+    return null;
 }
-function generateDocumentId() {
-    return typeof crypto?.randomUUID === "function" ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).slice(2).padEnd(32, "0");
-}
-async function injectContentScripts(win, tabId, url, isTopLevel, registry, host) {
-    if (!url) return;
-    const matching = registry.contentScripts.filter((cs)=>(isTopLevel || cs.allFrames) && (0,_manifest__rspack_import_3.urlMatchesPatterns)(url, cs.matches, cs.excludeMatches));
-    if (!matching.length) return;
-    const documentId = generateDocumentId();
-    const frameId = isTopLevel ? 0 : 1;
-    const installedExts = new Set();
-    const ensureChromeApi = (extId)=>{
-        if (installedExts.has(extId)) return;
-        installedExts.add(extId);
-        (0,_chromeApi__rspack_import_0.installChromeApi)(win, {
-            extId,
-            tabId,
-            isBackground: false,
-            registry,
-            host,
-            senderUrl: url,
-            senderFrameId: frameId,
-            senderDocumentId: documentId
-        });
+function installContentWorld(s, win, info) {
+    const existing = worlds.get(win);
+    if (existing && existing.doc === win.document) return existing;
+    let originalChrome;
+    try {
+        originalChrome = win.chrome;
+    } catch  {
+        originalChrome = undefined;
+    }
+    const world = {
+        win,
+        doc: win.document,
+        ...info,
+        contexts: new Map(),
+        injecting: null,
+        originalChrome,
+        styles: [],
+        injectedPhases: new Set(),
+        pageChrome: undefined
     };
-    const byRunAt = {
+    worlds.set(win, world);
+    // window.chrome is a writable but non-configurable data property, so it
+    // can't become an accessor. Its value (the native object holding loadTimes
+    // / csi / app) is an ordinary object though, so each content-script
+    // namespace becomes a per-caller getter on it instead. Page scripts get
+    // back whatever the page itself would have seen.
+    const nativeChrome = originalChrome && typeof originalChrome === "object" ? originalChrome : null;
+    if (nativeChrome) {
+        const pageValues = new Map();
+        for (const name of CONTENT_NAMESPACES){
+            const own = Object.getOwnPropertyDescriptor(nativeChrome, name);
+            if (own && !own.configurable) continue;
+            if (own) pageValues.set(name, own.get ? own.get.call(nativeChrome) : own.value);
+            try {
+                Object.defineProperty(nativeChrome, name, {
+                    configurable: true,
+                    enumerable: false,
+                    get () {
+                        let ctx = world.injecting;
+                        if (!ctx) {
+                            const found = stackExtension();
+                            if (found) ctx = world.contexts.get(found.user ? `${found.extId}:user` : found.extId) ?? null;
+                        }
+                        if (ctx && ctx.alive && ctx.chrome) return ctx.chrome[name];
+                        if (pageValues.has(name)) return pageValues.get(name);
+                        return name === "runtime" ? world.pageChrome?.runtime : undefined;
+                    },
+                    set (value) {
+                        pageValues.set(name, value);
+                    }
+                });
+            } catch (e) {
+                console.warn("[sapphire] could not install chrome." + name + " accessor", e);
+            }
+        }
+    }
+    if (s.registry.contentScripts.some((cs)=>cs.world === "MAIN")) hookDefineProperty(world);
+    world.pageChrome = buildExternallyConnectableChrome(s, world);
+    return world;
+}
+/** The ISOLATED (or USER_SCRIPT) world context for `ext` in this frame. */ function contentContext(s, world, ext, kind = "ISOLATED") {
+    const key = kind === "USER_SCRIPT" ? `${ext.id}:user` : ext.id;
+    const existing = world.contexts.get(key);
+    if (existing && existing.alive) return existing;
+    const ctx = s.registry.createContext({
+        ext,
+        kind: "content",
+        window: world.win,
+        document: world.doc,
+        tabId: world.tabId,
+        frameId: world.frameId,
+        documentId: world.documentId,
+        url: world.url,
+        world: kind
+    });
+    ctx.chrome = (0,_api__rspack_import_0.buildChromeApi)(s, ctx);
+    world.contexts.set(key, ctx);
+    return ctx;
+}
+// ---- script / style injection ------------------------------------------------
+function appendTarget(doc) {
+    return doc.head ?? doc.documentElement ?? null;
+}
+function patchTargets(win) {
+    const w = win;
+    const names = [
+        "Document",
+        "ShadowRoot",
+        "Node",
+        "Element",
+        "HTMLElement",
+        "EventTarget",
+        "CSSStyleSheet",
+        "CustomElementRegistry",
+        "History",
+        "HTMLStyleElement"
+    ];
+    const out = [];
+    for (const n of names){
+        const proto = w[n]?.prototype;
+        if (proto) out.push(proto);
+    }
+    out.push(win);
+    return out;
+}
+function snapshotDescriptors(win) {
+    const map = new Map();
+    for (const target of patchTargets(win)){
+        const keys = new Map();
+        for (const key of Reflect.ownKeys(target)){
+            const d = Object.getOwnPropertyDescriptor(target, key);
+            if (d && d.configurable) keys.set(key, d);
+        }
+        map.set(target, keys);
+    }
+    return map;
+}
+function sameDescriptor(a, b) {
+    return a.value === b.value && a.get === b.get && a.set === b.set;
+}
+/**
+ * A MAIN-world script may monkey-patch DOM prototypes — Dark Reader's proxy
+ * hides its own stylesheets from `document.styleSheets`, for instance. Real
+ * Chrome keeps that from the extension's isolated world. We share one JS
+ * world, so afterwards swap each patched member for a dispatcher: calls that
+ * originate in an extension content script reach the original implementation,
+ * everything else the patch.
+ */ function isolatedCaller(world) {
+    const injecting = world.injecting;
+    if (injecting) return injecting.world !== "MAIN";
+    return stackExtension() !== null;
+}
+/** Descriptor that sends isolated-world callers to `orig` and everyone else to `patched`. */ function dispatchingDescriptor(world, orig, patched) {
+    const dispatch = (fn, original)=>typeof fn === "function" && typeof original === "function" ? new Proxy(fn, {
+            apply (t, thisArg, args) {
+                return Reflect.apply(isolatedCaller(world) ? original : t, thisArg, args);
+            }
+        }) : fn;
+    if (patched.get || patched.set || orig.get || orig.set) {
+        return {
+            configurable: true,
+            enumerable: patched.enumerable,
+            get: dispatch(patched.get, orig.get) ?? orig.get,
+            set: dispatch(patched.set, orig.set) ?? orig.set
+        };
+    }
+    if (typeof patched.value === "function" && typeof orig.value === "function") {
+        return {
+            ...patched,
+            value: dispatch(patched.value, orig.value)
+        };
+    }
+    return null;
+}
+function isolatePatches(world, before) {
+    for (const [target, keys] of before){
+        for (const [key, orig] of keys){
+            const now = Object.getOwnPropertyDescriptor(target, key);
+            if (!now || !now.configurable || sameDescriptor(orig, now)) continue;
+            const wrapped = dispatchingDescriptor(world, orig, now);
+            if (!wrapped) continue;
+            try {
+                Object.defineProperty(target, key, wrapped);
+            } catch  {
+            // frozen or otherwise unpatchable
+            }
+        }
+    }
+}
+/** Patches made later (event handlers, timers) go through Object.defineProperty / Reflect.defineProperty. */ function hookDefineProperty(world) {
+    const win = world.win;
+    const targets = new WeakSet(patchTargets(win));
+    const rewrite = (target, key, desc)=>{
+        if (!target || typeof target !== "object" || !targets.has(target)) return desc;
+        const orig = Object.getOwnPropertyDescriptor(target, key);
+        if (!orig || !orig.configurable) return desc;
+        // Only patches coming from an extension's MAIN-world script need protecting from its own isolated world.
+        const holder = {};
+        V8Error.captureStackTrace(holder);
+        if (!(holder.stack ?? "").includes("chrome-extension://")) return desc;
+        return dispatchingDescriptor(world, orig, desc) ?? desc;
+    };
+    const nativeDefine = win.Object.defineProperty;
+    const nativeReflect = win.Reflect.defineProperty;
+    try {
+        win.Object.defineProperty = new Proxy(nativeDefine, {
+            apply: (t, thisArg, args)=>Reflect.apply(t, thisArg, [
+                    args[0],
+                    args[1],
+                    rewrite(args[0], args[1], args[2])
+                ])
+        });
+        win.Reflect.defineProperty = new Proxy(nativeReflect, {
+            apply: (t, thisArg, args)=>Reflect.apply(t, thisArg, [
+                    args[0],
+                    args[1],
+                    rewrite(args[0], args[1], args[2])
+                ])
+        });
+    } catch  {
+    // ignore
+    }
+}
+function runScript(world, code, sourceUrl, ctx) {
+    const doc = world.win.document;
+    const target = appendTarget(doc);
+    if (!target) return;
+    const previous = world.injecting;
+    world.injecting = ctx;
+    const before = ctx === null ? snapshotDescriptors(world.win) : null;
+    try {
+        const script = doc.createElement("script");
+        script.textContent = `${code}\n//# sourceURL=${sourceUrl}`;
+        target.appendChild(script);
+        script.remove();
+    } catch (e) {
+        console.warn("[sapphire] content script injection failed", sourceUrl, e);
+    } finally{
+        world.injecting = previous;
+        if (before) isolatePatches(world, before);
+    }
+}
+function sourceUrlFor(ext, file, world) {
+    if (world === "MAIN") return `chrome-extension://${ext.id}/${file.replace(/^\/+/, "")}`;
+    // Real chrome-extension:// scheme, matching MAIN world and real Chrome's uniform
+    // treatment of extension-injected code's sourceURL regardless of world — some
+    // extensions (e.g. userscript managers) verify their own call stack against that
+    // exact scheme. stackExtension() recognizes this form via the marker path segment.
+    if (world === "USER_SCRIPT") return `chrome-extension://${ext.id}/__sapphire_user_script__/${file.replace(/^\/+/, "")}`;
+    return (0,_urls__rspack_import_4.extensionUrl)(ext.id, file);
+}
+function localizeCss(ext, css) {
+    return css.replace(/__MSG_@@extension_id__/g, ext.id).replace(/__MSG_([A-Za-z0-9_@]+)__/g, (m, name)=>ext.messages[name]?.message ?? ext.messages[name.toLowerCase()]?.message ?? m).replace(/chrome-extension:\/\/([a-z]{32})\//g, (_, id)=>(0,_urls__rspack_import_4.extensionUrl)(id, ""));
+}
+function injectStyle(world, ext, css, key) {
+    const doc = world.win.document;
+    const target = appendTarget(doc);
+    if (!target) return;
+    try {
+        const style = doc.createElement("style");
+        style.textContent = localizeCss(ext, css);
+        style.setAttribute("data-sapphire-extension", ext.id);
+        target.appendChild(style);
+        world.styles.push({
+            extId: ext.id,
+            key,
+            el: style
+        });
+    } catch (e) {
+        console.warn("[sapphire] content style injection failed", e);
+    }
+}
+function removeStyle(world, extId, key) {
+    for(let i = world.styles.length - 1; i >= 0; i--){
+        const s = world.styles[i];
+        if (s.extId === extId && s.key === key) {
+            s.el.remove();
+            world.styles.splice(i, 1);
+        }
+    }
+}
+// ---- declared content scripts ---------------------------------------------
+function effectiveUrl(world, cs) {
+    const url = world.url;
+    if (/^(about:|data:|blob:|javascript:)/.test(url) || url === "") {
+        if (!cs.matchAboutBlank) return null;
+        try {
+            const parent = world.win.parent !== world.win ? worlds.get(world.win.parent) : undefined;
+            return parent?.url ?? null;
+        } catch  {
+            return null;
+        }
+    }
+    return url;
+}
+function matchingRegistrations(s, world) {
+    const out = [];
+    for (const cs of s.registry.contentScripts){
+        const ext = s.registry.get(cs.extId);
+        if (!ext?.enabled) continue;
+        if (!world.isTop && !cs.allFrames) continue;
+        const url = effectiveUrl(world, cs);
+        if (!url || !(0,_matchPatterns__rspack_import_1.urlMatchesContentScript)(url, cs)) continue;
+        out.push(cs);
+    }
+    // Chrome injects per extension in install order, manifest order within one.
+    return out;
+}
+function injectRegistration(s, world, cs, phase) {
+    const ext = s.registry.get(cs.extId);
+    if (!ext) return;
+    if (phase === "css") {
+        for (const file of cs.css){
+            const css = ext.files.readTextSync(file);
+            if (css !== null) injectStyle(world, ext, css, `manifest:${file}`);
+        }
+        return;
+    }
+    const ctx = cs.world === "MAIN" ? null : contentContext(s, world, ext, cs.world);
+    cs.js.forEach((entry, i)=>{
+        let code;
+        let name;
+        if ("file" in entry) {
+            code = ext.files.readTextSync(entry.file);
+            name = entry.file;
+        } else {
+            code = entry.code;
+            name = `${cs.id ?? "script"}-${i}.js`;
+        }
+        if (code === null) {
+            console.warn(`[sapphire] ${ext.manifest.name}: content script ${name} was not preloaded`);
+            return;
+        }
+        runScript(world, code, sourceUrlFor(ext, name, cs.world), ctx);
+    });
+}
+/**
+ * Called from the frame's init hook (after Scramjet has hooked the realm,
+ * before any page script runs). document_start happens right here;
+ * document_end / document_idle are scheduled against the document lifecycle.
+ */ function startContentScripts(s, world) {
+    const regs = matchingRegistrations(s, world);
+    if (!regs.length) return;
+    const byPhase = {
         document_start: [],
         document_end: [],
         document_idle: []
     };
-    for (const cs of matching){
-        const ext = registry.get(cs.extId);
-        if (!ext?.enabled) continue;
-        byRunAt[cs.runAt].push(cs);
+    for (const cs of regs){
+        injectRegistration(s, world, cs, "css");
+        byPhase[cs.runAt].push(cs);
     }
-    const injectGroup = async (group)=>{
-        for (const cs of group){
-            ensureChromeApi(cs.extId);
-            for (const cssFile of cs.css){
-                const css = await (0,_fileStore__rspack_import_1.readExtFileText)(cs.extId, cssFile);
-                if (css) (0,_htmlInject__rspack_import_2.injectStyle)(win, css);
-            }
-            for (const jsFile of cs.js){
-                const code = await (0,_fileStore__rspack_import_1.readExtFileText)(cs.extId, jsFile);
-                if (code) (0,_htmlInject__rspack_import_2.injectScript)(win, code);
-            }
-        }
+    const run = (phase)=>{
+        if (world.injectedPhases.has(phase)) return;
+        if (worlds.get(world.win) !== world || world.win.document !== world.doc) return;
+        world.injectedPhases.add(phase);
+        for (const cs of byPhase[phase])injectRegistration(s, world, cs, "js");
     };
-    await injectGroup(byRunAt.document_start);
-    if (byRunAt.document_end.length) {
-        win.addEventListener("DOMContentLoaded", ()=>void injectGroup(byRunAt.document_end), {
-            once: true
-        });
+    run("document_start");
+    whenReady(world, "interactive", ()=>{
+        run("document_end");
+        // Chrome picks a moment between document_end and just after window.onload.
+        let idleDone = false;
+        const idle = ()=>{
+            if (idleDone) return;
+            idleDone = true;
+            run("document_idle");
+        };
+        whenReady(world, "complete", idle);
+        setTimeout(idle, 200);
+    });
+}
+function whenReady(world, state, cb) {
+    const doc = world.doc;
+    const reached = ()=>doc.readyState === "complete" || state === "interactive" && doc.readyState === "interactive";
+    if (reached()) {
+        cb();
+        return;
     }
-    if (byRunAt.document_idle.length) {
-        win.addEventListener("load", ()=>void injectGroup(byRunAt.document_idle), {
-            once: true
-        });
+    const onChange = ()=>{
+        if (!reached()) return;
+        doc.removeEventListener("readystatechange", onChange);
+        cb();
+    };
+    doc.addEventListener("readystatechange", onChange);
+}
+function compiles(expression) {
+    try {
+        new Function(`return (${expression}\n);`);
+        return true;
+    } catch  {
+        return false;
     }
-    const tab = host.getTab(tabId);
-    for (const extId of new Set(matching.map((cs)=>cs.extId))){
-        registry.broadcast(extId, (e)=>e.tabsOnUpdated, [
-            tabId,
-            {
-                status: "complete"
-            },
-            tab
-        ]);
+}
+/**
+ * Function source from a Scramjet-rewritten realm. Scramjet maps
+ * `toString()` back to the original text but its span can overrun by a few
+ * characters (`(a) => a + 1)` for an arrow passed as an argument), so trim
+ * trailing characters until the text parses as a function expression.
+ */ function repairFunctionSource(src) {
+    if (compiles(src)) return src;
+    for(let cut = 1; cut <= Math.min(64, src.length - 1); cut++){
+        const candidate = src.slice(0, -cut).trimEnd();
+        if (candidate && compiles(candidate)) return candidate;
     }
+    // Method shorthand (`foo() {}`) isn't an expression on its own.
+    if (compiles(`{${src}}`)) return `(${JSON.stringify("")}, {${src}})[Object.keys({${src}})[0]]`;
+    return src;
+}
+function executeInWorld(s, world, ext, injection) {
+    return new Promise((resolve)=>{
+        const go = ()=>{
+            const ctx = injection.world === "MAIN" ? null : contentContext(s, world, ext, injection.world);
+            if (injection.files) {
+                for (const file of injection.files){
+                    const code = ext.files.readTextSync(file);
+                    if (code !== null) runScript(world, code, sourceUrlFor(ext, file, injection.world), ctx);
+                }
+                resolve(undefined);
+                return;
+            }
+            const key = `__sapphire_result_${(0,_realm__rspack_import_2.randomId)(16)}`;
+            let settled = false;
+            const finish = (payload)=>{
+                if (settled) return;
+                settled = true;
+                try {
+                    delete world.win[key];
+                } catch  {
+                // ignore
+                }
+                if (payload && "e" in payload && payload.e !== undefined) {
+                    try {
+                        world.win.console.error(payload.e);
+                    } catch  {
+                    // ignore
+                    }
+                    resolve(undefined);
+                    return;
+                }
+                try {
+                    resolve((0,_storage__rspack_import_3.jsonClone)(payload?.v));
+                } catch  {
+                    resolve(undefined);
+                }
+            };
+            Object.defineProperty(world.win, key, {
+                value: finish,
+                configurable: true,
+                enumerable: false
+            });
+            let expr;
+            if (injection.func !== undefined) {
+                expr = `(${repairFunctionSource(injection.func)})(...${JSON.stringify(injection.args ?? [])})`;
+            } else {
+                expr = `(0, eval)(${JSON.stringify(injection.code ?? "")})`;
+            }
+            const code = `(function(){var __f=window[${JSON.stringify(key)}];var __r;try{__r=${expr};}catch(e){__f({e:e&&e.stack||String(e)});return;}Promise.resolve(__r).then(function(v){__f({v:v});},function(e){__f({e:e&&e.stack||String(e)});});})();`;
+            try {
+                new Function(code);
+            } catch (e) {
+                finish({
+                    e: `Error: ${e.message}`
+                });
+                return;
+            }
+            runScript(world, code, sourceUrlFor(ext, `__sapphire_execute_script__/${key}.js`, injection.world), ctx);
+            if (!settled) setTimeout(()=>finish({
+                    v: undefined
+                }), 30000);
+        };
+        if (injection.injectImmediately || world.doc.readyState !== "loading") go();
+        else whenReady(world, "interactive", go);
+    });
+}
+// ---- externally_connectable: chrome.runtime for matching web pages ----------
+function buildExternallyConnectableChrome(s, world) {
+    const exts = s.registry.list().filter((ext)=>ext.enabled && ext.manifest.externally_connectable?.matches?.some((p)=>(0,_matchPatterns__rspack_import_1.matchPattern)(p, world.url)));
+    if (!exts.length) return undefined;
+    return {
+        runtime: s.externalRuntimeFor(world)
+    };
 }
 
 
@@ -2161,30 +5947,114 @@ async function injectContentScripts(win, tabId, url, isTopLevel, registry, host)
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   crxToZip: () => (crxToZip),
+  extensionIdFromPublicKey: () => (extensionIdFromPublicKey),
+  extensionIdFromSeed: () => (extensionIdFromSeed),
   generateExtensionId: () => (generateExtensionId),
-  guessMime: () => (guessMime)
+  guessMime: () => (guessMime),
+  isTextMime: () => (isTextMime),
+  parseCrx: () => (parseCrx)
 });
 function crxToZip(buffer) {
+    return parseCrx(buffer).zip;
+}
+function parseCrx(buffer) {
     const view = new DataView(buffer);
+    if (buffer.byteLength < 12) return {
+        zip: buffer,
+        crxId: null,
+        publicKey: null
+    };
     const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
-    if (magic !== "Cr24") {
-        return buffer;
-    }
+    if (magic !== "Cr24") return {
+        zip: buffer,
+        crxId: null,
+        publicKey: null
+    };
     const version = view.getUint32(4, true);
-    let zipStart;
     if (version === 2) {
         const pubKeyLen = view.getUint32(8, true);
         const sigLen = view.getUint32(12, true);
-        zipStart = 16 + pubKeyLen + sigLen;
-    } else if (version === 3) {
-        const headerSize = view.getUint32(8, true);
-        zipStart = 12 + headerSize;
-    } else {
-        throw new Error(`unknown CRX version: ${version}`);
+        const publicKey = new Uint8Array(buffer.slice(16, 16 + pubKeyLen));
+        return {
+            zip: buffer.slice(16 + pubKeyLen + sigLen),
+            crxId: null,
+            publicKey
+        };
     }
-    return buffer.slice(zipStart);
+    if (version === 3) {
+        const headerSize = view.getUint32(8, true);
+        const header = new Uint8Array(buffer, 12, headerSize);
+        return {
+            zip: buffer.slice(12 + headerSize),
+            crxId: crx3Id(header),
+            publicKey: null
+        };
+    }
+    throw new Error(`unknown CRX version: ${version}`);
 }
-function generateExtensionId(seed) {
+// CrxFileHeader { ...; bytes signed_header_data = 10000; }
+// SignedData { bytes crx_id = 1; }   (crx_id is the first 16 bytes of the id hash)
+function crx3Id(header) {
+    const signed = protoField(header, 10000);
+    if (!signed) return null;
+    const crxId = protoField(signed, 1);
+    if (!crxId || crxId.length !== 16) return null;
+    return bytesToExtensionId(crxId);
+}
+function readVarint(buf, pos) {
+    let result = 0;
+    let shift = 0;
+    while(pos < buf.length){
+        const b = buf[pos++];
+        result += (b & 0x7f) * 2 ** shift;
+        if (!(b & 0x80)) break;
+        shift += 7;
+    }
+    return [
+        result,
+        pos
+    ];
+}
+function protoField(buf, wanted) {
+    let pos = 0;
+    while(pos < buf.length){
+        const [key, afterKey] = readVarint(buf, pos);
+        pos = afterKey;
+        const field = Math.floor(key / 8);
+        const wire = key & 7;
+        if (wire === 2) {
+            const [len, afterLen] = readVarint(buf, pos);
+            if (field === wanted) return buf.subarray(afterLen, afterLen + len);
+            pos = afterLen + len;
+        } else if (wire === 0) {
+            pos = readVarint(buf, pos)[1];
+        } else if (wire === 1) {
+            pos += 8;
+        } else if (wire === 5) {
+            pos += 4;
+        } else {
+            return null;
+        }
+    }
+    return null;
+}
+/** Chrome ids are the first 128 bits of a SHA-256, hex-encoded with a-p for 0-f. */ function bytesToExtensionId(bytes) {
+    let id = "";
+    for(let i = 0; i < 16; i++){
+        id += String.fromCharCode(97 + (bytes[i] >> 4)) + String.fromCharCode(97 + (bytes[i] & 15));
+    }
+    return id;
+}
+async function extensionIdFromPublicKey(key) {
+    const bytes = typeof key === "string" ? Uint8Array.from(atob(key.replace(/\s+/g, "")), (c)=>c.charCodeAt(0)) : key;
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+    return bytesToExtensionId(digest);
+}
+/** Unpacked extensions in Chrome get an id hashed from their path; the name is our stand-in. */ async function extensionIdFromSeed(seed) {
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(seed)));
+    return bytesToExtensionId(digest);
+}
+/** Kept for API compatibility with older hosts; not an a-p id. */ function generateExtensionId(seed) {
     let hash = 0;
     for(let i = 0; i < seed.length; i++){
         hash = (hash << 5) - hash + seed.charCodeAt(i);
@@ -2202,24 +6072,51 @@ function generateExtensionId(seed) {
 const MIME_TYPES = {
     js: "application/javascript",
     mjs: "application/javascript",
+    cjs: "application/javascript",
     css: "text/css",
     html: "text/html",
     htm: "text/html",
+    xhtml: "application/xhtml+xml",
     json: "application/json",
+    map: "application/json",
+    txt: "text/plain",
+    xml: "application/xml",
+    csv: "text/csv",
+    md: "text/markdown",
     png: "image/png",
     jpg: "image/jpeg",
     jpeg: "image/jpeg",
     gif: "image/gif",
     svg: "image/svg+xml",
     webp: "image/webp",
+    avif: "image/avif",
+    bmp: "image/bmp",
     ico: "image/x-icon",
+    cur: "image/x-icon",
     woff: "font/woff",
     woff2: "font/woff2",
-    ttf: "font/ttf"
+    ttf: "font/ttf",
+    otf: "font/otf",
+    eot: "application/vnd.ms-fontobject",
+    wasm: "application/wasm",
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    ogg: "audio/ogg",
+    oga: "audio/ogg",
+    m4a: "audio/mp4",
+    flac: "audio/flac",
+    mp4: "video/mp4",
+    webm: "video/webm",
+    ogv: "video/ogg",
+    pdf: "application/pdf",
+    zip: "application/zip"
 };
 function guessMime(path) {
-    const ext = path.split(".").pop()?.toLowerCase() ?? "";
+    const ext = path.split(/[?#]/)[0].split(".").pop()?.toLowerCase() ?? "";
     return MIME_TYPES[ext] ?? "application/octet-stream";
+}
+function isTextMime(mime) {
+    return /^text\/|javascript|json|xml|svg/.test(mime);
 }
 
 
@@ -2228,19 +6125,25 @@ function guessMime(path) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   EXT_FILES_STORE: () => (EXT_FILES_STORE),
+  EXT_STATE_STORE: () => (EXT_STATE_STORE),
   EXT_STORAGE_STORE: () => (EXT_STORAGE_STORE),
   EXT_STORE: () => (EXT_STORE),
   dbDelete: () => (dbDelete),
+  dbDeletePrefix: () => (dbDeletePrefix),
   dbGet: () => (dbGet),
   dbGetAll: () => (dbGetAll),
   dbGetAllKeys: () => (dbGetAllKeys),
-  dbPut: () => (dbPut)
+  dbGetAllKeysPrefix: () => (dbGetAllKeysPrefix),
+  dbGetPrefix: () => (dbGetPrefix),
+  dbPut: () => (dbPut),
+  dbWriteMany: () => (dbWriteMany)
 });
 const DB_NAME = "sapphire_extensions";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const EXT_STORE = "extensions";
 const EXT_FILES_STORE = "extension_files";
 const EXT_STORAGE_STORE = "extension_storage";
+const EXT_STATE_STORE = "extension_state";
 let dbPromise = null;
 function openDB() {
     if (dbPromise) return dbPromise;
@@ -2255,6 +6158,9 @@ function openDB() {
             }
             if (!db.objectStoreNames.contains(EXT_FILES_STORE)) {
                 db.createObjectStore(EXT_FILES_STORE);
+            }
+            if (!db.objectStoreNames.contains(EXT_STATE_STORE)) {
+                db.createObjectStore(EXT_STATE_STORE);
             }
             if (!db.objectStoreNames.contains(EXT_STORAGE_STORE)) {
                 db.createObjectStore(EXT_STORAGE_STORE);
@@ -2311,159 +6217,749 @@ async function dbGetAllKeys(store) {
         req.onerror = ()=>reject(req.error);
     });
 }
+/** Several puts/deletes in one transaction; `undefined` values are deletes. */ async function dbWriteMany(store, entries) {
+    if (!entries.length) return;
+    const db = await openDB();
+    return new Promise((resolve, reject)=>{
+        const tx = db.transaction(store, "readwrite");
+        const objStore = tx.objectStore(store);
+        for (const [key, value] of entries){
+            if (value === undefined) objStore.delete(key);
+            else objStore.put(value, key);
+        }
+        tx.oncomplete = ()=>resolve();
+        tx.onerror = ()=>reject(tx.error);
+        tx.onabort = ()=>reject(tx.error);
+    });
+}
+/** Every [key, value] whose string key starts with `prefix`. */ async function dbGetPrefix(store, prefix) {
+    const db = await openDB();
+    return new Promise((resolve, reject)=>{
+        const tx = db.transaction(store, "readonly");
+        const range = IDBKeyRange.bound(prefix, `${prefix}￿`);
+        const out = [];
+        const req = tx.objectStore(store).openCursor(range);
+        req.onsuccess = ()=>{
+            const cursor = req.result;
+            if (!cursor) {
+                resolve(out);
+                return;
+            }
+            out.push([
+                cursor.key,
+                cursor.value
+            ]);
+            cursor.continue();
+        };
+        req.onerror = ()=>reject(req.error);
+    });
+}
+async function dbDeletePrefix(store, prefix) {
+    const db = await openDB();
+    return new Promise((resolve, reject)=>{
+        const tx = db.transaction(store, "readwrite");
+        tx.objectStore(store).delete(IDBKeyRange.bound(prefix, `${prefix}￿`));
+        tx.oncomplete = ()=>resolve();
+        tx.onerror = ()=>reject(tx.error);
+    });
+}
+async function dbGetAllKeysPrefix(store, prefix) {
+    const db = await openDB();
+    return new Promise((resolve, reject)=>{
+        const tx = db.transaction(store, "readonly");
+        const req = tx.objectStore(store).getAllKeys(IDBKeyRange.bound(prefix, `${prefix}￿`));
+        req.onsuccess = ()=>resolve(req.result);
+        req.onerror = ()=>reject(req.error);
+    });
+}
 
 
 },
 "./node_modules/@x8r/sapphire/src/dnr.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
+  ALL_RESOURCE_TYPES: () => (ALL_RESOURCE_TYPES),
+  allRules: () => (allRules),
+  allowAllPriorities: () => (allowAllPriorities),
+  applyHeaderOps: () => (applyHeaderOps),
   checkDeclarativeNetRequest: () => (checkDeclarativeNetRequest),
-  recomputeStaticRules: () => (recomputeStaticRules)
+  evaluateRequest: () => (evaluateRequest),
+  isRegexSupported: () => (isRegexSupported),
+  recomputeStaticRules: () => (recomputeStaticRules),
+  registrableDomain: () => (registrableDomain),
+  validateRule: () => (validateRule)
 });
+/* import */ var _urls__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
+
+const ALL_RESOURCE_TYPES = [
+    "main_frame",
+    "sub_frame",
+    "stylesheet",
+    "script",
+    "image",
+    "font",
+    "object",
+    "xmlhttprequest",
+    "ping",
+    "csp_report",
+    "media",
+    "websocket",
+    "webtransport",
+    "webbundle",
+    "other"
+];
+const ACTION_RANK = {
+    allow: 5,
+    allowAllRequests: 4,
+    block: 3,
+    upgradeScheme: 2,
+    redirect: 1,
+    modifyHeaders: 0
+};
+const indexCache = new WeakMap();
+// A small table of multi-label public suffixes so domainType ("firstParty" /
+// "thirdParty") gets the common cases right without shipping the full PSL.
+const MULTI_SUFFIXES = new Set([
+    "co.uk",
+    "org.uk",
+    "ac.uk",
+    "gov.uk",
+    "me.uk",
+    "ltd.uk",
+    "plc.uk",
+    "net.uk",
+    "com.au",
+    "net.au",
+    "org.au",
+    "edu.au",
+    "gov.au",
+    "co.jp",
+    "ne.jp",
+    "or.jp",
+    "ac.jp",
+    "go.jp",
+    "co.nz",
+    "org.nz",
+    "co.za",
+    "co.in",
+    "co.kr",
+    "or.kr",
+    "com.br",
+    "com.cn",
+    "com.mx",
+    "com.ar",
+    "com.tr",
+    "com.tw",
+    "com.hk",
+    "com.sg",
+    "com.my",
+    "github.io",
+    "gitlab.io",
+    "blogspot.com",
+    "herokuapp.com",
+    "vercel.app",
+    "netlify.app",
+    "pages.dev",
+    "workers.dev",
+    "appspot.com",
+    "cloudfront.net",
+    "azurewebsites.net",
+    "firebaseapp.com",
+    "web.app"
+]);
+function registrableDomain(hostname) {
+    const host = hostname.toLowerCase().replace(/\.$/, "");
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(host) || host.includes(":")) return host;
+    const labels = host.split(".");
+    if (labels.length <= 2) return host;
+    const lastTwo = labels.slice(-2).join(".");
+    if (MULTI_SUFFIXES.has(lastTwo)) return labels.slice(-3).join(".");
+    return lastTwo;
+}
+function domainMatches(host, domains) {
+    for (const d of domains){
+        const dl = d.toLowerCase();
+        if (host === dl || host.endsWith(`.${dl}`)) return true;
+    }
+    return false;
+}
+function urlFilterToRegExp(filter, caseSensitive) {
+    let src = "";
+    let i = 0;
+    let pattern = filter;
+    if (pattern.startsWith("||")) {
+        src += "^[a-z][a-z0-9+.-]*:\\/\\/(?:[^\\/?#@]*@)?(?:[^\\/?#.]*\\.)*?";
+        pattern = pattern.slice(2);
+    } else if (pattern.startsWith("|")) {
+        src += "^";
+        pattern = pattern.slice(1);
+    }
+    let endAnchor = false;
+    if (pattern.endsWith("|") && !pattern.endsWith("\\|")) {
+        endAnchor = true;
+        pattern = pattern.slice(0, -1);
+    }
+    for(i = 0; i < pattern.length; i++){
+        const ch = pattern[i];
+        if (ch === "*") src += ".*";
+        else if (ch === "^") src += "(?:[^a-zA-Z0-9_\\-.%]|$)";
+        else src += ch.replace(/[.+?${}()|[\]\\/]/g, "\\$&");
+    }
+    if (endAnchor) src += "$";
+    return new RegExp(src, caseSensitive ? "" : "i");
+}
+const COMMON_TOKENS = new Set([
+    "http",
+    "https",
+    "www",
+    "com",
+    "net",
+    "org",
+    "html",
+    "js",
+    "css",
+    "php"
+]);
+function bestToken(filter) {
+    const lower = filter.toLowerCase();
+    const anchoredStart = lower.startsWith("|");
+    const anchoredEnd = lower.endsWith("|");
+    const re = /[a-z0-9]+/g;
+    let best = null;
+    let bestScore = -1;
+    for(let m = re.exec(lower); m; m = re.exec(lower)){
+        const s = m.index;
+        const e = s + m[0].length;
+        const before = s === 0 ? anchoredStart ? "|" : "*" : lower[s - 1];
+        const after = e === lower.length ? anchoredEnd ? "|" : "*" : lower[e];
+        if (before === "*" || after === "*") continue;
+        const token = m[0];
+        if (token.length < 2) continue;
+        const score = token.length + (COMMON_TOKENS.has(token) ? -100 : 0);
+        if (score > bestScore) {
+            best = token;
+            bestScore = score;
+        }
+    }
+    return best;
+}
+function compileRule(rule, rulesetId) {
+    const cond = rule.condition ?? {};
+    let types;
+    if (cond.resourceTypes?.length) types = new Set(cond.resourceTypes);
+    else {
+        const excluded = new Set(cond.excludedResourceTypes ?? [
+            "main_frame"
+        ]);
+        types = new Set(ALL_RESOURCE_TYPES.filter((t)=>!excluded.has(t)));
+    }
+    return {
+        rule,
+        rulesetId,
+        priority: rule.priority ?? 1,
+        rank: ACTION_RANK[rule.action?.type] ?? 0,
+        regex: undefined,
+        types,
+        methods: cond.requestMethods?.length ? new Set(cond.requestMethods.map((m)=>m.toLowerCase())) : null,
+        excludedMethods: cond.excludedRequestMethods?.length ? new Set(cond.excludedRequestMethods.map((m)=>m.toLowerCase())) : null
+    };
+}
+function push(map, key, rule) {
+    const list = map.get(key);
+    if (list) list.push(rule);
+    else map.set(key, [
+        rule
+    ]);
+}
+function allRules(ext) {
+    const out = [];
+    for (const rule of ext.dnr.dynamicRules)out.push({
+        rule,
+        rulesetId: "_dynamic"
+    });
+    for (const rule of ext.dnr.sessionRules)out.push({
+        rule,
+        rulesetId: "_session"
+    });
+    for (const id of ext.dnr.enabledRulesets){
+        const disabled = ext.dnr.disabledStaticRules.get(id);
+        for (const rule of ext.dnr.rulesets.get(id) ?? []){
+            if (disabled?.has(rule.id)) continue;
+            out.push({
+                rule,
+                rulesetId: id
+            });
+        }
+    }
+    return out;
+}
+function buildIndex(ext) {
+    const cached = indexCache.get(ext);
+    if (cached && cached.version === ext.dnr.version) return cached;
+    const index = {
+        version: ext.dnr.version,
+        byToken: new Map(),
+        byDomain: new Map(),
+        generic: [],
+        hasModifyHeaders: false
+    };
+    for (const { rule, rulesetId } of allRules(ext)){
+        if (!rule?.action?.type || !rule.condition) continue;
+        const compiled = compileRule(rule, rulesetId);
+        if (rule.action.type === "modifyHeaders") index.hasModifyHeaders = true;
+        const cond = rule.condition;
+        const token = cond.urlFilter && !cond.regexFilter ? bestToken(cond.urlFilter) : null;
+        if (token) push(index.byToken, token, compiled);
+        else if (!cond.urlFilter && !cond.regexFilter && cond.requestDomains?.length) {
+            for (const d of cond.requestDomains)push(index.byDomain, d.toLowerCase(), compiled);
+        } else index.generic.push(compiled);
+    }
+    indexCache.set(ext, index);
+    return index;
+}
+function ruleMatches(c, req, urlString, host) {
+    const cond = c.rule.condition;
+    if (!c.types.has(req.type)) return false;
+    const method = req.method.toLowerCase();
+    if (c.methods && !c.methods.has(method)) return false;
+    if (c.excludedMethods?.has(method)) return false;
+    if (cond.tabIds && !cond.tabIds.includes(req.tabId)) return false;
+    if (cond.excludedTabIds?.includes(req.tabId)) return false;
+    if (cond.requestDomains?.length && !domainMatches(host, cond.requestDomains)) return false;
+    if (cond.excludedRequestDomains?.length && domainMatches(host, cond.excludedRequestDomains)) return false;
+    const initiatorDomains = cond.initiatorDomains ?? cond.domains;
+    const excludedInitiatorDomains = cond.excludedInitiatorDomains ?? cond.excludedDomains;
+    const initHost = req.initiator?.hostname.toLowerCase() ?? null;
+    if (initiatorDomains?.length && (!initHost || !domainMatches(initHost, initiatorDomains))) return false;
+    if (excludedInitiatorDomains?.length && initHost && domainMatches(initHost, excludedInitiatorDomains)) return false;
+    if (cond.domainType) {
+        const firstParty = initHost !== null && registrableDomain(initHost) === registrableDomain(host);
+        if (cond.domainType === "firstParty" && !firstParty) return false;
+        if (cond.domainType === "thirdParty" && (firstParty || initHost === null)) return false;
+    }
+    if (cond.urlFilter || cond.regexFilter) {
+        if (c.regex === undefined) {
+            try {
+                c.regex = cond.regexFilter ? new RegExp(cond.regexFilter, cond.isUrlFilterCaseSensitive ? "" : "i") : urlFilterToRegExp(cond.urlFilter, cond.isUrlFilterCaseSensitive === true);
+            } catch  {
+                c.regex = null;
+            }
+        }
+        if (!c.regex || !c.regex.test(urlString)) return false;
+    }
+    return true;
+}
+function candidates(index, urlString, host) {
+    const out = new Set(index.generic);
+    if (index.byToken.size) {
+        const seen = new Set();
+        for (const token of urlString.toLowerCase().split(/[^a-z0-9]+/)){
+            if (token.length < 2 || seen.has(token)) continue;
+            seen.add(token);
+            const list = index.byToken.get(token);
+            if (list) for (const r of list)out.add(r);
+        }
+    }
+    if (index.byDomain.size) {
+        let h = host;
+        for(;;){
+            const list = index.byDomain.get(h);
+            if (list) for (const r of list)out.add(r);
+            const dot = h.indexOf(".");
+            if (dot === -1) break;
+            h = h.slice(dot + 1);
+        }
+    }
+    return out;
+}
+function applyTransform(url, t) {
+    const u = new URL(url.href);
+    if (t.scheme) u.protocol = `${t.scheme}:`;
+    if (t.host !== undefined) u.hostname = t.host;
+    if (t.port !== undefined) u.port = t.port;
+    if (t.path !== undefined) u.pathname = t.path;
+    if (t.query !== undefined) u.search = t.query;
+    if (t.queryTransform) {
+        const params = u.searchParams;
+        for (const p of t.queryTransform.removeParams ?? [])params.delete(p);
+        for (const { key, value, replaceOnly } of t.queryTransform.addOrReplaceParams ?? []){
+            if (replaceOnly && !params.has(key)) continue;
+            params.set(key, value);
+        }
+    }
+    if (t.fragment !== undefined) u.hash = t.fragment;
+    if (t.username !== undefined) u.username = t.username;
+    if (t.password !== undefined) u.password = t.password;
+    return u.href;
+}
+function redirectTarget(ext, c, req, urlString) {
+    const action = c.rule.action;
+    if (action.type === "upgradeScheme") {
+        const u = new URL(req.url.href);
+        if (u.protocol === "http:") u.protocol = "https:";
+        else if (u.protocol === "ws:") u.protocol = "wss:";
+        else return null;
+        return u.href;
+    }
+    const r = action.redirect;
+    if (!r) return null;
+    if (r.url) return r.url;
+    if (r.extensionPath) return (0,_urls__rspack_import_0.extensionUrl)(ext.id, r.extensionPath);
+    if (r.transform) return applyTransform(req.url, r.transform);
+    if (r.regexSubstitution && c.rule.condition.regexFilter && c.regex) {
+        const m = urlString.match(c.regex);
+        if (!m) return null;
+        return r.regexSubstitution.replace(/\\(\d)/g, (_, d)=>m[Number(d)] ?? "");
+    }
+    return null;
+}
+/** Evaluate one extension's rules. */ function evaluateExtension(ext, req) {
+    const index = buildIndex(ext);
+    const urlString = req.url.href.split("#")[0];
+    const host = req.url.hostname.toLowerCase();
+    let best = null;
+    const headerRules = [];
+    const matched = [];
+    let redirectUrl;
+    for (const c of candidates(index, urlString, host)){
+        if (!ruleMatches(c, req, urlString, host)) continue;
+        if (c.rule.action.type === "modifyHeaders") {
+            headerRules.push(c);
+            continue;
+        }
+        if (c.rule.action.type === "allowAllRequests" && req.type !== "main_frame" && req.type !== "sub_frame") continue;
+        if (c.rule.action.type === "redirect" || c.rule.action.type === "upgradeScheme") {
+            const target = redirectTarget(ext, c, req, urlString);
+            if (!target || target === req.url.href) continue;
+            if (!best || c.priority > best.priority || c.priority === best.priority && c.rank > best.rank) {
+                best = c;
+                redirectUrl = target;
+            }
+            continue;
+        }
+        if (!best || c.priority > best.priority || c.priority === best.priority && c.rank > best.rank) {
+            best = c;
+            redirectUrl = undefined;
+        }
+    }
+    // An allowAllRequests match on the requesting document acts like an allow
+    // rule of that priority for everything the document loads.
+    const inherited = req.allowAllPriority?.get(ext.id);
+    if (inherited !== undefined && (!best || inherited >= best.priority)) {
+        best = {
+            rule: {
+                id: -1,
+                condition: {},
+                action: {
+                    type: "allow"
+                }
+            },
+            rulesetId: "_inherited",
+            priority: inherited,
+            rank: ACTION_RANK.allow,
+            regex: null,
+            types: new Set(),
+            methods: null,
+            excludedMethods: null
+        };
+        redirectUrl = undefined;
+    }
+    if (best) matched.push(best);
+    const allowFloor = best && (best.rule.action.type === "allow" || best.rule.action.type === "allowAllRequests") ? best.priority : -Infinity;
+    const effectiveHeaders = headerRules.filter((h)=>h.priority > allowFloor).sort((a, b)=>b.priority - a.priority);
+    matched.push(...effectiveHeaders);
+    return {
+        best,
+        headerRules: effectiveHeaders,
+        matched,
+        redirectUrl
+    };
+}
+function mergeHeaderOps(target, ops) {
+    for (const op of ops ?? []){
+        const name = op.header.toLowerCase();
+        const prior = target.filter((t)=>t.header.toLowerCase() === name);
+        // A higher-priority set/remove owns the header; later rules may only keep appending.
+        if (prior.some((p)=>p.operation !== "append") && op.operation !== "append") continue;
+        if (prior.some((p)=>p.operation === "remove")) continue;
+        target.push(op);
+    }
+}
+function evaluateRequest(registry, req) {
+    const outcome = {
+        action: null,
+        requestHeaders: [],
+        responseHeaders: [],
+        matched: []
+    };
+    // Most recently installed extension wins ties, as in Chrome.
+    const exts = registry.list().filter((e)=>e.enabled).sort((a, b)=>b.installedAt - a.installedAt);
+    let redirect;
+    let blocked = false;
+    let allowAll = false;
+    for (const ext of exts){
+        const hasRules = ext.dnr.dynamicRules.length || ext.dnr.sessionRules.length || ext.dnr.enabledRulesets.size || req.allowAllPriority?.has(ext.id);
+        if (!hasRules) continue;
+        const r = evaluateExtension(ext, req);
+        for (const c of r.matched)outcome.matched.push({
+            extId: ext.id,
+            rulesetId: c.rulesetId,
+            rule: c.rule
+        });
+        const type = r.best?.rule.action.type;
+        if (type === "block") blocked = true;
+        else if ((type === "redirect" || type === "upgradeScheme") && r.redirectUrl && redirect === undefined) redirect = r.redirectUrl;
+        else if (type === "allowAllRequests") allowAll = true;
+        for (const h of r.headerRules){
+            mergeHeaderOps(outcome.requestHeaders, h.rule.action.requestHeaders);
+            mergeHeaderOps(outcome.responseHeaders, h.rule.action.responseHeaders);
+        }
+    }
+    if (blocked) outcome.action = "block";
+    else if (redirect) {
+        outcome.action = "redirect";
+        outcome.redirectUrl = redirect;
+    } else if (allowAll) outcome.action = "allowAllRequests";
+    else if (outcome.matched.length) outcome.action = "allow";
+    return outcome;
+}
+/** Priority of allowAllRequests rules that matched this frame navigation, per extension. */ function allowAllPriorities(outcome) {
+    const map = new Map();
+    for (const m of outcome.matched){
+        if (m.rule.action.type !== "allowAllRequests") continue;
+        const p = m.rule.priority ?? 1;
+        map.set(m.extId, Math.max(map.get(m.extId) ?? -Infinity, p));
+    }
+    return map;
+}
+function applyHeaderOps(headers, ops) {
+    let out = headers;
+    for (const op of ops){
+        const name = op.header.toLowerCase();
+        if (op.operation === "remove") out = out.filter(([k])=>k.toLowerCase() !== name);
+        else if (op.operation === "set") out = [
+            ...out.filter(([k])=>k.toLowerCase() !== name),
+            [
+                op.header,
+                op.value ?? ""
+            ]
+        ];
+        else if (op.operation === "append") {
+            const existing = out.find(([k])=>k.toLowerCase() === name);
+            if (existing && name !== "set-cookie") existing[1] = `${existing[1]}; ${op.value ?? ""}`;
+            else out = [
+                ...out,
+                [
+                    op.header,
+                    op.value ?? ""
+                ]
+            ];
+        }
+    }
+    return out;
+}
 function recomputeStaticRules(ext) {
-    ext.staticRules = [];
-    for (const id of ext.enabledRulesetIds){
-        const rules = ext.rulesetRules.get(id);
-        if (rules) ext.staticRules.push(...rules);
-    }
+    ext.dnr.version++;
 }
-function ruleMatchesUrl(rule, requestUrl) {
-    const cond = rule.condition;
-    if (cond.urlFilter) {
-        const pattern = cond.urlFilter.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\|\|/g, "(?:https?://)(?:[^/]*\\.)?").replace(/\^/g, "[/?&#]");
-        try {
-            if (!new RegExp(pattern, "i").test(requestUrl)) return false;
-        } catch  {
-            return false;
-        }
-    }
-    if (cond.regexFilter) {
-        try {
-            if (!new RegExp(cond.regexFilter, "i").test(requestUrl)) return false;
-        } catch  {
-            return false;
-        }
-    }
-    return true;
-}
-function ruleMatchesResourceType(rule, resourceType) {
-    if (!rule.condition.resourceTypes?.length) return true;
-    return resourceType ? rule.condition.resourceTypes.includes(resourceType) : false;
-}
-function ruleMatchesInitiator(rule, initiatorUrl) {
-    const cond = rule.condition;
-    if (!initiatorUrl) return !cond.initiatorDomains?.length;
-    let initHost;
+function isRegexSupported(regex) {
+    // Chrome evaluates regexFilter with RE2: no lookaround, no backreferences.
+    if (/\(\?[=!<]|\\[1-9]/.test(regex)) return {
+        isSupported: false,
+        reason: "syntaxError"
+    };
     try {
-        initHost = new URL(initiatorUrl).hostname;
+        new RegExp(regex);
     } catch  {
-        return !cond.initiatorDomains?.length;
+        return {
+            isSupported: false,
+            reason: "syntaxError"
+        };
     }
-    if (cond.initiatorDomains?.length && !cond.initiatorDomains.some((d)=>initHost === d || initHost.endsWith(`.${d}`))) {
-        return false;
-    }
-    if (cond.excludedInitiatorDomains?.some((d)=>initHost === d || initHost.endsWith(`.${d}`))) {
-        return false;
-    }
-    return true;
+    if (regex.length > 2048) return {
+        isSupported: false,
+        reason: "memoryLimitExceeded"
+    };
+    return {
+        isSupported: true
+    };
 }
-function checkDeclarativeNetRequest(registry, requestUrl, initiatorUrl, resourceType) {
-    for (const ext of registry.list()){
-        if (!ext.enabled) continue;
-        const rules = [
-            ...ext.dynamicRules,
-            ...ext.staticRules
-        ].sort((a, b)=>(b.priority ?? 1) - (a.priority ?? 1));
-        for (const rule of rules){
-            if (!ruleMatchesUrl(rule, requestUrl)) continue;
-            if (!ruleMatchesResourceType(rule, resourceType)) continue;
-            if (!ruleMatchesInitiator(rule, initiatorUrl)) continue;
-            const action = rule.action;
-            if (action.type === "block") return {
-                action: "block"
-            };
-            if (action.type === "redirect") {
-                const redirectUrl = action.redirect?.url ?? action.redirect?.regexSubstitution;
-                if (redirectUrl) return {
-                    action: "redirect",
-                    url: redirectUrl
-                };
-            }
-            if (action.type === "upgradeScheme") {
-                return {
-                    action: "redirect",
-                    url: requestUrl.replace(/^http:/, "https:")
-                };
-            }
-            if (action.type === "modifyHeaders") {
-                return {
-                    action: "modifyHeaders",
-                    headers: action.requestHeaders ?? [],
-                    responseHeaders: action.responseHeaders ?? []
-                };
-            }
-        }
+function validateRule(rule) {
+    if (!rule || typeof rule.id !== "number" || !Number.isInteger(rule.id) || rule.id < 1) return `Rule with id ${rule?.id} must have a positive integer id.`;
+    if (!rule.action?.type) return `Rule with id ${rule.id} does not specify an action type.`;
+    if (!ACTION_RANK.hasOwnProperty(rule.action.type)) return `Rule with id ${rule.id} has an invalid action type.`;
+    if (rule.condition?.urlFilter !== undefined && rule.condition?.regexFilter !== undefined) return `Rule with id ${rule.id} specifies both "urlFilter" and "regexFilter".`;
+    if (rule.condition?.regexFilter && !isRegexSupported(rule.condition.regexFilter).isSupported) return `Rule with id ${rule.id} specified a non-supported regex.`;
+    if (rule.action.type === "redirect" && !rule.action.redirect) return `Rule with id ${rule.id} does not provide the "redirect" key.`;
+    if (rule.action.type === "modifyHeaders" && !rule.action.requestHeaders?.length && !rule.action.responseHeaders?.length) return `Rule with id ${rule.id} does not specify the "requestHeaders" or "responseHeaders" key.`;
+    return null;
+}
+/** Legacy synchronous entry point kept from the previous public API. */ function checkDeclarativeNetRequest(registry, requestUrl, initiatorUrl, resourceType) {
+    let url;
+    try {
+        url = new URL(requestUrl);
+    } catch  {
+        return null;
     }
+    let initiator = null;
+    try {
+        initiator = initiatorUrl ? new URL(initiatorUrl) : null;
+    } catch  {
+        initiator = null;
+    }
+    const outcome = evaluateRequest(registry, {
+        url,
+        method: "GET",
+        type: resourceType ?? "other",
+        initiator,
+        tabId: -1
+    });
+    if (outcome.action === "block") return {
+        action: "block"
+    };
+    if (outcome.action === "redirect" && outcome.redirectUrl) return {
+        action: "redirect",
+        url: outcome.redirectUrl
+    };
+    if (outcome.requestHeaders.length || outcome.responseHeaders.length) return {
+        action: "modifyHeaders",
+        headers: outcome.requestHeaders,
+        responseHeaders: outcome.responseHeaders
+    };
     return null;
 }
 
 
 },
-"./node_modules/@x8r/sapphire/src/eventHub.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+"./node_modules/@x8r/sapphire/src/events.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  EventHub: () => (EventHub)
+  ChromeEvent: () => (ChromeEvent),
+  EventTable: () => (EventTable)
 });
-class EventHub {
-    listeners = [];
-    addListener = (fn)=>{
-        if (typeof fn === "function" && !this.listeners.includes(fn)) {
-            this.listeners.push(fn);
+let ruleCounter = 0;
+class ChromeEvent {
+    entries = [];
+    rules = [];
+    name;
+    label;
+    validate;
+    constructor(name, label = "", validate){
+        this.name = name;
+        this.label = label;
+        this.validate = validate;
+    }
+    addListener = (fn, ...extra)=>{
+        if (typeof fn !== "function") {
+            throw new TypeError(`Error in invocation of ${this.name}.addListener: No matching signature.`);
         }
+        this.validate?.(extra);
+        if (!this.entries.some((e)=>e.fn === fn)) this.entries.push({
+            fn,
+            extra
+        });
     };
     removeListener = (fn)=>{
-        const i = this.listeners.indexOf(fn);
-        if (i > -1) this.listeners.splice(i, 1);
+        const i = this.entries.findIndex((e)=>e.fn === fn);
+        if (i > -1) this.entries.splice(i, 1);
     };
-    hasListener = (fn)=>this.listeners.includes(fn);
-    hasListeners = ()=>this.listeners.length > 0;
-    fire(...args) {
-        for (const fn of [
-            ...this.listeners
+    hasListener = (fn)=>this.entries.some((e)=>e.fn === fn);
+    hasListeners = ()=>this.entries.length > 0;
+    addRules = (rules, cb)=>{
+        const added = (rules ?? []).map((r)=>({
+                ...r,
+                id: r.id ?? `_${++ruleCounter}`,
+                priority: r.priority ?? 100
+            }));
+        for (const rule of added){
+            const existing = this.rules.findIndex((r)=>r.id === rule.id);
+            if (existing > -1) this.rules.splice(existing, 1);
+            this.rules.push(rule);
+        }
+        cb?.(added);
+    };
+    getRules = (idsOrCb, maybeCb)=>{
+        const ids = Array.isArray(idsOrCb) ? idsOrCb : null;
+        const cb = typeof idsOrCb === "function" ? idsOrCb : maybeCb;
+        cb?.(ids ? this.rules.filter((r)=>ids.includes(r.id)) : [
+            ...this.rules
+        ]);
+    };
+    removeRules = (idsOrCb, maybeCb)=>{
+        const ids = Array.isArray(idsOrCb) ? idsOrCb : null;
+        const cb = typeof idsOrCb === "function" ? idsOrCb : maybeCb;
+        this.rules = ids ? this.rules.filter((r)=>!ids.includes(r.id)) : [];
+        cb?.();
+    };
+    /** Deliver asynchronously, one task per listener, like the browser does. */ dispatch(...args) {
+        this.dispatchFiltered(()=>true, ()=>args);
+    }
+    dispatchFiltered(accept, makeArgs) {
+        for (const entry of [
+            ...this.entries
         ]){
+            if (!accept(entry)) continue;
             queueMicrotask(()=>{
-                try {
-                    fn(...args);
-                } catch (e) {
-                    console.error("[sapphire] event listener threw", e);
-                }
+                if (!this.entries.includes(entry)) return;
+                this.invoke(entry, makeArgs(entry));
             });
         }
     }
-    fireUntilHandled(...args) {
-        for (const fn of [
-            ...this.listeners
+    /** Synchronous dispatch that collects return values (blocking webRequest, onMessage). */ dispatchSync(accept, makeArgs) {
+        const results = [];
+        for (const entry of [
+            ...this.entries
         ]){
-            try {
-                const result = fn(...args);
-                if (result !== undefined) return result;
-            } catch (e) {
-                console.error("[sapphire] event listener threw", e);
-            }
+            if (!accept(entry)) continue;
+            results.push(this.invoke(entry, makeArgs(entry)));
         }
-        return undefined;
+        return results;
     }
-    snapshot() {
-        return [
-            ...this.listeners
-        ];
+    invoke(entry, args) {
+        try {
+            return entry.fn(...args);
+        } catch (e) {
+            console.error(`[sapphire]${this.label ? ` ${this.label}:` : ""} Error in event handler for ${this.name}:`, e);
+            return undefined;
+        }
+    }
+    clear() {
+        this.entries = [];
     }
     toApi() {
         return {
             addListener: this.addListener,
             removeListener: this.removeListener,
-            hasListener: this.hasListener
+            hasListener: this.hasListener,
+            hasListeners: this.hasListeners,
+            addRules: this.addRules,
+            getRules: this.getRules,
+            removeRules: this.removeRules
         };
+    }
+}
+/** Lazily-created named events owned by one context. */ class EventTable {
+    events = new Map();
+    label;
+    constructor(label = ""){
+        this.label = label;
+    }
+    get(name, validate) {
+        let ev = this.events.get(name);
+        if (!ev) {
+            ev = new ChromeEvent(name, this.label, validate);
+            this.events.set(name, ev);
+        }
+        return ev;
+    }
+    peek(name) {
+        return this.events.get(name);
+    }
+    api(name, validate) {
+        return this.get(name, validate).toApi();
+    }
+    clear() {
+        for (const ev of this.events.values())ev.clear();
+        this.events.clear();
     }
 }
 
@@ -2472,22 +6968,29 @@ class EventHub {
 "./node_modules/@x8r/sapphire/src/extensions.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  getInstalledExtensions: () => (getInstalledExtensions),
-  installExtension: () => (installExtension),
+  deletePackage: () => (deletePackage),
+  getDefaultIcon: () => (getDefaultIcon),
   loadExtension: () => (loadExtension),
-  loadStoredExtensions: () => (loadStoredExtensions),
-  setExtensionEnabled: () => (setExtensionEnabled),
-  uninstallExtension: () => (uninstallExtension)
+  loadRuleset: () => (loadRuleset),
+  manifestContentScripts: () => (manifestContentScripts),
+  parseManifestText: () => (parseManifestText),
+  persistRegisteredScripts: () => (persistRegisteredScripts),
+  registrationFiles: () => (registrationFiles),
+  saveMeta: () => (saveMeta),
+  storePackage: () => (storePackage),
+  storedMeta: () => (storedMeta),
+  storedMetas: () => (storedMetas),
+  unpackExtension: () => (unpackExtension),
+  unregisterContentScripts: () => (unregisterContentScripts)
 });
 /* import */ var jszip__rspack_import_0 = __webpack_require__("./node_modules/jszip/dist/jszip.min.js");
 /* import */ var jszip__rspack_import_0_default = /*#__PURE__*/__webpack_require__.n(jszip__rspack_import_0);
 /* import */ var _crx__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/crx.ts");
 /* import */ var _db__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/db.ts");
-/* import */ var _fileStore__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/fileStore.ts");
-/* import */ var _background__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/background.ts");
-/* import */ var _contentScripts__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/contentScripts.ts");
-/* import */ var _manifest__rspack_import_6 = __webpack_require__("./node_modules/@x8r/sapphire/src/manifest.ts");
-/* import */ var _dnr__rspack_import_7 = __webpack_require__("./node_modules/@x8r/sapphire/src/dnr.ts");
+/* import */ var _api_i18n__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/i18n.ts");
+/* import */ var _api_alarms__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/alarms.ts");
+/* import */ var _dnr__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/dnr.ts");
+/* import */ var _registry__rspack_import_6 = __webpack_require__("./node_modules/@x8r/sapphire/src/registry.ts");
 
 
 
@@ -2495,276 +6998,1009 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 
-
-async function loadMessages(extId, manifest) {
-    const defaultLocale = manifest.default_locale ?? "en";
-    const primary = await (0,_fileStore__rspack_import_3.readExtFileText)(extId, `_locales/${defaultLocale}/messages.json`);
-    if (primary) {
-        try {
-            return JSON.parse(primary);
-        } catch  {}
-    }
-    if (defaultLocale !== "en") {
-        const en = await (0,_fileStore__rspack_import_3.readExtFileText)(extId, "_locales/en/messages.json");
-        if (en) {
-            try {
-                return JSON.parse(en);
-            } catch  {}
+/** Chrome accepts comments and trailing commas in manifest.json. */ function parseManifestText(text) {
+    const src = text.replace(/^﻿/, "");
+    try {
+        return JSON.parse(src);
+    } catch  {
+        let out = "";
+        let inString = false;
+        for(let i = 0; i < src.length; i++){
+            const ch = src[i];
+            if (inString) {
+                out += ch;
+                if (ch === "\\") {
+                    out += src[++i] ?? "";
+                } else if (ch === '"') inString = false;
+                continue;
+            }
+            if (ch === '"') {
+                inString = true;
+                out += ch;
+            } else if (ch === "/" && src[i + 1] === "/") {
+                while(i < src.length && src[i] !== "\n")i++;
+                out += "\n";
+            } else if (ch === "/" && src[i + 1] === "*") {
+                i += 2;
+                while(i < src.length && !(src[i] === "*" && src[i + 1] === "/"))i++;
+                i++;
+            } else out += ch;
         }
+        return JSON.parse(out.replace(/,(\s*[}\]])/g, "$1"));
     }
-    return {};
 }
-async function loadExtension(meta, registry, host, backgroundRoot) {
-    const ext = registry.createExtensionState(meta.id, meta.manifest, meta.enabled !== false, meta.installedAt, meta.filename);
-    ext.messages = await loadMessages(ext.id, ext.manifest);
-    (0,_manifest__rspack_import_6.resolveManifestI18n)(ext.manifest, ext.messages);
-    (0,_contentScripts__rspack_import_5.registerContentScripts)(ext, registry);
-    const defaultIconPath = (0,_manifest__rspack_import_6.getDefaultIcon)(ext.manifest);
-    if (defaultIconPath) {
-        try {
-            ext.iconUrl = await (0,_fileStore__rspack_import_3.readExtFileURL)(ext.id, defaultIconPath);
-        } catch (e) {
-            console.warn(`[sapphire] failed to resolve default icon for ${ext.manifest.name}`, e);
-        }
-    }
-    const ruleResources = ext.manifest.declarative_net_request?.rule_resources ?? [];
-    for (const ruleSet of ruleResources){
-        if (!ruleSet.path || !ruleSet.id) continue;
-        const rulesText = await (0,_fileStore__rspack_import_3.readExtFileText)(ext.id, ruleSet.path);
-        if (!rulesText) continue;
-        try {
-            ext.rulesetRules.set(ruleSet.id, JSON.parse(rulesText));
-            if (ruleSet.enabled !== false) ext.enabledRulesetIds.add(ruleSet.id);
-        } catch (e) {
-            console.warn(`[sapphire] failed to parse rule set ${ruleSet.path}`, e);
-        }
-    }
-    (0,_dnr__rspack_import_7.recomputeStaticRules)(ext);
-    if (ext.enabled) {
-        try {
-            await (0,_background__rspack_import_4.startBackground)(ext, registry, host, backgroundRoot);
-        } catch (e) {
-            console.error(`[sapphire] failed to start background for ${ext.manifest.name}`, e);
-        }
-    }
-    registry.notifyChange();
+function getDefaultIcon(manifest) {
+    const icons = manifest.action?.default_icon ?? manifest.browser_action?.default_icon ?? manifest.page_action?.default_icon ?? manifest.icons;
+    if (!icons) return null;
+    if (typeof icons === "string") return icons;
+    const sizes = Object.keys(icons).map(Number).filter((n)=>!Number.isNaN(n)).sort((a, b)=>b - a);
+    const preferred = sizes.find((n)=>n <= 48) ?? sizes[sizes.length - 1];
+    if (preferred !== undefined) return icons[String(preferred)] ?? null;
+    const firstKey = Object.keys(icons)[0];
+    return firstKey ? icons[firstKey] : null;
 }
-async function loadStoredExtensions(registry, host, backgroundRoot) {
-    const stored = await (0,_db__rspack_import_2.dbGetAll)(_db__rspack_import_2.EXT_STORE);
-    for (const meta of stored){
-        try {
-            await loadExtension(meta, registry, host, backgroundRoot);
-        } catch (e) {
-            console.error(`[sapphire] failed to load stored extension ${meta.id}`, e);
-        }
-    }
-    return stored.length;
+function manifestContentScripts(ext) {
+    return (ext.manifest.content_scripts ?? []).map((cs)=>({
+            extId: ext.id,
+            source: "manifest",
+            matches: cs.matches ?? [],
+            excludeMatches: cs.exclude_matches ?? [],
+            includeGlobs: cs.include_globs ?? [],
+            excludeGlobs: cs.exclude_globs ?? [],
+            js: (cs.js ?? []).map((file)=>({
+                    file: file.replace(/^\/+/, "")
+                })),
+            css: (cs.css ?? []).map((file)=>file.replace(/^\/+/, "")),
+            runAt: cs.run_at ?? "document_idle",
+            allFrames: cs.all_frames ?? false,
+            matchAboutBlank: cs.match_about_blank ?? cs.match_origin_as_fallback ?? false,
+            world: cs.world ?? "ISOLATED"
+        }));
 }
-async function installExtension(buffer, filename, registry, host, backgroundRoot) {
-    const zipBuffer = (0,_crx__rspack_import_1.crxToZip)(buffer);
-    const zip = await jszip__rspack_import_0_default().loadAsync(zipBuffer);
-    const manifestFile = zip.file("manifest.json");
-    if (!manifestFile) throw new Error("no manifest.json found in extension");
-    const manifestText = await manifestFile.async("text");
+function registrationFiles(regs) {
+    const files = [];
+    for (const r of regs){
+        for (const j of r.js)if ("file" in j) files.push(j.file);
+        files.push(...r.css);
+    }
+    return files;
+}
+async function loadRuleset(ext, id) {
+    if (ext.dnr.rulesets.has(id)) return true;
+    const resource = ext.manifest.declarative_net_request?.rule_resources?.find((r)=>r.id === id);
+    if (!resource?.path) return false;
+    const text = await ext.files.readText(resource.path);
+    if (!text) {
+        ext.dnr.rulesets.set(id, []);
+        return true;
+    }
+    try {
+        const rules = JSON.parse(text);
+        ext.dnr.rulesets.set(id, Array.isArray(rules) ? rules : []);
+    } catch (e) {
+        console.warn(`[sapphire] ${ext.manifest.name}: failed to parse rule set ${resource.path}`, e);
+        ext.dnr.rulesets.set(id, []);
+    }
+    return true;
+}
+async function loadDnr(ext) {
+    const resources = ext.manifest.declarative_net_request?.rule_resources ?? [];
+    const persisted = await (0,_db__rspack_import_2.dbGet)(_db__rspack_import_2.EXT_STATE_STORE, `${ext.id}/dnr`).catch(()=>undefined);
+    const enabled = persisted?.enabledRulesets ?? resources.filter((r)=>r.enabled !== false && r.id).map((r)=>r.id);
+    // Disabled rulesets only record their existence until someone enables them.
+    for (const r of resources)if (r.id && !enabled.includes(r.id)) ext.dnr.rulesets.set(r.id, ext.dnr.rulesets.get(r.id) ?? []);
+    for (const id of enabled){
+        ext.dnr.rulesets.delete(id);
+        if (await loadRuleset(ext, id)) ext.dnr.enabledRulesets.add(id);
+    }
+    ext.dnr.dynamicRules = persisted?.dynamicRules ?? [];
+    for (const [k, v] of Object.entries(persisted?.disabledStaticRules ?? {}))ext.dnr.disabledStaticRules.set(k, new Set(v));
+    (0,_dnr__rspack_import_5.recomputeStaticRules)(ext);
+}
+async function loadExtension(s, meta) {
+    const ext = s.registry.createExtensionState(meta);
+    await (0,_api_i18n__rspack_import_3.loadLocales)(ext);
+    ext.manifest = (0,_api_i18n__rspack_import_3.localizeManifest)(meta.manifest, (name)=>(0,_api_i18n__rspack_import_3.getMessage)(ext, name));
+    ext.defaultAction = (0,_registry__rspack_import_6.defaultActionFor)(ext.manifest);
+    ext.sidePanel.path = ext.manifest.side_panel?.default_path ?? null;
+    const iconPath = getDefaultIcon(ext.manifest);
+    if (iconPath) ext.iconUrl = await ext.files.dataUrl(iconPath.replace(/^\/+/, "")).catch(()=>null);
+    await loadDnr(ext);
+    const manifestScripts = manifestContentScripts(ext);
+    const stored = await (0,_db__rspack_import_2.dbGet)(_db__rspack_import_2.EXT_STATE_STORE, `${ext.id}/scripts`).catch(()=>undefined);
+    const dynamic = (stored ?? []).map((r)=>({
+            ...r,
+            extId: ext.id
+        }));
+    s.registry.contentScripts.push(...manifestScripts, ...dynamic);
+    await ext.files.preload(registrationFiles([
+        ...manifestScripts,
+        ...dynamic
+    ]));
+    // A service worker can importScripts() anything at any time, synchronously.
+    if (ext.manifest.background?.service_worker) await ext.files.preloadMatching((p)=>/\.m?js$/.test(p));
+    await (0,_api_alarms__rspack_import_4.restoreAlarms)(s, ext);
+    return ext;
+}
+function unregisterContentScripts(s, extId) {
+    const list = s.registry.contentScripts;
+    for(let i = list.length - 1; i >= 0; i--)if (list[i].extId === extId) list.splice(i, 1);
+}
+async function persistRegisteredScripts(s, extId) {
+    const regs = s.registry.contentScripts.filter((cs)=>cs.extId === extId && cs.source !== "manifest" && cs.persistAcrossSessions !== false);
+    await (0,_db__rspack_import_2.dbPut)(_db__rspack_import_2.EXT_STATE_STORE, `${extId}/scripts`, regs).catch(()=>{});
+}
+async function unpackExtension(buffer, filename) {
+    const crx = (0,_crx__rspack_import_1.parseCrx)(buffer);
+    const zip = await jszip__rspack_import_0_default().loadAsync(crx.zip);
+    let root = "";
+    if (!zip.file("manifest.json")) {
+        const candidates = Object.keys(zip.files).filter((p)=>p.endsWith("/manifest.json") && !p.startsWith("__MACOSX/"));
+        candidates.sort((a, b)=>a.split("/").length - b.split("/").length);
+        if (!candidates.length) throw new Error("no manifest.json found in extension");
+        root = candidates[0].slice(0, -"manifest.json".length);
+    }
+    const manifestText = await zip.file(`${root}manifest.json`).async("text");
     let manifest;
     try {
-        manifest = JSON.parse(manifestText);
+        manifest = parseManifestText(manifestText);
     } catch (e) {
         throw new Error(`invalid manifest: ${e.message}`);
     }
-    const extId = (0,_crx__rspack_import_1.generateExtensionId)(manifest.name + (manifest.version ?? ""));
-    const fileOps = [];
+    if (!manifest || typeof manifest !== "object" || !manifest.name) throw new Error("invalid manifest: missing name");
+    const files = new Map();
+    const reads = [];
     zip.forEach((path, file)=>{
-        if (file.dir) return;
-        fileOps.push(file.async("arraybuffer").then((ab)=>(0,_db__rspack_import_2.dbPut)(_db__rspack_import_2.EXT_FILES_STORE, `${extId}/${path}`, ab)).then(()=>undefined).catch((e)=>{
-            console.error(`[sapphire] failed to store file ${path} for ${manifest.name}`, e);
-        }));
+        if (file.dir || !path.startsWith(root) || path.startsWith("__MACOSX/") || path.startsWith("_metadata/")) return;
+        const rel = path.slice(root.length);
+        reads.push(file.async("arraybuffer").then((ab)=>void files.set(rel, ab)));
     });
-    await Promise.all(fileOps);
-    const meta = {
-        id: extId,
+    await Promise.all(reads);
+    let id;
+    if (typeof manifest.key === "string" && manifest.key) id = await (0,_crx__rspack_import_1.extensionIdFromPublicKey)(manifest.key);
+    else if (crx.crxId) id = crx.crxId;
+    else if (crx.publicKey) id = await (0,_crx__rspack_import_1.extensionIdFromPublicKey)(crx.publicKey);
+    else id = await (0,_crx__rspack_import_1.extensionIdFromSeed)(`${manifest.name}\n${filename.replace(/[-_ ]?v?\d+(\.\d+)*\.(zip|crx)$/i, "")}`);
+    return {
         manifest,
-        enabled: true,
-        installedAt: Date.now(),
+        files,
+        id
+    };
+}
+async function storePackage(pkg, filename, previous) {
+    await (0,_db__rspack_import_2.dbDeletePrefix)(_db__rspack_import_2.EXT_FILES_STORE, `${pkg.id}/`);
+    const entries = [
+        ...pkg.files
+    ].map(([path, ab])=>[
+            `${pkg.id}/${path}`,
+            ab
+        ]);
+    for(let i = 0; i < entries.length; i += 200)await (0,_db__rspack_import_2.dbWriteMany)(_db__rspack_import_2.EXT_FILES_STORE, entries.slice(i, i + 200));
+    const meta = {
+        id: pkg.id,
+        manifest: pkg.manifest,
+        enabled: previous?.enabled ?? true,
+        installedAt: previous?.installedAt ?? Date.now(),
         filename,
-        fileList: []
+        fileList: [
+            ...pkg.files.keys()
+        ],
+        lastRunVersion: previous?.lastRunVersion
     };
     await (0,_db__rspack_import_2.dbPut)(_db__rspack_import_2.EXT_STORE, null, meta);
-    await loadExtension(meta, registry, host, backgroundRoot);
-    return extId;
+    return meta;
 }
-async function uninstallExtension(extId, registry) {
-    const ext = registry.get(extId);
-    if (!ext) return;
-    (0,_background__rspack_import_4.stopBackground)(ext);
-    (0,_contentScripts__rspack_import_5.unregisterContentScripts)(extId, registry);
-    registry.remove(extId);
-    await (0,_db__rspack_import_2.dbDelete)(_db__rspack_import_2.EXT_STORE, extId);
-    const fileKeys = await (0,_db__rspack_import_2.dbGetAllKeys)(_db__rspack_import_2.EXT_FILES_STORE);
-    for (const k of fileKeys.filter((key)=>typeof key === "string" && key.startsWith(`${extId}/`))){
-        await (0,_db__rspack_import_2.dbDelete)(_db__rspack_import_2.EXT_FILES_STORE, k);
-    }
-    const storageKeys = await (0,_db__rspack_import_2.dbGetAllKeys)(_db__rspack_import_2.EXT_STORAGE_STORE);
-    for (const k of storageKeys.filter((key)=>typeof key === "string" && key.startsWith(`${extId}/`))){
-        await (0,_db__rspack_import_2.dbDelete)(_db__rspack_import_2.EXT_STORAGE_STORE, k);
-    }
-    registry.notifyChange();
+async function storedMetas() {
+    return (0,_db__rspack_import_2.dbGetAll)(_db__rspack_import_2.EXT_STORE);
 }
-async function setExtensionEnabled(extId, enabled, registry, host, backgroundRoot) {
-    const ext = registry.get(extId);
-    if (!ext) return;
-    ext.enabled = enabled;
-    const stored = await (0,_db__rspack_import_2.dbGet)(_db__rspack_import_2.EXT_STORE, extId);
-    if (stored) {
-        stored.enabled = enabled;
-        await (0,_db__rspack_import_2.dbPut)(_db__rspack_import_2.EXT_STORE, null, stored);
-    }
-    if (enabled) {
-        await (0,_background__rspack_import_4.startBackground)(ext, registry, host, backgroundRoot);
-    } else {
-        (0,_background__rspack_import_4.stopBackground)(ext);
-    }
-    registry.notifyChange();
+async function storedMeta(id) {
+    return (0,_db__rspack_import_2.dbGet)(_db__rspack_import_2.EXT_STORE, id);
 }
-function getInstalledExtensions(registry) {
-    return registry.list().map((ext)=>({
-            id: ext.id,
-            name: ext.manifest.name,
-            version: ext.manifest.version,
-            enabled: ext.enabled,
-            manifest: ext.manifest,
-            iconUrl: ext.iconUrl,
-            title: ext.title,
-            badgeText: ext.badgeText,
-            badgeColor: ext.badgeColor,
-            hasPopup: Boolean(ext.popupPage ?? ext.manifest.action?.default_popup ?? ext.manifest.browser_action?.default_popup ?? ext.manifest.page_action?.default_popup)
-        }));
+async function saveMeta(meta) {
+    await (0,_db__rspack_import_2.dbPut)(_db__rspack_import_2.EXT_STORE, null, meta);
+}
+async function deletePackage(ext) {
+    await (0,_db__rspack_import_2.dbDelete)(_db__rspack_import_2.EXT_STORE, ext.id);
+    await (0,_db__rspack_import_2.dbDeletePrefix)(_db__rspack_import_2.EXT_FILES_STORE, `${ext.id}/`);
+    await (0,_db__rspack_import_2.dbDeletePrefix)(_db__rspack_import_2.EXT_STATE_STORE, `${ext.id}/`);
+    await ext.storage.local.destroy();
+    await ext.storage.sync.destroy();
 }
 
 
 },
-"./node_modules/@x8r/sapphire/src/fileStore.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+"./node_modules/@x8r/sapphire/src/files.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  readExtFile: () => (readExtFile),
-  readExtFileText: () => (readExtFileText),
-  readExtFileURL: () => (readExtFileURL)
+  PackageFiles: () => (PackageFiles)
 });
 /* import */ var _db__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/db.ts");
 /* import */ var _crx__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/crx.ts");
 
 
-
-async function readExtFile(extId, path) {
-    const key = `${extId}/${path.replace(/^\//, "")}`;
-    const ab = await (0,_db__rspack_import_0.dbGet)(_db__rspack_import_0.EXT_FILES_STORE, key);
-    return ab ?? null;
-}
-async function readExtFileText(extId, path) {
-    const ab = await readExtFile(extId, path);
-    if (!ab) return null;
-    return new TextDecoder().decode(ab);
-}
-async function readExtFileURL(extId, path) {
-    const ab = await readExtFile(extId, path);
-    if (!ab) return null;
-    const mime = (0,_crx__rspack_import_1.guessMime)(path);
-    return URL.createObjectURL(new Blob([
-        ab
-    ], {
-        type: mime
-    }));
+const decoder = new TextDecoder();
+/**
+ * One extension's package files. Reads go to IndexedDB and are cached; text
+ * that must be available synchronously (content scripts injected at
+ * document_start, importScripts in a service worker) is preloaded.
+ */ class PackageFiles {
+    bytes = new Map();
+    text = new Map();
+    list = null;
+    extId;
+    constructor(extId, fileList){
+        this.extId = extId;
+        if (fileList?.length) this.list = new Set(fileList);
+    }
+    static normalize(path) {
+        return path.replace(/^(?:\.?\/)+/, "").replace(/\/{2,}/g, "/").replace(/\/\.\//g, "/");
+    }
+    async listFiles() {
+        if (!this.list) {
+            const prefix = `${this.extId}/`;
+            const keys = await (0,_db__rspack_import_0.dbGetAllKeysPrefix)(_db__rspack_import_0.EXT_FILES_STORE, prefix);
+            this.list = new Set(keys.map((k)=>k.slice(prefix.length)));
+        }
+        return [
+            ...this.list
+        ];
+    }
+    has(path) {
+        return this.list ? this.list.has(PackageFiles.normalize(path)) : null;
+    }
+    async read(path) {
+        const p = PackageFiles.normalize(path);
+        if (this.bytes.has(p)) return this.bytes.get(p);
+        if (this.list && !this.list.has(p)) return null;
+        const ab = await (0,_db__rspack_import_0.dbGet)(_db__rspack_import_0.EXT_FILES_STORE, `${this.extId}/${p}`) ?? null;
+        this.bytes.set(p, ab);
+        return ab;
+    }
+    async readText(path) {
+        const p = PackageFiles.normalize(path);
+        if (this.text.has(p)) return this.text.get(p);
+        const ab = await this.read(p);
+        const text = ab ? decoder.decode(ab) : null;
+        this.text.set(p, text);
+        // Text is what callers keep asking for; don't hold both copies.
+        if (text !== null) this.bytes.delete(p);
+        return text;
+    }
+    readTextSync(path) {
+        return this.text.get(PackageFiles.normalize(path)) ?? null;
+    }
+    async preload(paths) {
+        await Promise.all(paths.map((p)=>this.readText(p)));
+    }
+    async preloadMatching(test) {
+        const files = await this.listFiles();
+        await this.preload(files.filter(test));
+    }
+    async blobUrl(path) {
+        const ab = await this.read(path);
+        if (!ab) return null;
+        return URL.createObjectURL(new Blob([
+            ab
+        ], {
+            type: (0,_crx__rspack_import_1.guessMime)(path)
+        }));
+    }
+    async dataUrl(path) {
+        const ab = await this.read(path);
+        if (!ab) return null;
+        const bytes = new Uint8Array(ab);
+        let binary = "";
+        for(let i = 0; i < bytes.length; i += 0x8000)binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        return `data:${(0,_crx__rspack_import_1.guessMime)(path)};base64,${btoa(binary)}`;
+    }
 }
 
 
 },
-"./node_modules/@x8r/sapphire/src/htmlInject.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+"./node_modules/@x8r/sapphire/src/frames.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  bootstrapExtensionFrame: () => (bootstrapExtensionFrame),
-  injectScript: () => (injectScript),
-  injectScriptFromUrl: () => (injectScriptFromUrl),
-  injectStyle: () => (injectStyle),
-  rewriteExtHtml: () => (rewriteExtHtml),
-  writeDocument: () => (writeDocument)
+  closedShadowRoot: () => (closedShadowRoot),
+  dispatchServiceWorkerLifecycle: () => (dispatchServiceWorkerLifecycle),
+  onInitPost: () => (onInitPost),
+  onInitPre: () => (onInitPre),
+  unproxyUrl: () => (unproxyUrl)
 });
-/* import */ var _urlScheme__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/urlScheme.ts");
+/* import */ var _api__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/index.ts");
+/* import */ var _api_webNavigation__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/webNavigation.ts");
+/* import */ var _content__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/content.ts");
+/* import */ var _realm__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _urls__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
 
-const RESOURCE_ATTR_RE = /(<(?:script|link|img)\b[^>]*\s(?:src|href)=["'])([^"']+)(["'][^>]*>)/gi;
-async function rewriteExtHtml(extId, html, pagePath) {
-    const pageDir = (0,_urlScheme__rspack_import_0.extensionPathDir)(pagePath);
-    let result = html.replace(RESOURCE_ATTR_RE, (full, prefix, url, suffix)=>{
-        if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|data:|blob:)/i.test(url)) return full;
-        return `${prefix}${(0,_urlScheme__rspack_import_0.buildExtensionUrl)(extId, (0,_urlScheme__rspack_import_0.resolveExtensionResourcePath)(pageDir, url))}${suffix}`;
-    });
-    const baseTag = `<base href="${(0,_urlScheme__rspack_import_0.sapphireExtensionBase)(extId)}${pageDir ? `${pageDir}/` : ""}">`;
-    if (/<head[^>]*>/i.test(result)) {
-        result = result.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
-    } else {
-        result = result.replace(/<html([^>]*)>/i, `<html$1><head>${baseTag}</head>`);
-    }
-    return result;
-}
-function bootstrapExtensionFrame(frame, extId) {
-    return new Promise((resolve, reject)=>{
-        frame.addEventListener("load", ()=>{
-            const win = frame.contentWindow;
-            if (win) resolve(win);
-            else reject(new Error("sapphire: bootstrap frame has no window after load"));
-        }, {
-            once: true
-        });
-        frame.src = (0,_urlScheme__rspack_import_0.sapphireBootstrapUrl)(extId);
-    });
-}
-function writeDocument(win, html) {
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-    setTimeout(()=>win.dispatchEvent(new Event("load")), 0);
-}
-function injectScript(win, code) {
-    try {
-        const doc = win.document;
-        const script = doc.createElement("script");
-        script.textContent = code;
-        (doc.head || doc.documentElement).appendChild(script);
-    } catch (e) {
-        console.warn("[sapphire] injectScript failed", e);
-    }
-}
-function injectScriptFromUrl(win, url, isModule) {
-    return new Promise((resolve)=>{
+
+
+
+
+const closedRoots = new WeakMap();
+const hookedRealms = new WeakSet();
+/** The frame's own Navigation API object, grabbed before Scramjet deletes `navigation`. */ const frameNavigation = new WeakMap();
+/**
+ * An iframe's history traversal is joint with its embedder's, so `history.back()`
+ * in a tab with no earlier entry of its own would navigate the *host*. Bound
+ * traversal by the frame's own entries.
+ */ function shieldHistory(win) {
+    const nav = frameNavigation.get(win);
+    if (!nav) return;
+    const within = (delta)=>{
         try {
+            const index = nav.currentEntry?.index ?? 0;
+            const target = index + delta;
+            return target >= 0 && target < nav.entries().length;
+        } catch  {
+            return false;
+        }
+    };
+    const history = win.history;
+    const go = history.go.bind(history);
+    const wrap = (name, fn)=>{
+        try {
+            Object.defineProperty(history, name, {
+                value: fn,
+                writable: true,
+                configurable: true
+            });
+        } catch  {
+        // ignore
+        }
+    };
+    wrap("back", ()=>{
+        if (within(-1)) go(-1);
+    });
+    wrap("forward", ()=>{
+        if (within(1)) go(1);
+    });
+    wrap("go", (delta = 0)=>{
+        if (delta === 0) win.location.reload();
+        else if (within(delta)) go(delta);
+    });
+}
+/** Page contexts' stand-in navigator.serviceWorker, so SW→client messages can be delivered to it. */ const pageContainers = new WeakMap();
+function closedShadowRoot(el) {
+    return closedRoots.get(el) ?? null;
+}
+function hookAttachShadow(win) {
+    const realm = win;
+    const proto = realm.Element?.prototype;
+    if (!proto || hookedRealms.has(proto)) return;
+    hookedRealms.add(proto);
+    const original = proto.attachShadow;
+    if (typeof original !== "function") return;
+    const patched = {
+        attachShadow (init) {
+            const root = original.call(this, init);
+            if (init?.mode === "closed") closedRoots.set(this, root);
+            return root;
+        }
+    }.attachShadow;
+    Object.defineProperty(proto, "attachShadow", {
+        value: patched,
+        writable: true,
+        configurable: true,
+        enumerable: true
+    });
+}
+function contextKindFor(kind, isTop) {
+    if (!isTop) return "iframe";
+    if (kind === "background") return "background";
+    if (kind === "popup") return "popup";
+    if (kind === "offscreen") return "offscreen";
+    if (kind === "sidepanel") return "sidepanel";
+    return "tab";
+}
+function frameIds(s, tabId, win, isTop) {
+    if (tabId === null) return {
+        frameId: isTop ? 0 : -1,
+        parentFrameId: -1
+    };
+    const frameId = s.registry.frameIdFor(tabId, win, isTop);
+    if (isTop) return {
+        frameId,
+        parentFrameId: -1
+    };
+    let parentFrameId = 0;
+    try {
+        const parent = win.parent;
+        const tab = s.registry.tab(tabId);
+        const known = tab.frameIds.get(parent);
+        if (known !== undefined) parentFrameId = known;
+        else if (parent.frameElement && !parent.frameElement.ownerDocument.defaultView?.frameElement) parentFrameId = 0;
+    } catch  {
+        parentFrameId = 0;
+    }
+    return {
+        frameId,
+        parentFrameId
+    };
+}
+function sameWindow(a, b) {
+    try {
+        return a === b;
+    } catch  {
+        return false;
+    }
+}
+/**
+ * Scramjet rewrites URL arguments (importScripts included) into its
+ * /<prefix>/<encoded real URL> form; recover the real URL.
+ */ function unproxyUrl(ref) {
+    const m = ref.match(/\/(https?%3A%2F%2F[^?#/]*)/i);
+    if (!m) return ref;
+    try {
+        return decodeURIComponent(m[1]);
+    } catch  {
+        return ref;
+    }
+}
+/** Service worker globals for an MV3 background running in a (hidden) page. */ function installServiceWorkerShim(s, ctx) {
+    const win = ctx.window;
+    const ext = ctx.ext;
+    const swPath = ext.manifest.background?.service_worker ?? "background.js";
+    const scriptUrl = (0,_urls__rspack_import_4.extensionUrl)(ext.id, swPath);
+    const importScripts = (...urls)=>{
+        for (const raw of urls){
+            const ref = unproxyUrl(String(raw));
+            const parsed = (0,_urls__rspack_import_4.parseExtensionUrl)(ref, scriptUrl);
+            const path = parsed && parsed.extId === ext.id ? parsed.path : /^[a-z]+:/i.test(ref) ? null : (0,_urls__rspack_import_4.resolvePackagePath)(ref, swPath);
+            const code = path !== null ? ext.files.readTextSync(path) : null;
+            if (code === null) {
+                throw (0,_realm__rspack_import_3.realmError)(ctx, `Failed to execute 'importScripts' on 'WorkerGlobalScope': The script at '${ref}' failed to load.`);
+            }
             const doc = win.document;
             const script = doc.createElement("script");
-            if (isModule) script.type = "module";
-            script.src = url;
-            script.addEventListener("load", ()=>resolve(), {
-                once: true
+            script.textContent = `${code}\n//# sourceURL=${(0,_urls__rspack_import_4.extensionUrl)(ext.id, path)}`;
+            (doc.head ?? doc.documentElement).appendChild(script);
+            script.remove();
+        }
+    };
+    const makeClient = (c)=>({
+            id: String(c.id),
+            url: c.url,
+            type: "window",
+            frameType: c.kind === "iframe" ? "nested" : "top-level",
+            focused: c.kind === "tab" && c.tabId === s.host.getActiveTabId?.(),
+            visibilityState: "visible",
+            postMessage: (message, transfer)=>{
+                try {
+                    const ports = (Array.isArray(transfer) ? transfer : transfer?.transfer ?? []).filter((t)=>!!t && typeof t.postMessage === "function" && "onmessage" in t);
+                    const realm = c.window;
+                    const event = new realm.MessageEvent("message", {
+                        data: message,
+                        ports,
+                        origin: (0,_urls__rspack_import_4.extensionUrl)(ext.id, "").slice(0, -1)
+                    });
+                    const page = pageContainers.get(c);
+                    if (page) {
+                        // In a page, messages from "its" service worker arrive on navigator.serviceWorker.
+                        page.target.dispatchEvent(event);
+                        const handler = page.container.onmessage;
+                        if (typeof handler === "function") handler.call(page.container, event);
+                    } else {
+                        c.window.dispatchEvent(event);
+                    }
+                } catch  {
+                // ignore
+                }
+            },
+            focus: ()=>Promise.resolve(makeClient(c)),
+            navigate: (url)=>{
+                c.window.location.href = url;
+                return Promise.resolve(makeClient(c));
+            }
+        });
+    const clients = {
+        matchAll: (opts = {})=>Promise.resolve(opts.type && opts.type !== "window" && opts.type !== "all" ? [] : s.registry.extensionContexts(ext.id).filter((c)=>c !== ctx).map(makeClient)),
+        get: (id)=>Promise.resolve(s.registry.extensionContexts(ext.id).filter((c)=>String(c.id) === id).map(makeClient)[0]),
+        openWindow: async (url)=>{
+            const id = await s.openTab((0,_urls__rspack_import_4.parseExtensionUrl)(url) ? url : new URL(url, scriptUrl).href, {
+                active: true
             });
-            script.addEventListener("error", (e)=>{
-                console.warn("[sapphire] injectScriptFromUrl failed to load", url, e);
-                resolve();
-            }, {
-                once: true
+            return id === null ? null : {
+                id: String(id),
+                url,
+                type: "window"
+            };
+        },
+        claim: ()=>Promise.resolve()
+    };
+    const worker = {
+        scriptURL: scriptUrl,
+        state: "activated",
+        postMessage: ()=>{},
+        onstatechange: null,
+        addEventListener: ()=>{},
+        removeEventListener: ()=>{}
+    };
+    const registration = {
+        scope: (0,_urls__rspack_import_4.extensionUrl)(ext.id, ""),
+        active: worker,
+        installing: null,
+        waiting: null,
+        updateViaCache: "imports",
+        navigationPreload: {
+            enable: ()=>Promise.resolve(),
+            disable: ()=>Promise.resolve(),
+            setHeaderValue: ()=>Promise.resolve(),
+            getState: ()=>Promise.resolve({
+                    enabled: false,
+                    headerValue: ""
+                })
+        },
+        showNotification: async (title, options = {})=>{
+            s.host.showNotification?.(String(title), String(options.body ?? ""));
+        },
+        getNotifications: ()=>Promise.resolve([]),
+        update: ()=>Promise.resolve(),
+        unregister: ()=>Promise.resolve(false),
+        addEventListener: ()=>{},
+        removeEventListener: ()=>{}
+    };
+    const define = (name, value)=>{
+        try {
+            Object.defineProperty(win, name, {
+                value,
+                writable: true,
+                configurable: true,
+                enumerable: false
             });
-            (doc.head || doc.documentElement).appendChild(script);
-        } catch (e) {
-            console.warn("[sapphire] injectScriptFromUrl failed", e);
-            resolve();
+        } catch  {
+        // ignore
+        }
+    };
+    define("importScripts", importScripts);
+    define("clients", clients);
+    define("registration", registration);
+    define("serviceWorker", worker);
+    define("skipWaiting", ()=>Promise.resolve());
+    const scopeCtor = function ServiceWorkerGlobalScope() {
+        throw new TypeError("Illegal constructor");
+    };
+    Object.defineProperty(scopeCtor, Symbol.hasInstance, {
+        value: (obj)=>obj === win
+    });
+    const workerCtor = function WorkerGlobalScope() {
+        throw new TypeError("Illegal constructor");
+    };
+    Object.defineProperty(workerCtor, Symbol.hasInstance, {
+        value: (obj)=>obj === win
+    });
+    define("ServiceWorkerGlobalScope", scopeCtor);
+    define("WorkerGlobalScope", workerCtor);
+    if (!("ExtendableEvent" in win)) {
+        define("ExtendableEvent", class extends win.Event {
+            waitUntil(_p) {}
+            addRoutes() {
+                return Promise.resolve();
+            }
+        });
+    }
+}
+/**
+ * Scramjet deletes Navigator.prototype.serviceWorker (the proxy owns the real
+ * worker), but extension pages legitimately talk to "their" service worker:
+ * `navigator.serviceWorker.controller`, `.ready`, `onmessage`, `postMessage`.
+ * Give them an inert, spec-shaped stand-in.
+ */ function installPageServiceWorkerShim(s, ctx) {
+    const win = ctx.window;
+    const ext = ctx.ext;
+    if (!ext.manifest.background?.service_worker) return;
+    const scriptURL = (0,_urls__rspack_import_4.extensionUrl)(ext.id, ext.manifest.background.service_worker);
+    const target = new win.EventTarget();
+    const worker = Object.assign(new win.EventTarget(), {
+        scriptURL,
+        state: "activated",
+        onstatechange: null,
+        // page → its service worker: arrives as a `message` event (with any transferred ports) in the background realm.
+        postMessage: (message, transfer)=>{
+            const bg = s.registry.contextsOf(ext.id, (c)=>c.kind === "background")[0];
+            if (!bg) return;
+            const ports = (Array.isArray(transfer) ? transfer : transfer?.transfer ?? []).filter((t)=>!!t && typeof t.postMessage === "function" && "onmessage" in t);
+            const bgWin = bg.window;
+            const event = new bgWin.MessageEvent("message", {
+                data: message,
+                ports,
+                origin: (0,_urls__rspack_import_4.extensionUrl)(ext.id, "").slice(0, -1)
+            });
+            setTimeout(()=>bgWin.dispatchEvent(event), 0);
         }
     });
-}
-function injectStyle(win, css) {
+    const registration = Object.assign(new win.EventTarget(), {
+        scope: (0,_urls__rspack_import_4.extensionUrl)(ext.id, ""),
+        active: worker,
+        installing: null,
+        waiting: null,
+        updateViaCache: "imports",
+        update: ()=>Promise.resolve(registration),
+        unregister: ()=>Promise.resolve(false),
+        pushManager: {
+            getSubscription: ()=>Promise.resolve(null)
+        }
+    });
+    const container = {
+        // Extension pages are always controlled by their own extension's (single) service worker.
+        // Extension pages are always controlled by their own extension's (single) service worker.
+        controller: worker,
+        ready: Promise.resolve(registration),
+        onmessage: null,
+        oncontrollerchange: null,
+        onmessageerror: null,
+        register: ()=>Promise.resolve(registration),
+        getRegistration: ()=>Promise.resolve(registration),
+        getRegistrations: ()=>Promise.resolve([
+                registration
+            ]),
+        startMessages: ()=>{},
+        addEventListener: target.addEventListener.bind(target),
+        removeEventListener: target.removeEventListener.bind(target),
+        dispatchEvent: target.dispatchEvent.bind(target)
+    };
+    pageContainers.set(ctx, {
+        target,
+        container
+    });
     try {
-        const doc = win.document;
-        const style = doc.createElement("style");
-        style.textContent = css;
-        (doc.head || doc.documentElement).appendChild(style);
-    } catch (e) {
-        console.warn("[sapphire] injectStyle failed", e);
+        Object.defineProperty(win.navigator, "serviceWorker", {
+            value: container,
+            configurable: true,
+            enumerable: true
+        });
+    } catch  {
+    // ignore
     }
+    void s;
+}
+/** Fire SW lifecycle events once the background document has run its scripts. */ function dispatchServiceWorkerLifecycle(ctx) {
+    const win = ctx.window;
+    for (const type of [
+        "install",
+        "activate"
+    ]){
+        try {
+            const ev = new win.Event(type);
+            ev.waitUntil = ()=>{};
+            ev.addRoutes = ()=>Promise.resolve();
+            win.dispatchEvent(ev);
+            const handler = win[`on${type}`];
+            if (typeof handler === "function") handler.call(win, ev);
+        } catch (e) {
+            console.warn("[sapphire] service worker lifecycle dispatch failed", e);
+        }
+    }
+}
+function recordFrame(s, tabId, win, frameId, parentFrameId, documentId, url) {
+    const tab = s.registry.tab(tabId);
+    const record = {
+        frameId,
+        parentFrameId,
+        window: win,
+        url,
+        documentId,
+        documentLifecycle: "active",
+        errorOccurred: false
+    };
+    tab.frames.set(frameId, record);
+    return record;
+}
+function frameType(frameId) {
+    return frameId === 0 ? "outermost_frame" : "sub_frame";
+}
+/** Only real tabs own frames; a popup's tabId is just "the tab it was opened over". */ function frameTabId(info) {
+    return info.kind === "tab" ? info.tabId : null;
+}
+function onInitPre(s, info, init) {
+    const win = init?.window;
+    if (!win) return;
+    const isTop = Boolean(init?.isTopLevel);
+    const rawUrl = init?.client?.url || win?.__scramjet$client$url || win?.location?.href || "about:blank";
+    const url = String(rawUrl);
+    const tabId = frameTabId(info);
+    const { frameId, parentFrameId } = frameIds(s, tabId, win, isTop);
+    const documentId = (0,_realm__rspack_import_3.randomId)(32);
+    const parsed = (0,_urls__rspack_import_4.parseExtensionUrl)(url);
+    try {
+        const nav = win.navigation;
+        if (nav) frameNavigation.set(win, nav);
+    } catch  {
+    // ignore
+    }
+    if (s.registry.contentScripts.length) hookAttachShadow(win);
+    if (tabId !== null) {
+        const parentRecord = parentFrameId >= 0 ? s.registry.tab(tabId).frames.get(parentFrameId) : undefined;
+        recordFrame(s, tabId, win, frameId, parentFrameId, documentId, url);
+        const base = {
+            tabId,
+            frameId,
+            parentFrameId,
+            url,
+            timeStamp: Date.now(),
+            documentLifecycle: "active",
+            frameType: frameType(frameId),
+            ...parentRecord ? {
+                parentDocumentId: parentRecord.documentId
+            } : {}
+        };
+        if (isTop) {
+            const tab = s.registry.tab(tabId);
+            const changed = tab.url !== url;
+            tab.url = url;
+            tab.status = "loading";
+            tab.title = "";
+            tab.favIconUrl = "";
+            s.tabUpdated(tabId, changed ? {
+                status: "loading",
+                url
+            } : {
+                status: "loading"
+            });
+        }
+        (0,_api_webNavigation__rspack_import_1.dispatchNavigation)(s, "onBeforeNavigate", {
+            ...base,
+            processId: -1
+        });
+        (0,_api_webNavigation__rspack_import_1.dispatchNavigation)(s, "onCommitted", {
+            ...base,
+            documentId,
+            processId: 1,
+            transitionType: isTop ? "link" : "auto_subframe",
+            transitionQualifiers: []
+        });
+    }
+    if (parsed) {
+        const ext = s.registry.get(parsed.extId);
+        if (!ext || !ext.enabled) return;
+        const kind = contextKindFor(info.kind, isTop);
+        const ctx = s.registry.createContext({
+            ext,
+            kind,
+            window: win,
+            document: win.document,
+            tabId,
+            frameId,
+            documentId,
+            url,
+            world: "ISOLATED"
+        });
+        ctx.chrome = (0,_api__rspack_import_0.buildChromeApi)(s, ctx);
+        // Non-configurable but writable in Chrome: assignment is the only way in.
+        try {
+            win.chrome = ctx.chrome;
+            win.browser = ctx.chrome;
+        } catch (e) {
+            console.error("[sapphire] could not install chrome on extension page", e);
+        }
+        if (kind === "background" && ext.manifest.background?.service_worker) installServiceWorkerShim(s, ctx);
+        else installPageServiceWorkerShim(s, ctx);
+        win.addEventListener("pagehide", ()=>s.registry.destroyContext(ctx));
+        if (kind === "background") s.onBackgroundContext(ext, ctx);
+        return;
+    }
+    (0,_content__rspack_import_2.installContentWorld)(s, win, {
+        tabId,
+        frameId,
+        parentFrameId,
+        documentId,
+        url,
+        isTop
+    });
+}
+function onInitPost(s, info, init) {
+    const win = init?.window;
+    if (!win) return;
+    const isTop = Boolean(init?.isTopLevel);
+    const tabId = frameTabId(info);
+    const world = (0,_content__rspack_import_2.contentWorldOf)(win);
+    const rawUrl = init?.client?.url || win?.__scramjet$client$url || win?.location?.href || "about:blank";
+    const url = String(rawUrl);
+    const parsed = (0,_urls__rspack_import_4.parseExtensionUrl)(url);
+    if (world && world.doc === win.document) (0,_content__rspack_import_2.startContentScripts)(s, world);
+    if (parsed && isTop && (info.kind === "popup" || info.kind === "tab" || info.kind === "sidepanel")) {
+        // window.close() from an extension page closes *its* tab/popup, never the host window.
+        const extId = parsed.extId;
+        const close = ()=>{
+            if (info.kind === "popup") s.closePopup(extId);
+            else if (tabId !== null) s.closeTab(tabId);
+        };
+        try {
+            Object.defineProperty(win, "close", {
+                value: close,
+                writable: true,
+                configurable: true
+            });
+        } catch  {
+        // ignore
+        }
+    }
+    if (tabId !== null || parsed) shieldHistory(win);
+    installKeyboardShortcuts(s, win, tabId);
+    if (tabId !== null) {
+        installContextMenuCapture(s, win, tabId, world);
+        watchLifecycle(s, win, tabId, isTop, url, init.client);
+    }
+}
+function watchLifecycle(s, win, tabId, isTop, url, client) {
+    const doc = win.document;
+    const tab = s.registry.tab(tabId);
+    const frameRecord = ()=>[
+            ...tab.frames.values()
+        ].find((f)=>sameWindow(f.window, win));
+    const base = ()=>{
+        const f = frameRecord();
+        return {
+            tabId,
+            frameId: f?.frameId ?? 0,
+            parentFrameId: f?.parentFrameId ?? -1,
+            url: f?.url ?? url,
+            timeStamp: Date.now(),
+            documentId: f?.documentId,
+            documentLifecycle: "active",
+            frameType: frameType(f?.frameId ?? 0),
+            processId: 1
+        };
+    };
+    const stillCurrent = ()=>{
+        try {
+            return win.document === doc;
+        } catch  {
+            return false;
+        }
+    };
+    doc.addEventListener("DOMContentLoaded", ()=>{
+        if (stillCurrent()) (0,_api_webNavigation__rspack_import_1.dispatchNavigation)(s, "onDOMContentLoaded", base());
+    });
+    win.addEventListener("load", ()=>{
+        if (!stillCurrent()) return;
+        (0,_api_webNavigation__rspack_import_1.dispatchNavigation)(s, "onCompleted", base());
+        if (!isTop) return;
+        tab.status = "complete";
+        const changes = {
+            status: "complete"
+        };
+        const title = doc.title;
+        if (title && title !== tab.title) {
+            tab.title = title;
+            changes.title = title;
+        }
+        s.tabUpdated(tabId, changes);
+        const icon = doc.querySelector('link[rel~="icon"]')?.href;
+        let favIconUrl = "";
+        try {
+            favIconUrl = icon ?? new URL("/favicon.ico", tab.url).href;
+        } catch  {
+            favIconUrl = "";
+        }
+        if (favIconUrl && favIconUrl !== tab.favIconUrl && !(0,_urls__rspack_import_4.parseExtensionUrl)(tab.url)) {
+            tab.favIconUrl = favIconUrl;
+            s.tabUpdated(tabId, {
+                favIconUrl
+            });
+        }
+        s.recordHistory(tabId, tab.url, tab.title);
+    });
+    if (isTop) {
+        const observeTitle = ()=>{
+            const title = doc.title;
+            if (title && title !== tab.title && stillCurrent()) {
+                tab.title = title;
+                s.tabUpdated(tabId, {
+                    title
+                });
+                s.browserData.updateTitle(tab.url, title);
+            }
+        };
+        try {
+            const Observer = win.MutationObserver;
+            const mo = new Observer(observeTitle);
+            mo.observe(doc, {
+                subtree: true,
+                childList: true,
+                characterData: true
+            });
+            win.addEventListener("load", ()=>setTimeout(()=>mo.disconnect(), 5000), {
+                once: true
+            });
+        } catch  {
+        // ignore
+        }
+        const onUrlChange = (event)=>{
+            if (!stillCurrent()) return;
+            let current;
+            try {
+                current = String(client?.url || win?.__scramjet$client$url || win.location?.href || "about:blank");
+            } catch  {
+                return;
+            }
+            if (current === tab.url) return;
+            tab.url = current;
+            const f = frameRecord();
+            if (f) f.url = current;
+            s.tabUpdated(tabId, {
+                url: current
+            });
+            (0,_api_webNavigation__rspack_import_1.dispatchNavigation)(s, event, {
+                ...base(),
+                url: current,
+                transitionType: "link",
+                transitionQualifiers: []
+            });
+        };
+        try {
+            const history = win.history;
+            for (const method of [
+                "pushState",
+                "replaceState"
+            ]){
+                const original = history[method];
+                history[method] = function(...args) {
+                    const result = original.apply(this, args);
+                    queueMicrotask(()=>onUrlChange("onHistoryStateUpdated"));
+                    return result;
+                };
+            }
+            win.addEventListener("popstate", ()=>onUrlChange("onHistoryStateUpdated"));
+            win.addEventListener("hashchange", ()=>onUrlChange("onReferenceFragmentUpdated"));
+        } catch  {
+        // ignore
+        }
+    }
+}
+function installKeyboardShortcuts(s, win, tabId) {
+    try {
+        win.addEventListener("keydown", (e)=>{
+            if (s.handleKeyboardEvent(e, tabId)) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        }, true);
+    } catch  {
+    // ignore
+    }
+}
+function installContextMenuCapture(s, win, tabId, world) {
+    if (!s.host.showContextMenu) return;
+    win.addEventListener("contextmenu", (e)=>{
+        const target = e.target;
+        const contexts = [];
+        let linkUrl;
+        let linkText;
+        let srcUrl;
+        let mediaType;
+        const link = target?.closest?.("a[href]");
+        if (link) {
+            contexts.push("link");
+            linkUrl = link.href;
+            linkText = link.textContent ?? "";
+        }
+        const tag = target?.tagName?.toLowerCase();
+        if (tag === "img" || tag === "video" || tag === "audio") {
+            mediaType = tag === "img" ? "image" : tag;
+            contexts.push(mediaType);
+            srcUrl = target.currentSrc || target.src;
+        }
+        const selection = win.getSelection()?.toString() ?? "";
+        if (selection) contexts.push("selection");
+        const editable = !!target && (target.isContentEditable || tag === "input" || tag === "textarea");
+        if (editable) contexts.push("editable");
+        const isTop = world?.isTop ?? true;
+        contexts.push(isTop ? "page" : "frame");
+        const tab = s.registry.tab(tabId);
+        const info = {
+            contexts,
+            pageUrl: tab.url,
+            frameUrl: world?.url,
+            frameId: world?.frameId,
+            linkUrl,
+            linkText,
+            srcUrl,
+            mediaType,
+            selectionText: selection || undefined,
+            editable
+        };
+        if (s.showContextMenu(tabId, world?.frameId ?? 0, info, e)) e.preventDefault();
+    }, true);
 }
 
 
@@ -2772,186 +8008,1012 @@ function injectStyle(win, css) {
 "./node_modules/@x8r/sapphire/src/index.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
+  BLOCKED_HEADER: () => (/* reexport safe */ _network__rspack_import_5.BLOCKED_HEADER),
   Sapphire: () => (/* reexport safe */ _sapphire__rspack_import_0.Sapphire),
   SapphireContentScriptPlugin: () => (/* reexport safe */ _SapphirePlugin__rspack_import_1.SapphireContentScriptPlugin),
+  SapphirePlugin: () => (/* reexport safe */ _SapphirePlugin__rspack_import_1.SapphirePlugin),
+  displayExtensionUrl: () => (/* reexport safe */ _urls__rspack_import_4.displayExtensionUrl),
+  extensionOrigin: () => (/* reexport safe */ _urls__rspack_import_4.extensionOrigin),
+  extensionUrl: () => (/* reexport safe */ _urls__rspack_import_4.extensionUrl),
   findMatchingCommand: () => (/* reexport safe */ _commands__rspack_import_2.findMatchingCommand),
-  triggerCommand: () => (/* reexport safe */ _commands__rspack_import_2.triggerCommand)
+  matchPattern: () => (/* reexport safe */ _matchPatterns__rspack_import_3.matchPattern),
+  normalizeExtensionUrl: () => (/* reexport safe */ _urls__rspack_import_4.normalizeExtensionUrl),
+  parseExtensionUrl: () => (/* reexport safe */ _urls__rspack_import_4.parseExtensionUrl),
+  shortcutMatches: () => (/* reexport safe */ _commands__rspack_import_2.shortcutMatches),
+  triggerCommand: () => (/* reexport safe */ _commands__rspack_import_2.triggerCommand),
+  urlMatchesPatterns: () => (/* reexport safe */ _matchPatterns__rspack_import_3.urlMatchesPatterns)
 });
 /* import */ var _sapphire__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/sapphire.ts");
 /* import */ var _SapphirePlugin__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/SapphirePlugin.ts");
 /* import */ var _commands__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/commands.ts");
+/* import */ var _matchPatterns__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/matchPatterns.ts");
+/* import */ var _urls__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
+/* import */ var _network__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/network.ts");
+
+
+
 
 
 
 
 
 },
-"./node_modules/@x8r/sapphire/src/manifest.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+"./node_modules/@x8r/sapphire/src/matchPatterns.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  getBackgroundInfo: () => (getBackgroundInfo),
-  getDefaultIcon: () => (getDefaultIcon),
-  getManifestVersion: () => (getManifestVersion),
+  isValidMatchPattern: () => (isValidMatchPattern),
+  matchGlob: () => (matchGlob),
   matchPattern: () => (matchPattern),
-  resolveManifestI18n: () => (resolveManifestI18n),
+  urlMatchesContentScript: () => (urlMatchesContentScript),
   urlMatchesPatterns: () => (urlMatchesPatterns)
 });
-function getManifestVersion(manifest) {
-    return Number(manifest.manifest_version) || 2;
+// Chrome match patterns: https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns
+// Semantics that matter and are easy to get wrong:
+//   - a pattern without a port matches any port (http://127.0.0.1/* matches :5200)
+//   - "*.example.com" also matches example.com itself
+//   - the path part is matched against path + query, never the fragment
+//   - scheme "*" means http or https only (plus ws/wss for host permissions)
+const cache = new Map();
+function globToRegExp(glob, questionMark) {
+    let re = "";
+    for (const ch of glob){
+        if (ch === "*") re += ".*";
+        else if (ch === "?" && questionMark) re += ".";
+        else re += ch.replace(/[.+^${}()|[\]\\?]/g, "\\$&");
+    }
+    return new RegExp(`^${re}$`, "s");
 }
-function getBackgroundInfo(manifest) {
-    if (getManifestVersion(manifest) === 3) {
-        const sw = manifest.background?.service_worker;
-        return sw ? {
-            type: "worker",
-            script: sw,
-            isModule: manifest.background?.type === "module"
-        } : null;
-    }
-    if (manifest.background?.page) {
-        return {
-            type: "page",
-            page: manifest.background.page
+function compile(pattern) {
+    if (cache.has(pattern)) return cache.get(pattern);
+    let result = null;
+    if (pattern === "<all_urls>") {
+        result = {
+            all: true,
+            schemes: null,
+            host: null,
+            subdomains: false,
+            port: null,
+            path: /.*/
         };
+    } else {
+        const m = pattern.match(/^(\*|[a-z][a-z0-9+.-]*):\/\/([^/]*)(\/.*)?$/i);
+        if (m) {
+            const scheme = m[1].toLowerCase();
+            let hostPart = m[2].toLowerCase();
+            const path = m[3] ?? "/*";
+            let port = null;
+            const portMatch = hostPart.match(/^(.*?)(?::(\d+|\*))?$/);
+            if (portMatch) {
+                hostPart = portMatch[1];
+                port = portMatch[2] && portMatch[2] !== "*" ? portMatch[2] : null;
+            }
+            let host = hostPart;
+            let subdomains = false;
+            if (host === "*" || host === "" && scheme === "file") host = null;
+            else if (host.startsWith("*.")) {
+                host = host.slice(2);
+                subdomains = true;
+            }
+            result = {
+                all: false,
+                schemes: scheme === "*" ? [
+                    "http",
+                    "https",
+                    "ws",
+                    "wss"
+                ] : [
+                    scheme
+                ],
+                host,
+                subdomains,
+                port,
+                path: globToRegExp(path, false)
+            };
+        }
     }
-    if (manifest.background?.scripts?.length) {
-        return {
-            type: "scripts",
-            scripts: manifest.background.scripts
-        };
-    }
-    return null;
+    cache.set(pattern, result);
+    return result;
 }
+const ALL_URLS_SCHEMES = new Set([
+    "http",
+    "https",
+    "ws",
+    "wss",
+    "ftp",
+    "file",
+    "urn",
+    "data"
+]);
 function matchPattern(pattern, url) {
-    if (pattern === "<all_urls>") return true;
-    if (pattern === "*://*/*") return url.startsWith("http://") || url.startsWith("https://");
+    const compiled = compile(pattern);
+    if (!compiled) return false;
+    let u;
     try {
-        const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
-        const schemeMatch = escaped.match(/^([^:]+):\/\//);
-        if (!schemeMatch) return false;
-        const re = new RegExp("^" + escaped + "$");
-        return re.test(url);
+        u = typeof url === "string" ? new URL(url) : url;
     } catch  {
         return false;
     }
+    const scheme = u.protocol.slice(0, -1).toLowerCase();
+    if (compiled.all) return ALL_URLS_SCHEMES.has(scheme);
+    if (compiled.schemes && !compiled.schemes.includes(scheme)) return false;
+    const hostname = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (compiled.host !== null) {
+        const h = compiled.host.replace(/^\[|\]$/g, "");
+        if (compiled.subdomains) {
+            if (hostname !== h && !hostname.endsWith(`.${h}`)) return false;
+        } else if (hostname !== h) {
+            return false;
+        }
+    }
+    if (compiled.port !== null) {
+        const effective = u.port || (scheme === "https" || scheme === "wss" ? "443" : scheme === "http" || scheme === "ws" ? "80" : "");
+        if (effective !== compiled.port) return false;
+    }
+    const pathAndQuery = (u.pathname || "/") + u.search;
+    return compiled.path.test(pathAndQuery);
+}
+function isValidMatchPattern(pattern) {
+    return compile(pattern) !== null;
+}
+const globCache = new Map();
+function matchGlob(glob, url) {
+    let re = globCache.get(glob);
+    if (!re) {
+        re = globToRegExp(glob, true);
+        globCache.set(glob, re);
+    }
+    return re.test(url);
 }
 function urlMatchesPatterns(url, matches, excludeMatches = []) {
-    if (excludeMatches.some((p)=>matchPattern(p, url))) return false;
-    return matches.some((p)=>matchPattern(p, url));
+    if (!matches.some((p)=>matchPattern(p, url))) return false;
+    return !excludeMatches.some((p)=>matchPattern(p, url));
 }
-function resolveManifestI18n(manifest, messages) {
-    const resolve = (s)=>{
-        if (!s) return s;
-        const match = s.match(/^__MSG_(.+)__$/);
-        if (!match) return s;
-        return messages[match[1]]?.message ?? s;
-    };
-    manifest.name = resolve(manifest.name) ?? manifest.name;
-    manifest.short_name = resolve(manifest.short_name);
-    manifest.description = resolve(manifest.description);
-    for (const key of [
-        "action",
-        "browser_action",
-        "page_action"
-    ]){
-        const action = manifest[key];
-        if (action?.default_title) action.default_title = resolve(action.default_title);
-    }
-    return manifest;
-}
-function getDefaultIcon(manifest) {
-    const icons = manifest.action?.default_icon ?? manifest.browser_action?.default_icon ?? manifest.page_action?.default_icon ?? manifest.icons;
-    if (!icons) return null;
-    if (typeof icons === "string") return icons;
-    const sizes = Object.keys(icons).map(Number).filter((n)=>!Number.isNaN(n)).sort((a, b)=>b - a);
-    if (sizes.length) return icons[String(sizes[0])] ?? null;
-    const firstKey = Object.keys(icons)[0];
-    return firstKey ? icons[firstKey] : null;
-}
-
-
-},
-"./node_modules/@x8r/sapphire/src/newtab.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
-__webpack_require__.r(__webpack_exports__);
-__webpack_require__.d(__webpack_exports__, {
-  getNewTabOverride: () => (getNewTabOverride),
-  mountNewTabPage: () => (mountNewTabPage)
-});
-/* import */ var _pageMount__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/pageMount.ts");
-
-function getNewTabOverride(registry) {
-    const candidates = registry.list().filter((ext)=>ext.enabled && typeof ext.manifest.chrome_url_overrides?.newtab === "string").sort((a, b)=>b.installedAt - a.installedAt);
-    const winner = candidates[0];
-    if (!winner) return null;
-    return {
-        extId: winner.id,
-        page: winner.manifest.chrome_url_overrides.newtab
-    };
-}
-async function mountNewTabPage(frame, extId, page, tabId, registry, host) {
-    return (0,_pageMount__rspack_import_0.mountExtensionPage)(frame, extId, page, tabId, registry, host, false);
-}
-
-
-},
-"./node_modules/@x8r/sapphire/src/pageMount.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
-__webpack_require__.r(__webpack_exports__);
-__webpack_require__.d(__webpack_exports__, {
-  mountExtensionPage: () => (mountExtensionPage)
-});
-/* import */ var _chromeApi__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/chromeApi.ts");
-/* import */ var _fileStore__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/fileStore.ts");
-/* import */ var _htmlInject__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/htmlInject.ts");
-/* import */ var _urlScheme__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/urlScheme.ts");
-
-
-
-
-async function mountExtensionPage(frame, extId, pagePath, tabId, registry, host, skipTabRegistration) {
-    const win = await (0,_htmlInject__rspack_import_2.bootstrapExtensionFrame)(frame, extId);
-    const events = (0,_chromeApi__rspack_import_0.installChromeApi)(win, {
-        extId,
-        tabId,
-        isBackground: false,
-        registry,
-        host,
-        skipTabRegistration,
-        senderUrl: (0,_urlScheme__rspack_import_3.chromeExtensionUrl)(extId, pagePath)
-    });
-    if (skipTabRegistration) {
-        const ext = registry.get(extId);
-        if (ext) ext.popupEvents = events;
-    }
-    const raw = await (0,_fileStore__rspack_import_1.readExtFileText)(extId, pagePath);
-    if (raw === null) return false;
-    const html = await (0,_htmlInject__rspack_import_2.rewriteExtHtml)(extId, raw, pagePath);
-    (0,_htmlInject__rspack_import_2.writeDocument)(win, html);
+function urlMatchesContentScript(url, cs) {
+    if (!urlMatchesPatterns(url, cs.matches, cs.excludeMatches)) return false;
+    if (cs.includeGlobs.length && !cs.includeGlobs.some((g)=>matchGlob(g, url))) return false;
+    if (cs.excludeGlobs.some((g)=>matchGlob(g, url))) return false;
     return true;
 }
 
 
 },
-"./node_modules/@x8r/sapphire/src/popup.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+"./node_modules/@x8r/sapphire/src/messaging.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  getExtensionPopupPage: () => (getExtensionPopupPage),
-  mountExtensionPopup: () => (mountExtensionPopup)
+  NO_RECEIVER: () => (NO_RECEIVER),
+  NO_RESPONSE: () => (NO_RESPONSE),
+  PORT_CLOSED: () => (PORT_CLOSED),
+  PortSide: () => (PortSide),
+  deliverMessage: () => (deliverMessage),
+  openPort: () => (openPort),
+  originOf: () => (originOf)
 });
-/* import */ var _pageMount__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/pageMount.ts");
+/* import */ var _events__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/events.ts");
+/* import */ var _realm__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _storage__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/storage.ts");
 
-function resolvePopupPage(registry, extId) {
-    const ext = registry.get(extId);
-    if (!ext) return null;
-    const manifest = ext.manifest;
-    return ext.popupPage ?? manifest.action?.default_popup ?? manifest.browser_action?.default_popup ?? manifest.page_action?.default_popup ?? null;
+
+
+const NO_RECEIVER = "Could not establish connection. Receiving end does not exist.";
+const PORT_CLOSED = "The message port closed before a response was received.";
+/** Resolved value of a one-time message whose receivers never answered. */ const NO_RESPONSE = Symbol("sapphire.noResponse");
+function originOf(url) {
+    if (!url) return undefined;
+    try {
+        const u = new URL(url);
+        return u.origin === "null" ? undefined : u.origin;
+    } catch  {
+        return undefined;
+    }
 }
-function getExtensionPopupPage(registry, extId) {
-    return resolvePopupPage(registry, extId);
+/**
+ * Deliver a one-time message to every listener of `eventName` in `targets`.
+ * First sendResponse (or first resolved non-undefined promise) wins; if no
+ * listener keeps the channel open the result is NO_RESPONSE.
+ */ function deliverMessage(targets, eventName, message, sender) {
+    const receivers = targets.filter((t)=>t.events.peek(eventName)?.hasListeners());
+    if (!receivers.length) return Promise.reject(new _realm__rspack_import_1.ApiError(NO_RECEIVER));
+    const payload = (0,_storage__rspack_import_2.jsonClone)(message === undefined ? null : message);
+    return new Promise((resolve, reject)=>{
+        let settled = false;
+        let pending = 0;
+        const respond = (value)=>{
+            if (settled) return;
+            settled = true;
+            resolve(value);
+        };
+        const release = ()=>{
+            pending--;
+            if (!settled && pending <= 0) respond(NO_RESPONSE);
+        };
+        setTimeout(()=>{
+            for (const target of receivers){
+                if (!target.alive) continue;
+                const ev = target.events.peek(eventName);
+                if (!ev) continue;
+                for (const entry of [
+                    ...ev.entries
+                ]){
+                    if (settled) break;
+                    let answered = false;
+                    const sendResponse = (response)=>{
+                        if (answered || settled) return;
+                        answered = true;
+                        respond(response === undefined ? undefined : (0,_storage__rspack_import_2.jsonClone)(response));
+                    };
+                    const result = ev.invoke(entry, [
+                        (0,_realm__rspack_import_1.jsonToRealm)(target, payload),
+                        (0,_realm__rspack_import_1.toRealm)(target, sender),
+                        sendResponse
+                    ]);
+                    if (result === true) {
+                        pending++;
+                        target.cleanup.push(()=>{
+                            if (!answered) release();
+                        });
+                    } else if (result && typeof result.then === "function") {
+                        pending++;
+                        result.then((value)=>{
+                            if (value !== undefined) sendResponse(value);
+                            if (!answered) release();
+                        }, (err)=>{
+                            if (!settled) {
+                                settled = true;
+                                reject(new _realm__rspack_import_1.ApiError(err && typeof err === "object" && "message" in err ? String(err.message) : String(err)));
+                            }
+                        });
+                    }
+                }
+            }
+            if (!settled && pending === 0) respond(NO_RESPONSE);
+        }, 0);
+    });
 }
-async function mountExtensionPopup(frame, extId, tabId, registry, host) {
-    const popupPage = resolvePopupPage(registry, extId);
-    if (!popupPage) return false;
-    return (0,_pageMount__rspack_import_0.mountExtensionPage)(frame, extId, popupPage, tabId, registry, host, true);
+// ---- long-lived ports -------------------------------------------------------
+class PortSide {
+    onMessage;
+    onDisconnect;
+    peers = new Set();
+    connected = true;
+    api;
+    owner;
+    name;
+    constructor(owner, name, sender){
+        this.owner = owner;
+        this.name = name;
+        this.onMessage = new _events__rspack_import_0.ChromeEvent("Port.onMessage", owner.ext.manifest.name);
+        this.onDisconnect = new _events__rspack_import_0.ChromeEvent("Port.onDisconnect", owner.ext.manifest.name);
+        const realm = (0,_realm__rspack_import_1.realmOf)(owner);
+        const api = new realm.Object();
+        api.name = name;
+        if (sender) api.sender = (0,_realm__rspack_import_1.toRealm)(owner, sender);
+        api.onMessage = this.onMessage.toApi();
+        api.onDisconnect = this.onDisconnect.toApi();
+        api.postMessage = (message)=>this.post(message);
+        api.disconnect = ()=>this.disconnect();
+        this.api = api;
+        owner.ports.add(this);
+    }
+    post(message) {
+        if (!this.connected) throw (0,_realm__rspack_import_1.realmError)(this.owner, "Attempting to use a disconnected port object");
+        const payload = (0,_storage__rspack_import_2.jsonClone)(message === undefined ? null : message);
+        for (const peer of this.peers)peer.receive(payload);
+    }
+    receive(payload) {
+        setTimeout(()=>{
+            if (!this.connected || !this.owner.alive) return;
+            this.onMessage.dispatchSync(()=>true, ()=>[
+                    (0,_realm__rspack_import_1.jsonToRealm)(this.owner, payload),
+                    this.api
+                ]);
+        }, 0);
+    }
+    /** This side hangs up. The other side(s) see onDisconnect; this side doesn't. */ disconnect() {
+        if (!this.connected) return;
+        this.connected = false;
+        this.owner.ports.delete(this);
+        for (const peer of this.peers)peer.peerGone(this);
+        this.peers.clear();
+    }
+    disconnectFromRemote() {
+        this.disconnect();
+    }
+    peerGone(peer, error) {
+        this.peers.delete(peer);
+        if (this.peers.size || !this.connected) return;
+        this.connected = false;
+        this.owner.ports.delete(this);
+        this.fireDisconnect(error);
+    }
+    fireDisconnect(error) {
+        setTimeout(()=>{
+            if (!this.owner.alive) return;
+            const ctx = this.owner;
+            const previous = ctx.lastError;
+            if (error) {
+                ctx.lastError = {
+                    message: error
+                };
+                ctx.lastErrorChecked = false;
+            }
+            try {
+                this.onDisconnect.dispatchSync(()=>true, ()=>[
+                        this.api
+                    ]);
+            } finally{
+                ctx.lastError = previous;
+            }
+        }, 0);
+    }
+}
+function openPort(registry, sender, targets, eventName, name, senderInfo) {
+    const callerSide = new PortSide(sender, name, undefined);
+    const receivers = targets.filter((t)=>t !== sender && registry.isAlive(t) && t.events.peek(eventName)?.hasListeners());
+    if (!receivers.length) {
+        callerSide.connected = false;
+        sender.ports.delete(callerSide);
+        callerSide.fireDisconnect(NO_RECEIVER);
+        return callerSide.api;
+    }
+    for (const target of receivers){
+        const remote = new PortSide(target, name, senderInfo);
+        remote.peers.add(callerSide);
+        callerSide.peers.add(remote);
+        // Queued as a task like the browser does; messages posted right after
+        // connect() are queued behind it, so onConnect still runs first.
+        setTimeout(()=>{
+            if (!target.alive) return;
+            target.events.peek(eventName)?.dispatchSync(()=>true, ()=>[
+                    remote.api
+                ]);
+        }, 0);
+    }
+    return callerSide.api;
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/network.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  BLOCKED_HEADER: () => (BLOCKED_HEADER),
+  GENERATED_BACKGROUND: () => (GENERATED_BACKGROUND),
+  onFetchPreresponse: () => (onFetchPreresponse),
+  onFetchRequest: () => (onFetchRequest),
+  onFetchResponse: () => (onFetchResponse),
+  serveExtensionResource: () => (serveExtensionResource)
+});
+/* import */ var _dnr__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/dnr.ts");
+/* import */ var _api_webRequest__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/webRequest.ts");
+/* import */ var _content__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/content.ts");
+/* import */ var _crx__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/crx.ts");
+/* import */ var _realm__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _urls__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
+
+
+
+
+
+
+const BLOCKED_HEADER = "x-sapphire-blocked";
+const GENERATED_BACKGROUND = "_generated_background_page.html";
+const states = new WeakMap();
+let requestCounter = 0;
+/** document/iframe allowAllRequests matches, keyed by `${tabId} ${documentUrl}`. */ const allowAllDocs = new Map();
+function resourceType(parsed, request) {
+    const dest = parsed.destination || request.destination || "";
+    switch(dest){
+        case "document":
+        case "iframe":
+        case "frame":
+            return parsed.isIframe ? "sub_frame" : "main_frame";
+        case "script":
+        case "worker":
+        case "sharedworker":
+        case "serviceworker":
+        case "audioworklet":
+        case "paintworklet":
+        case "xslt":
+            return "script";
+        case "style":
+            return "stylesheet";
+        case "image":
+            return "image";
+        case "font":
+            return "font";
+        case "object":
+        case "embed":
+            return "object";
+        case "audio":
+        case "video":
+        case "track":
+            return "media";
+        case "report":
+            return "csp_report";
+        case "manifest":
+        case "webidentity":
+            return "other";
+        case "":
+            return "xmlhttprequest";
+        default:
+            return "other";
+    }
+}
+function safeUrl(u) {
+    if (!u) return null;
+    try {
+        return new URL(String(u));
+    } catch  {
+        return null;
+    }
+}
+function headersToChrome(raw) {
+    return raw.map(([name, value])=>({
+            name,
+            value
+        }));
+}
+function chromeToHeaders(list) {
+    return list.filter((h)=>h.value !== undefined).map((h)=>[
+            h.name,
+            String(h.value)
+        ]);
+}
+function blockedResponse(type, url) {
+    if (type === "main_frame" || type === "sub_frame") {
+        const host = safeUrl(url)?.hostname ?? url;
+        const escaped = host.replace(/[<>&"]/g, (c)=>`&#${c.charCodeAt(0)};`);
+        return new Response(`<!doctype html><html><head><meta charset="utf-8"><title>${escaped}</title><style>body{font:14px system-ui,sans-serif;color:#5f6368;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}main{max-width:520px;padding:24px}h1{font-size:22px;color:#202124;font-weight:500}</style></head><body><main><h1>This page has been blocked by an extension</h1><p>${escaped} was blocked. Try disabling your extensions.</p><p style="font-size:12px">ERR_BLOCKED_BY_CLIENT</p></main></body></html>`, {
+            status: 200,
+            headers: {
+                "content-type": "text/html; charset=utf-8",
+                [BLOCKED_HEADER]: "document"
+            }
+        });
+    }
+    return new Response("", {
+        status: 403,
+        statusText: "Blocked by client",
+        headers: {
+            [BLOCKED_HEADER]: "1"
+        }
+    });
+}
+function redirectResponse(location) {
+    return new Response(null, {
+        status: 307,
+        statusText: "Internal Redirect",
+        headers: {
+            location,
+            "non-authoritative-reason": "WebRequest API"
+        }
+    });
+}
+function generatedBackgroundPage(ext) {
+    const bg = ext.manifest.background ?? {};
+    const scripts = bg.service_worker ? [
+        bg.service_worker
+    ] : bg.scripts ?? [];
+    const type = bg.service_worker && bg.type === "module" ? ' type="module"' : "";
+    const tags = scripts.map((src)=>`<script${type} src="/${String(src).replace(/^\/+/, "").replace(/"/g, "&quot;")}"></script>`).join("");
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${bg.service_worker ? "Service Worker" : "Background Page"}</title></head><body>${tags}</body></html>`;
+}
+async function serveExtensionResource(s, extId, url, method) {
+    const ext = s.registry.get(extId);
+    const base = {
+        "access-control-allow-origin": "*",
+        "cache-control": "no-cache",
+        "cross-origin-resource-policy": "cross-origin"
+    };
+    if (!ext || !ext.enabled) {
+        return new Response("", {
+            status: 404,
+            headers: {
+                ...base,
+                [BLOCKED_HEADER]: "1"
+            }
+        });
+    }
+    let path = url.pathname.replace(/^\/+/, "");
+    try {
+        path = decodeURIComponent(path);
+    } catch  {
+    // keep raw
+    }
+    if (path === GENERATED_BACKGROUND && !await ext.files.read(path)) {
+        return new Response(method === "HEAD" ? null : generatedBackgroundPage(ext), {
+            status: 200,
+            headers: {
+                ...base,
+                "content-type": "text/html; charset=utf-8"
+            }
+        });
+    }
+    const mime = (0,_crx__rspack_import_3.guessMime)(path);
+    if (!path || path.endsWith("/")) {
+        return new Response("", {
+            status: 404,
+            headers: base
+        });
+    }
+    if (mime === "text/css") {
+        const css = await ext.files.readText(path);
+        if (css === null) return new Response("", {
+            status: 404,
+            headers: base
+        });
+        return new Response(method === "HEAD" ? null : (0,_content__rspack_import_2.localizeCss)(ext, css), {
+            status: 200,
+            headers: {
+                ...base,
+                "content-type": "text/css; charset=utf-8"
+            }
+        });
+    }
+    const bytes = await ext.files.read(path);
+    if (!bytes) return new Response("", {
+        status: 404,
+        headers: base
+    });
+    return new Response(method === "HEAD" ? null : bytes, {
+        status: 200,
+        headers: {
+            ...base,
+            "content-type": (0,_crx__rspack_import_3.isTextMime)(mime) ? `${mime}; charset=utf-8` : mime
+        }
+    });
+}
+function recordMatches(s, outcome, tabId, details) {
+    const now = Date.now();
+    const counted = new Set();
+    for (const m of outcome.matched){
+        if (m.rule.id < 0) continue;
+        const ext = s.registry.get(m.extId);
+        if (!ext) continue;
+        const type = m.rule.action.type;
+        if (ext.grantedPermissions.has("declarativeNetRequestFeedback")) {
+            ext.dnr.matchedRules.push({
+                rule: {
+                    ruleId: m.rule.id,
+                    rulesetId: m.rulesetId
+                },
+                tabId,
+                timeStamp: now
+            });
+            if (ext.dnr.matchedRules.length > 5000) ext.dnr.matchedRules.splice(0, 1000);
+            s.registry.dispatch(ext.id, "declarativeNetRequest.onRuleMatchedDebug", (ctx)=>[
+                    (0,_realm__rspack_import_4.toRealm)(ctx, {
+                        request: {
+                            requestId: details.requestId,
+                            url: details.url,
+                            method: details.method,
+                            frameId: details.frameId,
+                            partentFrameId: details.parentFrameId,
+                            parentFrameId: details.parentFrameId,
+                            tabId,
+                            type: details.type,
+                            initiator: details.initiator,
+                            documentId: details.documentId
+                        },
+                        rule: {
+                            ruleId: m.rule.id,
+                            rulesetId: m.rulesetId
+                        }
+                    })
+                ]);
+        }
+        if ((type === "block" || type === "redirect" || type === "upgradeScheme") && tabId >= 0 && !counted.has(ext.id)) {
+            counted.add(ext.id);
+            ext.dnr.tabActionCounts.set(tabId, (ext.dnr.tabActionCounts.get(tabId) ?? 0) + 1);
+            if (ext.dnr.displayActionCountAsBadgeText) s.scheduleChange();
+        }
+    }
+}
+function frameIdFor(s, tabId, parsed, type) {
+    if (tabId < 0) return {
+        frameId: -1,
+        parentFrameId: -1
+    };
+    if (type === "main_frame") return {
+        frameId: 0,
+        parentFrameId: -1
+    };
+    const client = parsed.clientUrl?.href;
+    const frames = s.registry.liveFrames(tabId);
+    const owner = client ? frames.filter((f)=>f.url === client).sort((a, b)=>b.frameId - a.frameId)[0] : undefined;
+    if (type === "sub_frame") return {
+        frameId: -1,
+        parentFrameId: owner?.frameId ?? 0
+    };
+    return {
+        frameId: owner?.frameId ?? 0,
+        parentFrameId: owner?.parentFrameId ?? -1,
+        documentId: owner?.documentId
+    };
+}
+async function onFetchRequest(s, info, ctx, props) {
+    const url = props.url;
+    const extId = (0,_urls__rspack_import_5.isExtensionHost)(url.hostname);
+    if (extId) {
+        props.earlyResponse = await serveExtensionResource(s, extId, url, ctx.request.method);
+        return;
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") return;
+    if (url.hostname.endsWith(".chromiumapp.org") && s.completeAuthFlow(url)) {
+        props.earlyResponse = new Response("<!doctype html><title>Signed in</title>", {
+            status: 200,
+            headers: {
+                "content-type": "text/html"
+            }
+        });
+        return;
+    }
+    const initiator = safeUrl(ctx.parsed.clientUrl);
+    // Requests made by extensions are invisible to other extensions' DNR/webRequest.
+    if (initiator && (0,_urls__rspack_import_5.isExtensionHost)(initiator.hostname)) return;
+    const dnrActive = s.hasDnrRules();
+    const wrActive = (0,_api_webRequest__rspack_import_1.hasWebRequestListeners)(s);
+    if (!dnrActive && !wrActive) return;
+    const tabId = info.kind === "tab" ? info.tabId ?? -1 : -1;
+    const type = resourceType(ctx.parsed, ctx.request);
+    const frame = frameIdFor(s, tabId, ctx.parsed, type);
+    const details = {
+        requestId: String(++requestCounter),
+        url: url.href,
+        method: (ctx.request.method || "GET").toUpperCase(),
+        frameId: frame.frameId === -1 && type === "sub_frame" ? 0 : frame.frameId,
+        parentFrameId: frame.parentFrameId,
+        tabId,
+        type,
+        timeStamp: Date.now(),
+        ...initiator && type !== "main_frame" ? {
+            initiator: initiator.origin
+        } : {},
+        ...frame.documentId ? {
+            documentId: frame.documentId
+        } : {},
+        documentLifecycle: "active",
+        frameType: frame.frameId === 0 ? "outermost_frame" : "sub_frame"
+    };
+    const state = {
+        details,
+        dnr: null,
+        watched: wrActive
+    };
+    states.set(ctx.request, state);
+    if (dnrActive) {
+        const docKey = initiator ? `${tabId} ${initiator.href}` : "";
+        const outcome = (0,_dnr__rspack_import_0.evaluateRequest)(s.registry, {
+            url,
+            method: details.method.toLowerCase(),
+            type,
+            initiator: type === "main_frame" ? null : initiator,
+            tabId,
+            allowAllPriority: type === "main_frame" ? undefined : allowAllDocs.get(docKey)
+        });
+        state.dnr = outcome;
+        if (type === "main_frame" || type === "sub_frame") {
+            const priorities = (0,_dnr__rspack_import_0.allowAllPriorities)(outcome);
+            const key = `${tabId} ${url.href}`;
+            if (priorities.size) allowAllDocs.set(key, priorities);
+            else allowAllDocs.delete(key);
+            if (allowAllDocs.size > 500) allowAllDocs.delete(allowAllDocs.keys().next().value);
+        }
+        if (outcome.matched.length) recordMatches(s, outcome, tabId, details);
+        if (outcome.action === "block") {
+            props.earlyResponse = blockedResponse(type, url.href);
+            if (wrActive) (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onErrorOccurred", {
+                ...details,
+                error: "net::ERR_BLOCKED_BY_CLIENT"
+            });
+            return;
+        }
+        if (outcome.action === "redirect" && outcome.redirectUrl) {
+            props.earlyResponse = redirectResponse(outcome.redirectUrl);
+            if (wrActive) (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onBeforeRedirect", {
+                ...details,
+                redirectUrl: outcome.redirectUrl,
+                statusCode: 307
+            });
+            return;
+        }
+        if (outcome.requestHeaders.length) props.init.headers = (0,_dnr__rspack_import_0.applyHeaderOps)(props.init.headers ?? [], outcome.requestHeaders);
+    }
+    if (wrActive) {
+        const before = (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onBeforeRequest", details);
+        if (before.cancel) {
+            props.earlyResponse = blockedResponse(type, url.href);
+            (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onErrorOccurred", {
+                ...details,
+                error: "net::ERR_BLOCKED_BY_CLIENT"
+            });
+            return;
+        }
+        if (before.redirectUrl) {
+            props.earlyResponse = redirectResponse(before.redirectUrl);
+            (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onBeforeRedirect", {
+                ...details,
+                redirectUrl: before.redirectUrl,
+                statusCode: 307
+            });
+            return;
+        }
+        const sendHeaders = (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onBeforeSendHeaders", {
+            ...details,
+            requestHeaders: headersToChrome(props.init.headers ?? [])
+        });
+        if (sendHeaders.cancel) {
+            props.earlyResponse = blockedResponse(type, url.href);
+            (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onErrorOccurred", {
+                ...details,
+                error: "net::ERR_BLOCKED_BY_CLIENT"
+            });
+            return;
+        }
+        if (sendHeaders.requestHeaders) props.init.headers = chromeToHeaders(sendHeaders.requestHeaders);
+        (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onSendHeaders", {
+            ...details,
+            requestHeaders: headersToChrome(props.init.headers ?? [])
+        });
+    }
+}
+function onFetchPreresponse(s, ctx, props) {
+    const state = states.get(ctx.request);
+    if (!state) return;
+    const response = props.response;
+    if (state.dnr?.responseHeaders.length) response.rawHeaders = (0,_dnr__rspack_import_0.applyHeaderOps)(response.rawHeaders, state.dnr.responseHeaders);
+    if (!state.watched) return;
+    const received = (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onHeadersReceived", {
+        ...state.details,
+        statusCode: response.status,
+        statusLine: `HTTP/1.1 ${response.status} ${response.statusText ?? ""}`.trim(),
+        responseHeaders: headersToChrome(response.rawHeaders)
+    });
+    if (received.cancel) {
+        const blocked = blockedResponse(state.details.type, state.details.url);
+        Object.assign(props, {
+            response: Object.assign(blocked, {
+                rawHeaders: [
+                    ...blocked.headers
+                ]
+            })
+        });
+        (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onErrorOccurred", {
+            ...state.details,
+            error: "net::ERR_BLOCKED_BY_CLIENT"
+        });
+        state.watched = false;
+        return;
+    }
+    if (received.redirectUrl) {
+        const redirect = redirectResponse(received.redirectUrl);
+        Object.assign(props, {
+            response: Object.assign(redirect, {
+                rawHeaders: [
+                    ...redirect.headers
+                ]
+            })
+        });
+        (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onBeforeRedirect", {
+            ...state.details,
+            redirectUrl: received.redirectUrl,
+            statusCode: 307
+        });
+        state.watched = false;
+        return;
+    }
+    if (received.responseHeaders) response.rawHeaders = chromeToHeaders(received.responseHeaders);
+    if (response.status >= 300 && response.status < 400) {
+        const location = response.rawHeaders.find(([k])=>k.toLowerCase() === "location")?.[1];
+        if (location) {
+            (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onBeforeRedirect", {
+                ...state.details,
+                redirectUrl: new URL(location, state.details.url).href,
+                statusCode: response.status
+            });
+            state.watched = false;
+        }
+    }
+}
+function onFetchResponse(s, ctx, props) {
+    const state = states.get(ctx.request);
+    if (!state?.watched) return;
+    const raw = props.response.headers?.toRawHeaders?.() ?? [];
+    const extra = {
+        statusCode: props.response.status,
+        statusLine: `HTTP/1.1 ${props.response.status} ${props.response.statusText ?? ""}`.trim(),
+        responseHeaders: headersToChrome(raw),
+        fromCache: false,
+        ip: ""
+    };
+    (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onResponseStarted", {
+        ...state.details,
+        ...extra
+    });
+    (0,_api_webRequest__rspack_import_1.dispatchWebRequest)(s, "onCompleted", {
+        ...state.details,
+        ...extra
+    });
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/realm.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  ApiError: () => (ApiError),
+  asyncApi: () => (asyncApi),
+  errorMessage: () => (errorMessage),
+  invokeCallback: () => (invokeCallback),
+  invokeCallbackWithError: () => (invokeCallbackWithError),
+  jsonToRealm: () => (jsonToRealm),
+  lastErrorGetter: () => (lastErrorGetter),
+  randomId: () => (randomId),
+  realmConsole: () => (realmConsole),
+  realmError: () => (realmError),
+  realmOf: () => (realmOf),
+  realmPromise: () => (realmPromise),
+  realmTypeError: () => (realmTypeError),
+  reportListenerError: () => (reportListenerError),
+  syncApi: () => (syncApi),
+  toRealm: () => (toRealm)
+});
+/** An error meant for the extension: becomes runtime.lastError or a rejection. */ class ApiError extends Error {
+}
+function realmOf(ctx) {
+    return ctx.window;
+}
+/**
+ * Values handed to extension code are created in the extension's own realm so
+ * `instanceof Array`, `x.constructor === Object` and friends behave. Things
+ * that can't be cloned (windows, functions, ports) pass through as-is.
+ */ function toRealm(ctx, value) {
+    if (value === null || value === undefined || typeof value !== "object") return value;
+    try {
+        return realmOf(ctx).structuredClone(value);
+    } catch  {
+        return value;
+    }
+}
+/** Message passing serialises with JSON in Chrome; mirror it into the target realm. */ function jsonToRealm(ctx, value) {
+    if (value === undefined) return undefined;
+    let text;
+    try {
+        text = JSON.stringify(value);
+    } catch  {
+        return undefined;
+    }
+    if (text === undefined) return null;
+    try {
+        return realmOf(ctx).JSON.parse(text);
+    } catch  {
+        return JSON.parse(text);
+    }
+}
+function errorMessage(e) {
+    if (e instanceof Error || e && typeof e === "object" && "message" in e) return String(e.message);
+    return String(e);
+}
+function realmError(ctx, message) {
+    try {
+        return new (realmOf(ctx)).Error(message);
+    } catch  {
+        return new Error(message);
+    }
+}
+function realmTypeError(ctx, message) {
+    try {
+        return new (realmOf(ctx)).TypeError(message);
+    } catch  {
+        return new TypeError(message);
+    }
+}
+function realmPromise(ctx, p, raw = false) {
+    let PromiseCtor = Promise;
+    try {
+        PromiseCtor = realmOf(ctx).Promise;
+    } catch  {
+    // realm gone
+    }
+    return new PromiseCtor((resolve, reject)=>{
+        p.then((v)=>resolve(raw ? v : toRealm(ctx, v)), (e)=>reject(realmError(ctx, errorMessage(e))));
+    });
+}
+function invokeCallback(ctx, cb, args) {
+    if (!ctx.alive) return;
+    try {
+        cb(...args);
+    } catch (e) {
+        reportListenerError(ctx, e);
+    }
+}
+function invokeCallbackWithError(ctx, cb, message, args = []) {
+    if (!ctx.alive) return;
+    const previous = ctx.lastError;
+    const previousChecked = ctx.lastErrorChecked;
+    ctx.lastError = {
+        message
+    };
+    ctx.lastErrorChecked = false;
+    try {
+        cb(...args);
+    } catch (e) {
+        reportListenerError(ctx, e);
+    } finally{
+        if (!ctx.lastErrorChecked) realmConsole(ctx).error(`Unchecked runtime.lastError: ${message}`);
+        ctx.lastError = previous;
+        ctx.lastErrorChecked = previousChecked;
+    }
+}
+function reportListenerError(ctx, e) {
+    try {
+        realmConsole(ctx).error(e);
+    } catch  {
+        console.error(e);
+    }
+}
+function realmConsole(ctx) {
+    try {
+        return realmOf(ctx).console;
+    } catch  {
+        return console;
+    }
+}
+/**
+ * Chrome's dual calling convention: a trailing callback gets the result (with
+ * runtime.lastError set on failure), otherwise a Promise is returned.
+ */ function asyncApi(ctx, impl, options = {}) {
+    return function sapphireApi(...args) {
+        let cb;
+        if (args.length && typeof args[args.length - 1] === "function") cb = args.pop();
+        else while(args.length && args[args.length - 1] === undefined)args.pop();
+        let p;
+        try {
+            p = Promise.resolve(impl(...args));
+        } catch (e) {
+            if (e instanceof TypeError) throw realmTypeError(ctx, e.message);
+            p = Promise.reject(e);
+        }
+        if (cb) {
+            const callback = cb;
+            p.then((value)=>{
+                const out = options.raw ? value : toRealm(ctx, value);
+                invokeCallback(ctx, callback, options.callbackArgs ? options.callbackArgs(out) : value === undefined ? [] : [
+                    out
+                ]);
+            }, (e)=>invokeCallbackWithError(ctx, callback, errorMessage(e)));
+            return undefined;
+        }
+        return realmPromise(ctx, p, options.raw);
+    };
+}
+/** Synchronous API that also accepts (and invokes) an optional trailing callback. */ function syncApi(ctx, impl) {
+    return function sapphireSyncApi(...args) {
+        let cb;
+        if (args.length && typeof args[args.length - 1] === "function") cb = args.pop();
+        const result = impl(...args);
+        if (cb) {
+            const callback = cb;
+            queueMicrotask(()=>invokeCallback(ctx, callback, []));
+        }
+        return toRealm(ctx, result);
+    };
+}
+function lastErrorGetter(ctx) {
+    return {
+        get () {
+            ctx.lastErrorChecked = true;
+            return ctx.lastError ? toRealm(ctx, ctx.lastError) : undefined;
+        },
+        enumerable: true,
+        configurable: true
+    };
+}
+function randomId(len = 32) {
+    const bytes = crypto.getRandomValues(new Uint8Array(len / 2));
+    return [
+        ...bytes
+    ].map((b)=>b.toString(16).padStart(2, "0")).join("").toUpperCase();
 }
 
 
@@ -2960,60 +9022,85 @@ async function mountExtensionPopup(frame, extId, tabId, registry, host) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   SapphireRegistry: () => (SapphireRegistry),
-  createRealmEvents: () => (createRealmEvents)
+  defaultActionFor: () => (defaultActionFor)
 });
-/* import */ var _eventHub__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/eventHub.ts");
+/* import */ var _events__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/events.ts");
+/* import */ var _files__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/files.ts");
+/* import */ var _storage__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/storage.ts");
 
-function createRealmEvents() {
+
+
+function defaultActionFor(manifest) {
+    const action = manifest.action ?? manifest.browser_action ?? manifest.page_action;
     return {
-        runtimeOnMessage: new _eventHub__rspack_import_0.EventHub(),
-        runtimeOnInstalled: new _eventHub__rspack_import_0.EventHub(),
-        runtimeOnStartup: new _eventHub__rspack_import_0.EventHub(),
-        runtimeOnConnect: new _eventHub__rspack_import_0.EventHub(),
-        tabsOnCreated: new _eventHub__rspack_import_0.EventHub(),
-        tabsOnUpdated: new _eventHub__rspack_import_0.EventHub(),
-        tabsOnRemoved: new _eventHub__rspack_import_0.EventHub(),
-        tabsOnActivated: new _eventHub__rspack_import_0.EventHub(),
-        actionOnClicked: new _eventHub__rspack_import_0.EventHub(),
-        browserActionOnClicked: new _eventHub__rspack_import_0.EventHub(),
-        alarmsOnAlarm: new _eventHub__rspack_import_0.EventHub(),
-        contextMenusOnClicked: new _eventHub__rspack_import_0.EventHub(),
-        commandsOnCommand: new _eventHub__rspack_import_0.EventHub(),
-        notificationsOnClicked: new _eventHub__rspack_import_0.EventHub(),
-        notificationsOnClosed: new _eventHub__rspack_import_0.EventHub(),
-        notificationsOnButtonClicked: new _eventHub__rspack_import_0.EventHub(),
-        cookiesOnChanged: new _eventHub__rspack_import_0.EventHub(),
-        webNavigationOnCompleted: new _eventHub__rspack_import_0.EventHub()
+        title: action?.default_title ?? manifest.name,
+        badgeText: "",
+        badgeColor: null,
+        badgeTextColor: null,
+        iconUrl: null,
+        popup: action?.default_popup ?? "",
+        enabled: manifest.page_action ? false : true
     };
 }
+let contextCounter = 0;
 class SapphireRegistry {
     extensions = new Map();
     contentScripts = [];
-    createExtensionState(id, manifest, enabled, installedAt, filename) {
+    contexts = new Set();
+    tabs = new Map();
+    changeListeners = new Set();
+    createExtensionState(meta) {
+        const manifest = meta.manifest;
         const state = {
-            id,
+            id: meta.id,
+            meta,
             manifest,
-            enabled,
-            installedAt,
-            filename,
+            enabled: meta.enabled !== false,
+            installedAt: meta.installedAt,
+            filename: meta.filename,
+            files: new _files__rspack_import_1.PackageFiles(meta.id, meta.fileList),
+            locales: new Map(),
+            uiLocale: "en",
             messages: {},
-            dynamicRules: [],
-            staticRules: [],
-            rulesetRules: new Map(),
-            enabledRulesetIds: new Set(),
-            badgeText: "",
-            badgeColor: null,
+            storage: {
+                local: new _storage__rspack_import_2.StorageArea(meta.id, "local", true),
+                sync: new _storage__rspack_import_2.StorageArea(meta.id, "sync", true),
+                session: new _storage__rspack_import_2.StorageArea(meta.id, "session", false),
+                managed: new _storage__rspack_import_2.StorageArea(meta.id, "managed", false)
+            },
+            dnr: {
+                dynamicRules: [],
+                sessionRules: [],
+                rulesets: new Map(),
+                enabledRulesets: new Set(),
+                disabledStaticRules: new Map(),
+                displayActionCountAsBadgeText: false,
+                tabActionCounts: new Map(),
+                matchedRules: [],
+                version: 0
+            },
+            defaultAction: defaultActionFor(manifest),
+            tabAction: new Map(),
             iconUrl: null,
-            title: null,
-            popupPage: null,
-            background: null,
-            contextMenuItems: [],
+            contextMenuItems: new Map(),
             alarms: new Map(),
-            ports: new Map(),
-            tabEvents: new Map(),
-            popupEvents: null
+            notifications: new Map(),
+            background: null,
+            backgroundReady: null,
+            offscreen: null,
+            sidePanel: {
+                path: manifest.side_panel?.default_path ?? null,
+                enabled: true,
+                openOnActionClick: false,
+                tabOptions: new Map()
+            },
+            grantedPermissions: new Set(meta.grantedPermissions ?? manifest.permissions ?? []),
+            grantedOrigins: new Set(meta.grantedOrigins ?? manifest.host_permissions ?? []),
+            omniboxDefaultSuggestion: null,
+            userScriptWorlds: new Map(),
+            settings: new Map()
         };
-        this.extensions.set(id, state);
+        this.extensions.set(meta.id, state);
         return state;
     }
     get(id) {
@@ -3023,8 +9110,10 @@ class SapphireRegistry {
         const ext = this.extensions.get(id);
         if (!ext) return;
         for (const alarm of ext.alarms.values())clearTimeout(alarm.timer);
-        if (ext.background?.kind === "worker") ext.background.worker?.terminate();
-        if (ext.background?.kind === "frame") ext.background.frame?.remove();
+        ext.alarms.clear();
+        for (const ctx of [
+            ...this.contexts
+        ])if (ctx.ext === ext) this.destroyContext(ctx);
         this.extensions.delete(id);
     }
     list() {
@@ -3032,25 +9121,140 @@ class SapphireRegistry {
             ...this.extensions.values()
         ];
     }
-    changeListeners = new Set();
     onChange(cb) {
         this.changeListeners.add(cb);
         return ()=>this.changeListeners.delete(cb);
     }
     notifyChange() {
-        for (const cb of this.changeListeners)cb();
-    }
-    broadcast(extId, pick, args) {
-        const ext = this.extensions.get(extId);
-        if (!ext) return;
-        if (ext.background) pick(ext.background.events).fire(...args);
-        for (const events of ext.tabEvents.values())pick(events).fire(...args);
-    }
-    broadcastTabLifecycle(pick, args) {
-        for (const ext of this.extensions.values()){
-            if (!ext.enabled || !ext.background) continue;
-            pick(ext.background.events).fire(...args);
+        for (const cb of this.changeListeners){
+            try {
+                cb();
+            } catch (e) {
+                console.error("[sapphire] change listener threw", e);
+            }
         }
+    }
+    // ---- contexts ----------------------------------------------------------
+    createContext(init) {
+        const ctx = {
+            ...init,
+            id: ++contextCounter,
+            events: new _events__rspack_import_0.EventTable(init.ext.manifest.name),
+            alive: true,
+            lastError: null,
+            lastErrorChecked: false,
+            chrome: null,
+            ports: new Set(),
+            cleanup: []
+        };
+        this.contexts.add(ctx);
+        return ctx;
+    }
+    isAlive(ctx) {
+        if (!ctx.alive) return false;
+        try {
+            if (ctx.window.closed || ctx.document && ctx.window.document !== ctx.document) {
+                this.destroyContext(ctx);
+                return false;
+            }
+        } catch  {
+            this.destroyContext(ctx);
+            return false;
+        }
+        return true;
+    }
+    destroyContext(ctx) {
+        if (!ctx.alive) return;
+        ctx.alive = false;
+        this.contexts.delete(ctx);
+        for (const port of [
+            ...ctx.ports
+        ]){
+            try {
+                port.disconnectFromRemote();
+            } catch  {
+            // ignore
+            }
+        }
+        ctx.ports.clear();
+        for (const fn of ctx.cleanup){
+            try {
+                fn();
+            } catch  {
+            // ignore
+            }
+        }
+        ctx.events.clear();
+    }
+    contextsOf(extId, pred = ()=>true) {
+        const out = [];
+        for (const ctx of [
+            ...this.contexts
+        ]){
+            if (ctx.ext.id !== extId) continue;
+            if (!this.isAlive(ctx)) continue;
+            if (pred(ctx)) out.push(ctx);
+        }
+        return out;
+    }
+    /** Extension (non content-script) contexts: background, pages, popups, offscreen. */ extensionContexts(extId) {
+        return this.contextsOf(extId, (c)=>c.kind !== "content");
+    }
+    dispatch(extId, event, args, includeContent = false) {
+        const ext = this.extensions.get(extId);
+        if (!ext || !ext.enabled) return;
+        for (const ctx of this.contextsOf(extId, (c)=>includeContent || c.kind !== "content")){
+            const ev = ctx.events.peek(event);
+            if (!ev?.hasListeners()) continue;
+            ev.dispatch(...typeof args === "function" ? args(ctx) : args);
+        }
+    }
+    dispatchAll(event, args) {
+        for (const ext of this.extensions.values())this.dispatch(ext.id, event, args);
+    }
+    // ---- tabs --------------------------------------------------------------
+    tab(tabId) {
+        let tab = this.tabs.get(tabId);
+        if (!tab) {
+            tab = {
+                id: tabId,
+                url: "",
+                title: "",
+                status: "complete",
+                favIconUrl: "",
+                nextFrameId: 1,
+                frames: new Map(),
+                frameIds: new WeakMap()
+            };
+            this.tabs.set(tabId, tab);
+        }
+        return tab;
+    }
+    frameIdFor(tabId, win, isTop) {
+        const tab = this.tab(tabId);
+        if (isTop) return 0;
+        let id = tab.frameIds.get(win);
+        if (id === undefined) {
+            id = tab.nextFrameId++;
+            tab.frameIds.set(win, id);
+        }
+        return id;
+    }
+    liveFrames(tabId) {
+        const tab = this.tabs.get(tabId);
+        if (!tab) return [];
+        const out = [];
+        for (const [id, frame] of tab.frames){
+            let alive = false;
+            try {
+                alive = !frame.window.closed && !!frame.window.document;
+            } catch  {
+                alive = false;
+            }
+            if (alive) out.push(frame);
+            else tab.frames.delete(id);
+        }
+        return out.sort((a, b)=>a.frameId - b.frameId);
     }
 }
 
@@ -3061,12 +9265,40 @@ __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   Sapphire: () => (Sapphire)
 });
-/* import */ var _chromeApi__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/chromeApi.ts");
-/* import */ var _dnr__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/dnr.ts");
-/* import */ var _extensions__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/extensions.ts");
-/* import */ var _newtab__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/newtab.ts");
-/* import */ var _popup__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/popup.ts");
-/* import */ var _registry__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/registry.ts");
+/* import */ var _api__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/index.ts");
+/* import */ var _api_action__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/action.ts");
+/* import */ var _api_alarms__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/alarms.ts");
+/* import */ var _api_contextMenus__rspack_import_3 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/contextMenus.ts");
+/* import */ var _api_misc__rspack_import_4 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/misc.ts");
+/* import */ var _api_runtime__rspack_import_5 = __webpack_require__("./node_modules/@x8r/sapphire/src/api/runtime.ts");
+/* import */ var _browserData__rspack_import_6 = __webpack_require__("./node_modules/@x8r/sapphire/src/browserData.ts");
+/* import */ var _commands__rspack_import_7 = __webpack_require__("./node_modules/@x8r/sapphire/src/commands.ts");
+/* import */ var _content__rspack_import_8 = __webpack_require__("./node_modules/@x8r/sapphire/src/content.ts");
+/* import */ var _dnr__rspack_import_9 = __webpack_require__("./node_modules/@x8r/sapphire/src/dnr.ts");
+/* import */ var _extensions__rspack_import_10 = __webpack_require__("./node_modules/@x8r/sapphire/src/extensions.ts");
+/* import */ var _frames__rspack_import_11 = __webpack_require__("./node_modules/@x8r/sapphire/src/frames.ts");
+/* import */ var _messaging__rspack_import_12 = __webpack_require__("./node_modules/@x8r/sapphire/src/messaging.ts");
+/* import */ var _matchPatterns__rspack_import_13 = __webpack_require__("./node_modules/@x8r/sapphire/src/matchPatterns.ts");
+/* import */ var _realm__rspack_import_14 = __webpack_require__("./node_modules/@x8r/sapphire/src/realm.ts");
+/* import */ var _registry__rspack_import_15 = __webpack_require__("./node_modules/@x8r/sapphire/src/registry.ts");
+/* import */ var _SapphirePlugin__rspack_import_16 = __webpack_require__("./node_modules/@x8r/sapphire/src/SapphirePlugin.ts");
+/* import */ var _tabsModel__rspack_import_17 = __webpack_require__("./node_modules/@x8r/sapphire/src/tabsModel.ts");
+/* import */ var _urls__rspack_import_18 = __webpack_require__("./node_modules/@x8r/sapphire/src/urls.ts");
+/* import */ var _network__rspack_import_19 = __webpack_require__("./node_modules/@x8r/sapphire/src/network.ts");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3074,74 +9306,799 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 class Sapphire {
-    registry = new _registry__rspack_import_5.SapphireRegistry();
+    registry = new _registry__rspack_import_15.SapphireRegistry();
     host;
+    browserData = new _browserData__rspack_import_6.BrowserData();
+    settings = new Map();
+    downloads = [];
+    controller = null;
     backgroundRoot;
     ready = null;
+    popupFrames = new WeakMap();
+    openPopups = new Map();
+    authFlows = new Map();
+    lastActivity = Date.now();
+    idleTimer = null;
+    lastIdleState = "active";
+    changeTimer = null;
+    downloadCounter = 0;
+    startupPhase = true;
+    externalContexts = new WeakMap();
     constructor(options){
         this.host = options.host;
-        this.backgroundRoot = options.backgroundRoot ?? document.body;
+        this.backgroundRoot = options.backgroundRoot ?? null;
+        if (options.extensionHostSuffix) (0,_urls__rspack_import_18.setExtensionHostSuffix)(options.extensionHostSuffix);
+        if (options.controller) this.controller = options.controller;
+        if (typeof document !== "undefined") {
+            for (const type of [
+                "pointerdown",
+                "keydown",
+                "wheel",
+                "touchstart"
+            ]){
+                document.addEventListener(type, ()=>this.noteActivity(), {
+                    capture: true,
+                    passive: true
+                });
+            }
+        }
+    }
+    // ---- setup --------------------------------------------------------------
+    /** A plugin for a browser tab's Scramjet frame. */ createPlugin(tabId, options = {}) {
+        return new _SapphirePlugin__rspack_import_16.SapphirePlugin(this, {
+            ...options,
+            tabId
+        });
+    }
+    controllerWaiters = [];
+    /** Resolves once a controller is attached, asking the host to boot one if needed. */ waitForController() {
+        if (this.controller) return Promise.resolve(this.controller);
+        const p = new Promise((resolve)=>this.controllerWaiters.push(resolve));
+        this.host.ensureController?.();
+        return p;
+    }
+    attachController(controller) {
+        if (this.controller === controller) return;
+        this.controller = controller;
+        for (const resolve of this.controllerWaiters.splice(0))resolve(controller);
+        for (const ext of this.registry.list())if (ext.enabled) void this.startBackground(ext);
     }
     init() {
         if (!this.ready) {
-            this.ready = (0,_extensions__rspack_import_2.loadStoredExtensions)(this.registry, this.host, this.backgroundRoot);
+            this.ready = (async ()=>{
+                const metas = await (0,_extensions__rspack_import_10.storedMetas)();
+                for (const meta of metas){
+                    try {
+                        const ext = await (0,_extensions__rspack_import_10.loadExtension)(this, meta);
+                        if (ext.enabled) void this.startBackground(ext);
+                    } catch (e) {
+                        console.error(`[sapphire] failed to load stored extension ${meta.id}`, e);
+                    }
+                }
+                this.registry.notifyChange();
+                setTimeout(()=>this.startupPhase = false, 0);
+                if (metas.some((m)=>m.enabled !== false) && !this.controller) this.host.ensureController?.();
+                return metas.length;
+            })();
         }
         return this.ready;
-    }
-    async installExtension(buffer, filename = "extension.crx") {
-        return (0,_extensions__rspack_import_2.installExtension)(buffer, filename, this.registry, this.host, this.backgroundRoot);
-    }
-    async uninstallExtension(extId) {
-        return (0,_extensions__rspack_import_2.uninstallExtension)(extId, this.registry);
-    }
-    async setExtensionEnabled(extId, enabled) {
-        return (0,_extensions__rspack_import_2.setExtensionEnabled)(extId, enabled, this.registry, this.host, this.backgroundRoot);
-    }
-    getInstalledExtensions() {
-        return (0,_extensions__rspack_import_2.getInstalledExtensions)(this.registry);
-    }
-    getExtensionPopupPage(extId) {
-        return (0,_popup__rspack_import_4.getExtensionPopupPage)(this.registry, extId);
-    }
-    async mountExtensionPopup(frame, extId, tabId) {
-        return (0,_popup__rspack_import_4.mountExtensionPopup)(frame, extId, tabId, this.registry, this.host);
-    }
-    getNewTabOverride() {
-        return (0,_newtab__rspack_import_3.getNewTabOverride)(this.registry);
-    }
-    async mountNewTabPage(frame, extId, page, tabId) {
-        return (0,_newtab__rspack_import_3.mountNewTabPage)(frame, extId, page, tabId, this.registry, this.host);
-    }
-    checkDeclarativeNetRequest(requestUrl, initiatorUrl, resourceType) {
-        return (0,_dnr__rspack_import_1.checkDeclarativeNetRequest)(this.registry, requestUrl, initiatorUrl, resourceType);
     }
     onChange(cb) {
         return this.registry.onChange(cb);
     }
-    triggerActionClicked(extId, tabId) {
-        const tab = (0,_chromeApi__rspack_import_0.buildTabObject)(this.host, tabId);
-        this.registry.broadcast(extId, (e)=>e.actionOnClicked, [
-            tab
+    scheduleChange() {
+        if (this.changeTimer) return;
+        this.changeTimer = setTimeout(()=>{
+            this.changeTimer = null;
+            this.registry.notifyChange();
+        }, 50);
+    }
+    // ---- install / uninstall ----------------------------------------------
+    async installExtension(buffer, filename = "extension.crx") {
+        const pkg = await (0,_extensions__rspack_import_10.unpackExtension)(buffer, filename);
+        const existing = this.registry.get(pkg.id);
+        const previousMeta = existing?.meta ?? await (0,_extensions__rspack_import_10.storedMeta)(pkg.id);
+        if (existing) this.unloadExtension(existing);
+        const meta = await (0,_extensions__rspack_import_10.storePackage)(pkg, filename, previousMeta);
+        const ext = await (0,_extensions__rspack_import_10.loadExtension)(this, meta);
+        if (!this.controller) this.host.ensureController?.();
+        if (ext.enabled) await this.startBackground(ext);
+        this.registry.dispatchAll("management.onInstalled", (ctx)=>[
+                (0,_realm__rspack_import_14.toRealm)(ctx, (0,_api_misc__rspack_import_4.extensionInfo)(this, ext))
+            ]);
+        this.registry.notifyChange();
+        return ext.id;
+    }
+    unloadExtension(ext) {
+        this.stopBackground(ext);
+        this.closeOffscreen(ext);
+        (0,_api_alarms__rspack_import_2.clearAlarms)(ext);
+        (0,_extensions__rspack_import_10.unregisterContentScripts)(this, ext.id);
+        const popup = this.openPopups.get(ext.id);
+        if (popup) this.unmountFrame(popup);
+        for (const world of this.allContentWorlds()){
+            for (const style of [
+                ...world.styles
+            ])if (style.extId === ext.id) (0,_content__rspack_import_8.removeStyle)(world, ext.id, style.key);
+        }
+        this.registry.remove(ext.id);
+    }
+    async uninstallExtension(extId) {
+        const ext = this.registry.get(extId);
+        if (!ext) return;
+        const uninstallUrl = ext.settings.get("uninstallUrl");
+        this.unloadExtension(ext);
+        await (0,_extensions__rspack_import_10.deletePackage)(ext);
+        this.registry.dispatchAll("management.onUninstalled", [
+            extId
         ]);
-        this.registry.broadcast(extId, (e)=>e.browserActionOnClicked, [
-            tab
+        if (uninstallUrl) void this.openTab(uninstallUrl, {
+            active: true
+        });
+        this.registry.notifyChange();
+    }
+    async setExtensionEnabled(extId, enabled) {
+        const ext = this.registry.get(extId);
+        if (!ext || ext.enabled === enabled) return;
+        ext.enabled = enabled;
+        ext.meta.enabled = enabled;
+        await (0,_extensions__rspack_import_10.saveMeta)(ext.meta);
+        if (enabled) {
+            await this.startBackground(ext);
+            this.registry.dispatchAll("management.onEnabled", (ctx)=>[
+                    (0,_realm__rspack_import_14.toRealm)(ctx, (0,_api_misc__rspack_import_4.extensionInfo)(this, ext))
+                ]);
+        } else {
+            this.stopBackground(ext);
+            this.closeOffscreen(ext);
+            for (const ctx of this.registry.contextsOf(ext.id))this.registry.destroyContext(ctx);
+            this.registry.dispatchAll("management.onDisabled", (ctx)=>[
+                    (0,_realm__rspack_import_14.toRealm)(ctx, (0,_api_misc__rspack_import_4.extensionInfo)(this, ext))
+                ]);
+        }
+        this.registry.notifyChange();
+    }
+    async reloadExtension(extId) {
+        const ext = this.registry.get(extId);
+        if (!ext) return;
+        const meta = ext.meta;
+        this.unloadExtension(ext);
+        const reloaded = await (0,_extensions__rspack_import_10.loadExtension)(this, meta);
+        if (reloaded.enabled) await this.startBackground(reloaded);
+        this.registry.notifyChange();
+    }
+    getInstalledExtensions(tabId = this.host.getActiveTabId?.() ?? null) {
+        return this.registry.list().map((ext)=>{
+            const action = (0,_api_action__rspack_import_1.effectiveAction)(ext, tabId);
+            const options = ext.manifest.options_ui?.page ?? ext.manifest.options_page;
+            return {
+                id: ext.id,
+                name: ext.manifest.name,
+                version: ext.manifest.version,
+                description: ext.manifest.description ?? "",
+                enabled: ext.enabled,
+                manifest: ext.manifest,
+                iconUrl: action.iconUrl,
+                title: action.title,
+                badgeText: action.badgeText,
+                badgeColor: (0,_api_action__rspack_import_1.colorToCss)(action.badgeColor),
+                badgeTextColor: (0,_api_action__rspack_import_1.colorToCss)(action.badgeTextColor),
+                hasPopup: !!action.popup,
+                popupUrl: action.popup ? (0,_urls__rspack_import_18.extensionUrl)(ext.id, action.popup) : null,
+                actionEnabled: action.enabled,
+                optionsUrl: options ? (0,_urls__rspack_import_18.extensionUrl)(ext.id, options) : null
+            };
+        });
+    }
+    // ---- frames ------------------------------------------------------------
+    extensionUrl(extId, path = "") {
+        return (0,_urls__rspack_import_18.extensionUrl)(extId, path);
+    }
+    /** Alias origin URL → chrome-extension:// for an address bar. */ displayUrl(url) {
+        return (0,_urls__rspack_import_18.displayExtensionUrl)(url);
+    }
+    /** chrome-extension:// URL typed or linked by the user → the URL to load in a Scramjet frame. */ resolveUrl(url) {
+        return (0,_urls__rspack_import_18.normalizeExtensionUrl)(url);
+    }
+    requireController() {
+        if (!this.controller) throw new Error("sapphire: no Scramjet controller attached (pass `controller` or call attachController())");
+        return this.controller;
+    }
+    createFrame(element, options) {
+        const controller = this.requireController();
+        const frame = controller.createFrame(element, {
+            plugins: [
+                new _SapphirePlugin__rspack_import_16.SapphirePlugin(this, options)
+            ]
+        });
+        return {
+            element,
+            go: (url)=>frame.go(url),
+            destroy: ()=>{
+                const i = controller.frames.indexOf(frame);
+                if (i > -1) controller.frames.splice(i, 1);
+            }
+        };
+    }
+    hiddenFrame() {
+        const frame = document.createElement("iframe");
+        frame.style.cssText = "position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none;left:-10px;top:-10px;";
+        frame.setAttribute("aria-hidden", "true");
+        frame.tabIndex = -1;
+        (this.backgroundRoot ?? document.body).appendChild(frame);
+        return frame;
+    }
+    mountFrame(element, extId, path, options) {
+        const ext = this.registry.get(extId);
+        if (!ext || !ext.enabled || !this.controller) return false;
+        this.popupFrames.get(element)?.destroy();
+        const handle = this.createFrame(element, options);
+        this.popupFrames.set(element, handle);
+        handle.go((0,_urls__rspack_import_18.extensionUrl)(extId, path));
+        return true;
+    }
+    unmountFrame(element) {
+        const handle = this.popupFrames.get(element);
+        if (!handle) return;
+        handle.destroy();
+        this.popupFrames.delete(element);
+        try {
+            element.src = "about:blank";
+        } catch  {
+        // ignore
+        }
+    }
+    getExtensionPopupPage(extId, tabId = null) {
+        const ext = this.registry.get(extId);
+        if (!ext) return null;
+        return (0,_api_action__rspack_import_1.effectiveAction)(ext, tabId).popup || null;
+    }
+    async mountExtensionPopup(frame, extId, tabId) {
+        const popup = this.getExtensionPopupPage(extId, tabId);
+        if (!popup) return false;
+        await this.waitForController();
+        const ok = this.mountFrame(frame, extId, popup, {
+            kind: "popup",
+            tabId
+        });
+        if (ok) this.openPopups.set(extId, frame);
+        return ok;
+    }
+    /** Tear down a popup the host is hiding, so its ports disconnect like Chrome's. */ unmountExtensionPopup(frame) {
+        for (const [extId, el] of this.openPopups)if (el === frame) this.openPopups.delete(extId);
+        this.unmountFrame(frame);
+    }
+    async mountExtensionPage(frame, extId, page, tabId, kind = "tab") {
+        await this.waitForController();
+        return this.mountFrame(frame, extId, page.replace(/^\/+/, ""), {
+            kind,
+            tabId
+        });
+    }
+    async mountSidePanel(frame, extId, tabId) {
+        const ext = this.registry.get(extId);
+        if (!ext) return false;
+        const path = (tabId !== null ? ext.sidePanel.tabOptions.get(tabId)?.path : undefined) ?? ext.sidePanel.path;
+        if (!path) return false;
+        await this.waitForController();
+        return this.mountFrame(frame, extId, path, {
+            kind: "sidepanel",
+            tabId
+        });
+    }
+    getNewTabOverride() {
+        const winner = this.registry.list().filter((ext)=>ext.enabled && typeof ext.manifest.chrome_url_overrides?.newtab === "string").sort((a, b)=>b.installedAt - a.installedAt)[0];
+        if (!winner) return null;
+        const page = winner.manifest.chrome_url_overrides.newtab.replace(/^\/+/, "");
+        return {
+            extId: winner.id,
+            page,
+            url: (0,_urls__rspack_import_18.extensionUrl)(winner.id, page)
+        };
+    }
+    async mountNewTabPage(frame, extId, page, tabId) {
+        return this.mountExtensionPage(frame, extId, page, tabId, "tab");
+    }
+    // ---- background / offscreen ----------------------------------------------
+    backgroundPath(ext) {
+        const bg = ext.manifest.background;
+        if (!bg) return null;
+        if (bg.service_worker) return _network__rspack_import_19.GENERATED_BACKGROUND;
+        if (bg.page) return bg.page.replace(/^\/+/, "");
+        if (bg.scripts?.length) return _network__rspack_import_19.GENERATED_BACKGROUND;
+        return null;
+    }
+    async startBackground(ext) {
+        if (ext.background || !this.controller || !ext.enabled) return ext.backgroundReady ?? undefined;
+        const path = this.backgroundPath(ext);
+        if (!path) {
+            this.fireLifecycle(ext);
+            return;
+        }
+        let resolveReady;
+        ext.backgroundReady = new Promise((r)=>resolveReady = r);
+        ext.resolveBackground = resolveReady;
+        const element = this.hiddenFrame();
+        element.name = `sapphire-background-${ext.id}`;
+        const handle = this.createFrame(element, {
+            kind: "background",
+            tabId: null
+        });
+        ext.background = {
+            element,
+            go: handle.go,
+            destroy: ()=>{
+                handle.destroy();
+                element.remove();
+            }
+        };
+        handle.go((0,_urls__rspack_import_18.extensionUrl)(ext.id, path));
+        // Don't let a background that never loads hang callers forever.
+        setTimeout(resolveReady, 15000);
+        return ext.backgroundReady;
+    }
+    stopBackground(ext) {
+        if (!ext.background) return;
+        for (const ctx of this.registry.contextsOf(ext.id, (c)=>c.kind === "background")){
+            ctx.events.peek("runtime.onSuspend")?.dispatchSync(()=>true, ()=>[]);
+            this.registry.destroyContext(ctx);
+        }
+        ext.background.destroy();
+        ext.background = null;
+        ext.backgroundReady = null;
+    }
+    /** Called from the frame init hook when a background document starts. */ onBackgroundContext(ext, ctx) {
+        const win = ctx.window;
+        const done = ()=>{
+            setTimeout(()=>{
+                if (!ctx.alive) return;
+                if (ext.manifest.background?.service_worker) (0,_frames__rspack_import_11.dispatchServiceWorkerLifecycle)(ctx);
+                this.fireLifecycle(ext);
+                ext.resolveBackground?.();
+            }, 0);
+        };
+        if (win.document.readyState === "complete") done();
+        else win.addEventListener("load", done, {
+            once: true
+        });
+    }
+    fireLifecycle(ext) {
+        const version = ext.manifest.version ?? "";
+        const last = ext.meta.lastRunVersion;
+        if (last === undefined) {
+            this.registry.dispatch(ext.id, "runtime.onInstalled", [
+                {
+                    reason: "install"
+                }
+            ]);
+        } else if (last !== version) {
+            this.registry.dispatch(ext.id, "runtime.onInstalled", [
+                {
+                    reason: "update",
+                    previousVersion: last
+                }
+            ]);
+        } else if (this.startupPhase) {
+            this.registry.dispatch(ext.id, "runtime.onStartup", []);
+        }
+        if (last !== version) {
+            ext.meta.lastRunVersion = version;
+            void (0,_extensions__rspack_import_10.saveMeta)(ext.meta);
+        }
+    }
+    async createOffscreen(ext, path, reasons) {
+        const element = this.hiddenFrame();
+        const handle = this.createFrame(element, {
+            kind: "offscreen",
+            tabId: null
+        });
+        const loaded = new Promise((resolve)=>{
+            element.addEventListener("load", ()=>resolve(), {
+                once: true
+            });
+            setTimeout(resolve, 10000);
+        });
+        ext.offscreen = {
+            handle: {
+                element,
+                go: handle.go,
+                destroy: ()=>{
+                    handle.destroy();
+                    element.remove();
+                }
+            },
+            url: (0,_urls__rspack_import_18.extensionUrl)(ext.id, path),
+            reasons
+        };
+        handle.go((0,_urls__rspack_import_18.extensionUrl)(ext.id, path));
+        await loaded;
+    }
+    closeOffscreen(ext) {
+        if (!ext.offscreen) return;
+        for (const ctx of this.registry.contextsOf(ext.id, (c)=>c.kind === "offscreen"))this.registry.destroyContext(ctx);
+        ext.offscreen.handle.destroy();
+        ext.offscreen = null;
+    }
+    // ---- tabs (called by APIs) ----------------------------------------------
+    async openTab(url, options = {}) {
+        const active = options.active ?? true;
+        const before = new Set(this.host.getAllTabs().map((t)=>t.id));
+        const parsed = (0,_urls__rspack_import_18.parseExtensionUrl)(url);
+        if (this.host.createTab) {
+            const id = await this.host.createTab(url, {
+                active,
+                openerTabId: options.openerTabId
+            });
+            if (id !== null && id !== undefined) return id;
+        } else if (parsed && this.host.openExtensionTab) {
+            this.host.openExtensionTab(parsed.extId, parsed.path + parsed.search + parsed.hash, null);
+        } else if (this.host.navigateTab) {
+            this.host.navigateTab(null, url);
+        } else {
+            return null;
+        }
+        for(let i = 0; i < 20; i++){
+            const created = this.host.getAllTabs().find((t)=>!before.has(t.id));
+            if (created) return created.id;
+            await new Promise((r)=>setTimeout(r, i < 5 ? 0 : 16));
+        }
+        return this.host.getActiveTabId?.() ?? null;
+    }
+    navigate(tabId, url) {
+        const parsed = (0,_urls__rspack_import_18.parseExtensionUrl)(url);
+        if (parsed && this.host.openExtensionTab && !this.host.createTab) {
+            this.host.openExtensionTab(parsed.extId, parsed.path + parsed.search + parsed.hash, tabId);
+            return;
+        }
+        if (this.host.navigateTab) {
+            this.host.navigateTab(tabId, url);
+            return;
+        }
+        const win = this.host.getTabWindow?.(tabId);
+        if (win) win.location.href = url;
+    }
+    openExtensionPage(extId, page, tabId) {
+        const url = (0,_urls__rspack_import_18.extensionUrl)(extId, page);
+        if (this.host.openExtensionTab) this.host.openExtensionTab(extId, page.replace(/^\/+/, ""), tabId);
+        else if (tabId !== null) this.navigate(tabId, url);
+        else void this.openTab(url, {
+            active: true
+        });
+    }
+    closeTab(tabId) {
+        this.host.closeTab?.(tabId);
+    }
+    reloadTab(tabId) {
+        if (this.host.reloadTab) this.host.reloadTab(tabId);
+        else this.host.getTabWindow?.(tabId)?.location.reload();
+    }
+    activateTab(tabId) {
+        this.host.activateTab?.(tabId);
+    }
+    historyGo(tabId, delta) {
+        if (delta < 0 && this.host.goBack) return this.host.goBack(tabId);
+        if (delta > 0 && this.host.goForward) return this.host.goForward(tabId);
+        this.host.getTabWindow?.(tabId)?.history.go(delta);
+    }
+    tabUpdated(tabId, changes) {
+        const tab = (0,_tabsModel__rspack_import_17.buildTab)(this, tabId);
+        if (!tab) return;
+        this.registry.dispatchAll("tabs.onUpdated", (ctx)=>[
+                tabId,
+                (0,_realm__rspack_import_14.toRealm)(ctx, changes),
+                (0,_realm__rspack_import_14.toRealm)(ctx, tab)
+            ]);
+        if ("url" in changes) {
+            for (const ext of this.registry.list()){
+                // Per-tab action state and DNR counters reset on navigation, as in Chrome.
+                if (changes.status === "loading") {
+                    ext.tabAction.delete(tabId);
+                    ext.dnr.tabActionCounts.delete(tabId);
+                }
+            }
+            this.scheduleChange();
+        }
+    }
+    recordHistory(tabId, url, title) {
+        if (!/^https?:/i.test(url) || (0,_urls__rspack_import_18.parseExtensionUrl)(url)) return;
+        void this.browserData.load().then(()=>{
+            const { item } = this.browserData.recordVisit(url, title);
+            const result = {
+                id: item.id,
+                url: item.url,
+                title: item.title,
+                lastVisitTime: item.lastVisitTime,
+                visitCount: item.visitCount,
+                typedCount: item.typedCount
+            };
+            for (const ext of this.registry.list()){
+                if (ext.grantedPermissions.has("history")) this.registry.dispatch(ext.id, "history.onVisited", (ctx)=>[
+                        (0,_realm__rspack_import_14.toRealm)(ctx, result)
+                    ]);
+            }
+        });
+        void tabId;
+    }
+    // ---- script injection (scripting / tabs.executeScript) ---------------------
+    targetFrames(target) {
+        const frames = this.registry.liveFrames(target.tabId);
+        if (!frames.length) {
+            if (!this.host.getTab(target.tabId)) throw new _realm__rspack_import_14.ApiError(`No tab with id: ${target.tabId}`);
+            throw new _realm__rspack_import_14.ApiError("Cannot access contents of the page. Extension manifest must request permission to access the respective host.");
+        }
+        let selected = frames;
+        if (target.frameIds) {
+            selected = frames.filter((f)=>target.frameIds.includes(f.frameId));
+            const missing = target.frameIds.find((id)=>!frames.some((f)=>f.frameId === id));
+            if (missing !== undefined) throw new _realm__rspack_import_14.ApiError(`No frame with id ${missing} in tab with id ${target.tabId}`);
+        } else if (target.documentIds) {
+            selected = frames.filter((f)=>target.documentIds.includes(f.documentId));
+        } else if (!target.allFrames) {
+            selected = frames.filter((f)=>f.frameId === 0);
+        }
+        return selected;
+    }
+    async executeScript(ext, target, injection) {
+        if (injection.files) await ext.files.preload(injection.files);
+        const frames = this.targetFrames(target);
+        const results = [];
+        let injected = 0;
+        for (const frame of frames){
+            const world = (0,_content__rspack_import_8.contentWorldOf)(frame.window);
+            if (!world) {
+                if (frame.frameId === 0 && !target.allFrames) {
+                    throw new _realm__rspack_import_14.ApiError(`Cannot access contents of url "${(0,_urls__rspack_import_18.displayExtensionUrl)(frame.url)}". Extension manifest must request permission to access this host.`);
+                }
+                continue;
+            }
+            injected++;
+            const result = await (0,_content__rspack_import_8.executeInWorld)(this, world, ext, injection);
+            results.push({
+                frameId: frame.frameId,
+                documentId: frame.documentId,
+                ...result !== undefined ? {
+                    result
+                } : {
+                    result: null
+                }
+            });
+        }
+        if (!injected) throw new _realm__rspack_import_14.ApiError("Cannot access contents of the page.");
+        return results;
+    }
+    async insertCss(ext, target, css, key) {
+        for (const frame of this.targetFrames(target)){
+            const world = (0,_content__rspack_import_8.contentWorldOf)(frame.window);
+            if (world) (0,_content__rspack_import_8.injectStyle)(world, ext, css, key);
+        }
+    }
+    async removeCss(ext, target, key) {
+        for (const frame of this.targetFrames(target)){
+            const world = (0,_content__rspack_import_8.contentWorldOf)(frame.window);
+            if (world) (0,_content__rspack_import_8.removeStyle)(world, ext.id, key);
+        }
+    }
+    allContentWorlds() {
+        const out = [];
+        for (const tabId of this.registry.tabs.keys()){
+            for (const frame of this.registry.liveFrames(tabId)){
+                const world = (0,_content__rspack_import_8.contentWorldOf)(frame.window);
+                if (world) out.push(world);
+            }
+        }
+        return out;
+    }
+    async addContentScripts(ext, regs) {
+        await ext.files.preload((0,_extensions__rspack_import_10.registrationFiles)(regs));
+        this.registry.contentScripts.push(...regs);
+        await (0,_extensions__rspack_import_10.persistRegisteredScripts)(this, ext.id);
+    }
+    async removeContentScripts(ext, source, ids) {
+        const list = this.registry.contentScripts;
+        for(let i = list.length - 1; i >= 0; i--){
+            const cs = list[i];
+            if (cs.extId !== ext.id || cs.source !== source) continue;
+            if (ids && !ids.includes(cs.id)) continue;
+            list.splice(i, 1);
+        }
+        await (0,_extensions__rspack_import_10.persistRegisteredScripts)(this, ext.id);
+    }
+    // ---- DNR ------------------------------------------------------------------
+    async ensureRulesetsLoaded(ext, ids) {
+        for (const id of ids){
+            if (ext.dnr.rulesets.get(id)?.length) continue;
+            ext.dnr.rulesets.delete(id);
+            if (!await (0,_extensions__rspack_import_10.loadRuleset)(ext, id)) ext.dnr.rulesets.delete(id);
+        }
+    }
+    hasDnrRules() {
+        for (const ext of this.registry.extensions.values()){
+            if (!ext.enabled) continue;
+            if (ext.dnr.dynamicRules.length || ext.dnr.sessionRules.length || ext.dnr.enabledRulesets.size) return true;
+        }
+        return false;
+    }
+    checkDeclarativeNetRequest(requestUrl, initiatorUrl, resourceType) {
+        return (0,_dnr__rspack_import_9.checkDeclarativeNetRequest)(this.registry, requestUrl, initiatorUrl, resourceType);
+    }
+    refreshApis(ext) {
+        for (const ctx of this.registry.contextsOf(ext.id))(0,_api__rspack_import_0.refreshChromeApi)(this, ctx);
+    }
+    // ---- host UI → extensions ------------------------------------------------
+    /** Toolbar button click: opens the popup if there is one, otherwise fires action.onClicked. */ clickAction(extId, tabId = this.host.getActiveTabId?.() ?? null) {
+        const ext = this.registry.get(extId);
+        if (!ext || !ext.enabled) return null;
+        return (0,_api_action__rspack_import_1.clickAction)(this, ext, tabId);
+    }
+    /** Legacy: always fire onClicked (hosts that render the popup themselves). */ triggerActionClicked(extId, tabId) {
+        const ext = this.registry.get(extId);
+        if (ext) this.dispatchActionClicked(ext, tabId);
+    }
+    dispatchActionClicked(ext, tabId) {
+        const tab = (0,_tabsModel__rspack_import_17.buildTab)(this, tabId);
+        const mv = Number(ext.manifest.manifest_version) || 2;
+        const event = mv >= 3 ? "action.onClicked" : ext.manifest.page_action ? "pageAction.onClicked" : "browserAction.onClicked";
+        this.registry.dispatch(ext.id, event, (ctx)=>[
+                (0,_realm__rspack_import_14.toRealm)(ctx, tab)
+            ]);
+    }
+    getActionState(extId, tabId) {
+        const ext = this.registry.get(extId);
+        if (!ext) return null;
+        const a = (0,_api_action__rspack_import_1.effectiveAction)(ext, tabId);
+        return {
+            ...a,
+            badgeColor: (0,_api_action__rspack_import_1.colorToCss)(a.badgeColor),
+            badgeTextColor: (0,_api_action__rspack_import_1.colorToCss)(a.badgeTextColor)
+        };
+    }
+    openPopup(extId, tabId) {
+        if (!this.getExtensionPopupPage(extId, tabId)) return false;
+        const result = this.host.openPopup?.(extId, tabId);
+        return result !== false && !!this.host.openPopup;
+    }
+    closePopup(extId) {
+        const frame = this.openPopups.get(extId);
+        this.host.closePopup?.(extId);
+        if (frame) this.unmountExtensionPopup(frame);
+    }
+    triggerCommand(extId, name, tabId = this.host.getActiveTabId?.() ?? null) {
+        const ext = this.registry.get(extId);
+        if (!ext || !ext.enabled) return;
+        if (name === "_execute_action" || name === "_execute_browser_action" || name === "_execute_page_action") {
+            (0,_api_action__rspack_import_1.clickAction)(this, ext, tabId);
+            return;
+        }
+        if (name === "_execute_side_panel" && ext.sidePanel.path) {
+            this.host.openSidePanel?.(ext.id, ext.sidePanel.path, tabId);
+            return;
+        }
+        const tab = (0,_tabsModel__rspack_import_17.buildTab)(this, tabId);
+        (0,_commands__rspack_import_7.triggerCommand)(this.registry, extId, name, tab ?? undefined);
+    }
+    /** Returns true when the key event matched an extension shortcut and was consumed. */ handleKeyboardEvent(e, tabId = this.host.getActiveTabId?.() ?? null) {
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && !/^(Media|F\d)/.test(e.key)) return false;
+        const match = (0,_commands__rspack_import_7.findMatchingCommand)(this.registry, e);
+        if (!match) return false;
+        this.triggerCommand(match.extId, match.name, tabId);
+        return true;
+    }
+    getContextMenuItems(info) {
+        return (0,_api_contextMenus__rspack_import_3.contextMenuEntries)(this, info);
+    }
+    clickContextMenuItem(extId, itemId, info, tabId) {
+        const ext = this.registry.get(extId);
+        if (ext) (0,_api_contextMenus__rspack_import_3.clickContextMenuItem)(this, ext, itemId, info, tabId);
+    }
+    showContextMenu(tabId, frameId, info, e) {
+        if (!this.host.showContextMenu) return false;
+        const items = (0,_api_contextMenus__rspack_import_3.contextMenuEntries)(this, info);
+        if (!items.length) return false;
+        let x = e.clientX;
+        let y = e.clientY;
+        try {
+            let win = e.target?.ownerDocument?.defaultView ?? null;
+            while(win && win.frameElement){
+                const rect = win.frameElement.getBoundingClientRect();
+                x += rect.left;
+                y += rect.top;
+                win = win.parent === win ? null : win.parent;
+            }
+        } catch  {
+        // cross-origin
+        }
+        this.host.showContextMenu({
+            tabId,
+            frameId,
+            x,
+            y,
+            items,
+            select: (entry)=>this.clickContextMenuItem(entry.extId, entry.id, info, tabId)
+        });
+        return true;
+    }
+    // Omnibox: the host calls these while the user types "<keyword> text".
+    getOmniboxKeywords() {
+        return this.registry.list().filter((e)=>e.enabled && e.manifest.omnibox?.keyword).map((e)=>({
+                extId: e.id,
+                keyword: e.manifest.omnibox.keyword,
+                name: e.manifest.name
+            }));
+    }
+    omniboxInputStarted(extId) {
+        this.registry.dispatch(extId, "omnibox.onInputStarted", []);
+    }
+    omniboxInputChanged(extId, text) {
+        return new Promise((resolve)=>{
+            let settled = false;
+            const suggest = (suggestions)=>{
+                if (settled) return;
+                settled = true;
+                resolve(JSON.parse(JSON.stringify(suggestions ?? [])));
+            };
+            this.registry.dispatch(extId, "omnibox.onInputChanged", [
+                text,
+                suggest
+            ]);
+            setTimeout(()=>suggest([]), 3000);
+        });
+    }
+    omniboxInputEntered(extId, text, disposition = "currentTab") {
+        this.registry.dispatch(extId, "omnibox.onInputEntered", [
+            text,
+            disposition
         ]);
     }
+    omniboxInputCancelled(extId) {
+        this.registry.dispatch(extId, "omnibox.onInputCancelled", []);
+    }
+    omniboxDefaultSuggestion(extId) {
+        return this.registry.get(extId)?.omniboxDefaultSuggestion?.description ?? null;
+    }
+    // Tab lifecycle notifications from the host.
     notifyTabCreated(tabId) {
-        this.registry.broadcastTabLifecycle((e)=>e.tabsOnCreated, [
-            (0,_chromeApi__rspack_import_0.buildTabObject)(this.host, tabId)
-        ]);
+        const tab = (0,_tabsModel__rspack_import_17.buildTab)(this, tabId);
+        if (tab) this.registry.dispatchAll("tabs.onCreated", (ctx)=>[
+                (0,_realm__rspack_import_14.toRealm)(ctx, tab)
+            ]);
     }
     notifyTabUpdated(tabId, changeInfo) {
-        const tab = (0,_chromeApi__rspack_import_0.buildTabObject)(this.host, tabId);
-        this.registry.broadcastTabLifecycle((e)=>e.tabsOnUpdated, [
-            tabId,
-            changeInfo,
-            tab
-        ]);
+        const tracked = this.registry.tab(tabId);
+        const changes = {};
+        if (changeInfo.url && changeInfo.url !== tracked.url) {
+            tracked.url = changeInfo.url;
+            changes.url = changeInfo.url;
+        }
+        if (changeInfo.title && changeInfo.title !== tracked.title) {
+            tracked.title = changeInfo.title;
+            changes.title = changeInfo.title;
+        }
+        if (changeInfo.status && changeInfo.status !== tracked.status) {
+            tracked.status = changeInfo.status;
+            changes.status = changeInfo.status;
+        }
+        if (Object.keys(changes).length) this.tabUpdated(tabId, changes);
     }
     notifyTabRemoved(tabId, windowId = 1) {
-        this.registry.broadcastTabLifecycle((e)=>e.tabsOnRemoved, [
+        const tracked = this.registry.tabs.get(tabId);
+        if (tracked?.url && /^https?:/.test(tracked.url) && !(0,_urls__rspack_import_18.parseExtensionUrl)(tracked.url)) {
+            this.browserData.closedTabs.unshift({
+                sessionId: `${tabId}-${Date.now()}`,
+                lastModified: Date.now(),
+                url: tracked.url,
+                title: tracked.title
+            });
+            if (this.browserData.closedTabs.length > 25) this.browserData.closedTabs.length = 25;
+        }
+        for (const ctx of [
+            ...this.registry.contexts
+        ])if (ctx.tabId === tabId) this.registry.destroyContext(ctx);
+        this.registry.tabs.delete(tabId);
+        for (const ext of this.registry.list()){
+            ext.tabAction.delete(tabId);
+            ext.dnr.tabActionCounts.delete(tabId);
+        }
+        this.registry.dispatchAll("tabs.onRemoved", [
             tabId,
             {
                 windowId,
@@ -3150,13 +10107,599 @@ class Sapphire {
         ]);
     }
     notifyTabActivated(tabId, windowId = 1) {
-        this.registry.broadcastTabLifecycle((e)=>e.tabsOnActivated, [
+        (0,_tabsModel__rspack_import_17.touchTab)(tabId);
+        this.registry.dispatchAll("tabs.onActivated", [
             {
                 tabId,
                 windowId
             }
         ]);
+        this.registry.dispatchAll("tabs.onHighlighted", [
+            {
+                tabIds: [
+                    tabId
+                ],
+                windowId
+            }
+        ]);
+        this.scheduleChange();
     }
+    // ---- misc services used by APIs -------------------------------------------
+    noteActivity() {
+        this.lastActivity = Date.now();
+        if (this.lastIdleState !== "active") this.checkIdle();
+    }
+    idleState(intervalSeconds) {
+        this.ensureIdleWatch();
+        return Date.now() - this.lastActivity >= intervalSeconds * 1000 ? "idle" : "active";
+    }
+    ensureIdleWatch() {
+        if (this.idleTimer) return;
+        this.idleTimer = setInterval(()=>this.checkIdle(), 15000);
+    }
+    checkIdle() {
+        for (const ext of this.registry.list()){
+            if (!ext.grantedPermissions.has("idle")) continue;
+            const interval = ext.settings.get("idle.interval") ?? 60;
+            const state = Date.now() - this.lastActivity >= interval * 1000 ? "idle" : "active";
+            const key = "idle.lastState";
+            if (ext.settings.get(key) !== state) {
+                ext.settings.set(key, state);
+                this.registry.dispatch(ext.id, "idle.onStateChanged", [
+                    state
+                ]);
+            }
+        }
+        this.lastIdleState = Date.now() - this.lastActivity >= 60000 ? "idle" : "active";
+    }
+    launchWebAuthFlow(ext, url, interactive) {
+        if (!url) return Promise.reject(new _realm__rspack_import_14.ApiError("Authorization page could not be loaded."));
+        if (!this.controller) return Promise.reject(new _realm__rspack_import_14.ApiError("Authorization page could not be loaded."));
+        this.authFlows.get(ext.id)?.reject(new _realm__rspack_import_14.ApiError("Authorization page could not be loaded."));
+        return new Promise((resolve, reject)=>{
+            const overlay = document.createElement("div");
+            overlay.style.cssText = interactive ? "position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center" : "position:fixed;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
+            const panel = document.createElement("div");
+            panel.style.cssText = "position:relative;width:min(520px,95vw);height:min(680px,90vh);background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.4)";
+            const close = document.createElement("button");
+            close.textContent = "×";
+            close.setAttribute("aria-label", "Cancel sign-in");
+            close.style.cssText = "position:absolute;top:6px;right:8px;z-index:1;border:0;background:#eee;border-radius:50%;width:28px;height:28px;font-size:18px;cursor:pointer";
+            const iframe = document.createElement("iframe");
+            iframe.style.cssText = "width:100%;height:100%;border:0";
+            panel.append(close, iframe);
+            overlay.append(panel);
+            document.body.append(overlay);
+            const handle = this.createFrame(iframe, {
+                kind: "auth",
+                tabId: null
+            });
+            const cleanup = ()=>{
+                this.authFlows.delete(ext.id);
+                handle.destroy();
+                overlay.remove();
+            };
+            const timeout = interactive ? null : setTimeout(()=>flow.reject(new _realm__rspack_import_14.ApiError("User interaction required.")), 30000);
+            const flow = {
+                extId: ext.id,
+                resolve: (u)=>{
+                    if (timeout) clearTimeout(timeout);
+                    cleanup();
+                    resolve(u);
+                },
+                reject: (err)=>{
+                    if (timeout) clearTimeout(timeout);
+                    cleanup();
+                    reject(err);
+                },
+                close: cleanup
+            };
+            close.onclick = ()=>flow.reject(new _realm__rspack_import_14.ApiError("The user did not approve access."));
+            this.authFlows.set(ext.id, flow);
+            handle.go(url);
+        });
+    }
+    /** From the request hook: a navigation reached https://<id>.chromiumapp.org/. */ completeAuthFlow(url) {
+        const extId = url.hostname.replace(/\.chromiumapp\.org$/, "");
+        const flow = this.authFlows.get(extId);
+        if (!flow) return false;
+        setTimeout(()=>flow.resolve(url.href), 0);
+        return true;
+    }
+    async download(ext, options) {
+        if (!options?.url) throw new _realm__rspack_import_14.ApiError("Invalid URL.");
+        const id = ++this.downloadCounter;
+        const item = {
+            id,
+            url: options.url,
+            finalUrl: options.url,
+            filename: options.filename ?? "",
+            mime: "",
+            state: "in_progress",
+            danger: "safe",
+            paused: false,
+            canResume: false,
+            bytesReceived: 0,
+            totalBytes: -1,
+            fileSize: -1,
+            startTime: new Date().toISOString(),
+            exists: true,
+            incognito: false,
+            byExtensionId: ext.id,
+            byExtensionName: ext.manifest.name
+        };
+        this.downloads.push(item);
+        this.registry.dispatchAll("downloads.onCreated", (ctx)=>[
+                (0,_realm__rspack_import_14.toRealm)(ctx, item)
+            ]);
+        void (async ()=>{
+            try {
+                let response;
+                const parsed = (0,_urls__rspack_import_18.parseExtensionUrl)(options.url);
+                if (parsed) response = await (0,_network__rspack_import_19.serveExtensionResource)(this, parsed.extId, new URL((0,_urls__rspack_import_18.extensionUrl)(parsed.extId, parsed.path)), "GET");
+                else if (/^(blob|data):/i.test(options.url)) response = await fetch(options.url);
+                else {
+                    const transport = this.controller?.transport;
+                    if (!transport) throw new Error("NETWORK_FAILED");
+                    const r = await transport.request(new URL(options.url), options.method ?? "GET", options.body ?? null, (options.headers ?? []).map((h)=>[
+                            h.name,
+                            h.value
+                        ]), undefined);
+                    response = new Response(r.body, {
+                        status: r.status,
+                        statusText: r.statusText,
+                        headers: r.headers
+                    });
+                }
+                if (!response.ok) throw new Error("SERVER_FAILED");
+                const blob = await response.blob();
+                const disposition = response.headers.get("content-disposition") ?? "";
+                const fromHeader = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)?.[1];
+                const name = (options.filename || (fromHeader ? decodeURIComponent(fromHeader) : "") || new URL(options.url, location.href).pathname.split("/").pop() || "download").split("/").pop();
+                const objectUrl = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = objectUrl;
+                a.download = name;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(()=>URL.revokeObjectURL(objectUrl), 60000);
+                Object.assign(item, {
+                    state: "complete",
+                    filename: name,
+                    mime: blob.type,
+                    bytesReceived: blob.size,
+                    totalBytes: blob.size,
+                    fileSize: blob.size,
+                    endTime: new Date().toISOString()
+                });
+                this.registry.dispatchAll("downloads.onChanged", (ctx)=>[
+                        (0,_realm__rspack_import_14.toRealm)(ctx, {
+                            id,
+                            state: {
+                                previous: "in_progress",
+                                current: "complete"
+                            },
+                            filename: {
+                                current: name
+                            }
+                        })
+                    ]);
+            } catch (e) {
+                const error = e.message?.match(/^[A-Z_]+$/) ? e.message : "NETWORK_FAILED";
+                Object.assign(item, {
+                    state: "interrupted",
+                    error,
+                    endTime: new Date().toISOString()
+                });
+                this.registry.dispatchAll("downloads.onChanged", (ctx)=>[
+                        (0,_realm__rspack_import_14.toRealm)(ctx, {
+                            id,
+                            state: {
+                                previous: "in_progress",
+                                current: "interrupted"
+                            },
+                            error: {
+                                current: error
+                            }
+                        })
+                    ]);
+            }
+        })();
+        return id;
+    }
+    /** chrome.runtime for web pages matched by some extension's externally_connectable. */ externalRuntimeFor(world) {
+        const s = this;
+        const contextFor = (extId)=>{
+            const ext = s.registry.get(extId);
+            if (!ext || !ext.enabled) return null;
+            if (!ext.manifest.externally_connectable?.matches?.some((p)=>(0,_matchPatterns__rspack_import_13.matchPattern)(p, world.url))) return null;
+            let map = s.externalContexts.get(world.win);
+            if (!map) {
+                map = new Map();
+                s.externalContexts.set(world.win, map);
+            }
+            let ctx = map.get(extId);
+            if (!ctx || !ctx.alive) {
+                ctx = s.registry.createContext({
+                    ext,
+                    kind: "content",
+                    window: world.win,
+                    document: world.doc,
+                    tabId: world.tabId,
+                    frameId: world.frameId,
+                    documentId: world.documentId,
+                    url: world.url,
+                    world: "MAIN"
+                });
+                map.set(extId, ctx);
+            }
+            return ctx;
+        };
+        const sender = ()=>({
+                url: world.url,
+                origin: (0,_messaging__rspack_import_12.originOf)(world.url),
+                tab: (0,_tabsModel__rspack_import_17.buildTab)(s, world.tabId) ?? undefined,
+                frameId: world.frameId,
+                documentId: world.documentId,
+                documentLifecycle: "active"
+            });
+        const realm = world.win;
+        const runtime = new realm.Object();
+        runtime.sendMessage = (...args)=>{
+            const { target, message, cb } = (0,_api_runtime__rspack_import_5.normalizeSendMessageArgs)(args);
+            if (!target) throw new realm.TypeError("chrome.runtime.sendMessage() called from a webpage must specify an Extension ID (string) for its first argument.");
+            const ctx = contextFor(target);
+            if (!ctx) {
+                const err = new realm.Error(`Invalid extension id: '${target}'`);
+                if (cb) queueMicrotask(()=>cb());
+                else return realm.Promise.reject(err);
+                return undefined;
+            }
+            const targets = s.registry.extensionContexts(target);
+            const p = targets.length ? (0,_messaging__rspack_import_12.deliverMessage)(targets, "runtime.onMessageExternal", message, sender()) : Promise.reject(new _realm__rspack_import_14.ApiError(_messaging__rspack_import_12.NO_RECEIVER));
+            return (0,_api_runtime__rspack_import_5.completeMessage)(ctx, p, cb);
+        };
+        runtime.connect = (extId, info)=>{
+            const ctx = contextFor(String(extId));
+            if (!ctx) throw new realm.TypeError(`Invalid extension id: '${extId}'`);
+            return (0,_messaging__rspack_import_12.openPort)(s.registry, ctx, s.registry.extensionContexts(ctx.ext.id), "runtime.onConnectExternal", String(info?.name ?? ""), sender());
+        };
+        Object.defineProperty(runtime, "lastError", {
+            get: ()=>{
+                for (const ctx of s.externalContexts.get(world.win)?.values() ?? []){
+                    if (ctx.lastError) {
+                        ctx.lastErrorChecked = true;
+                        return ctx.lastError;
+                    }
+                }
+                return undefined;
+            }
+        });
+        return runtime;
+    }
+    /** Ensure a content-script context exists for `ext` in `win` (debug/host tooling). */ contentContextFor(win, extId) {
+        const world = (0,_content__rspack_import_8.contentWorldOf)(win);
+        const ext = this.registry.get(extId);
+        if (!world || !ext) return null;
+        return (0,_content__rspack_import_8.contentContext)(this, world, ext);
+    }
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/storage.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  QUOTAS: () => (QUOTAS),
+  StorageArea: () => (StorageArea),
+  jsonClone: () => (jsonClone)
+});
+/* import */ var _db__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/db.ts");
+
+const QUOTAS = {
+    local: {
+        QUOTA_BYTES: 10485760
+    },
+    sync: {
+        QUOTA_BYTES: 102400,
+        QUOTA_BYTES_PER_ITEM: 8192,
+        MAX_ITEMS: 512,
+        MAX_WRITE_OPERATIONS_PER_HOUR: 1800,
+        MAX_WRITE_OPERATIONS_PER_MINUTE: 120,
+        MAX_SUSTAINED_WRITE_OPERATIONS_PER_MINUTE: 1000000
+    },
+    session: {
+        QUOTA_BYTES: 10485760
+    },
+    managed: {}
+};
+/**
+ * chrome.storage values round-trip through JSON in the browser, so a Date
+ * comes back as a string, `undefined` members disappear and Maps turn into
+ * `{}`. Reproducing that keeps extensions from depending on behaviour they
+ * would never see in Chrome.
+ */ function jsonClone(value) {
+    if (value === undefined) return value;
+    const s = JSON.stringify(value);
+    return s === undefined ? undefined : JSON.parse(s);
+}
+/**
+ * All contexts of an extension live in this one page, so a single in-memory
+ * copy per area is coherent across background, popups and content scripts.
+ * IndexedDB is only the persistence layer, written in order behind it.
+ */ class StorageArea {
+    data = null;
+    loading = null;
+    writeChain = Promise.resolve();
+    extId;
+    area;
+    persistent;
+    constructor(extId, area, persistent){
+        this.extId = extId;
+        this.area = area;
+        this.persistent = persistent;
+    }
+    prefix() {
+        return `${this.extId}/${this.area}/`;
+    }
+    async ensure() {
+        if (this.data) return this.data;
+        if (!this.loading) {
+            this.loading = (async ()=>{
+                const map = new Map();
+                if (this.persistent) {
+                    for (const [key, value] of (await (0,_db__rspack_import_0.dbGetPrefix)(_db__rspack_import_0.EXT_STORAGE_STORE, this.prefix()))){
+                        map.set(key.slice(this.prefix().length), value);
+                    }
+                }
+                this.data = map;
+            })();
+        }
+        await this.loading;
+        return this.data;
+    }
+    persist(entries) {
+        if (!this.persistent || !entries.length) return;
+        const prefixed = entries.map(([k, v])=>[
+                `${this.prefix()}${k}`,
+                v
+            ]);
+        this.writeChain = this.writeChain.then(()=>(0,_db__rspack_import_0.dbWriteMany)(_db__rspack_import_0.EXT_STORAGE_STORE, prefixed)).catch((e)=>console.error(`[sapphire] storage.${this.area} write failed`, e));
+    }
+    async get(keys) {
+        const data = await this.ensure();
+        const out = {};
+        if (keys === null || keys === undefined) {
+            for (const [k, v] of data)out[k] = jsonClone(v);
+        } else if (typeof keys === "string") {
+            if (data.has(keys)) out[keys] = jsonClone(data.get(keys));
+        } else if (Array.isArray(keys)) {
+            for (const k of keys)if (data.has(String(k))) out[String(k)] = jsonClone(data.get(String(k)));
+        } else if (typeof keys === "object") {
+            for (const [k, def] of Object.entries(keys)){
+                out[k] = data.has(k) ? jsonClone(data.get(k)) : def;
+            }
+        } else {
+            throw new Error("Invalid value for argument 1. Expected null, string, array or object.");
+        }
+        return out;
+    }
+    async getKeys() {
+        return [
+            ...(await this.ensure()).keys()
+        ];
+    }
+    async set(items) {
+        if (!items || typeof items !== "object" || Array.isArray(items)) {
+            throw new Error("Error in invocation of storage.set(object items, optional function callback): No matching signature.");
+        }
+        const data = await this.ensure();
+        const changes = {};
+        const writes = [];
+        for (const [key, raw] of Object.entries(items)){
+            if (raw === undefined) continue;
+            const value = jsonClone(raw);
+            const had = data.has(key);
+            const old = data.get(key);
+            data.set(key, value);
+            writes.push([
+                key,
+                value
+            ]);
+            if (!had || JSON.stringify(old) !== JSON.stringify(value)) {
+                changes[key] = had ? {
+                    oldValue: jsonClone(old),
+                    newValue: jsonClone(value)
+                } : {
+                    newValue: jsonClone(value)
+                };
+            }
+        }
+        this.persist(writes);
+        return changes;
+    }
+    async remove(keys) {
+        const data = await this.ensure();
+        const changes = {};
+        const writes = [];
+        for (const key of Array.isArray(keys) ? keys : [
+            keys
+        ]){
+            if (!data.has(key)) continue;
+            changes[key] = {
+                oldValue: jsonClone(data.get(key))
+            };
+            data.delete(key);
+            writes.push([
+                key,
+                undefined
+            ]);
+        }
+        this.persist(writes);
+        return changes;
+    }
+    async clear() {
+        const data = await this.ensure();
+        const changes = {};
+        for (const [k, v] of data)changes[k] = {
+            oldValue: jsonClone(v)
+        };
+        data.clear();
+        if (this.persistent) {
+            this.writeChain = this.writeChain.then(()=>(0,_db__rspack_import_0.dbDeletePrefix)(_db__rspack_import_0.EXT_STORAGE_STORE, this.prefix())).catch(()=>{});
+        }
+        return changes;
+    }
+    async bytesInUse(keys) {
+        const data = await this.ensure();
+        const selected = keys === null || keys === undefined ? [
+            ...data.keys()
+        ] : Array.isArray(keys) ? keys.map(String) : [
+            String(keys)
+        ];
+        let total = 0;
+        for (const k of selected){
+            if (!data.has(k)) continue;
+            total += k.length + (JSON.stringify(data.get(k))?.length ?? 0);
+        }
+        return total;
+    }
+    /** Wipe persisted data (uninstall). */ async destroy() {
+        this.data = new Map();
+        if (this.persistent) await (0,_db__rspack_import_0.dbDeletePrefix)(_db__rspack_import_0.EXT_STORAGE_STORE, this.prefix());
+    }
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/tabsModel.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  allTabInfos: () => (allTabInfos),
+  buildTab: () => (buildTab),
+  buildWindow: () => (buildWindow),
+  currentWindowId: () => (currentWindowId),
+  tabInfo: () => (tabInfo),
+  touchTab: () => (touchTab),
+  windowIds: () => (windowIds)
+});
+/** Host TabInfo overlaid with what Sapphire observed in the tab's frames. */ function tabInfo(s, tabId) {
+    const host = s.host.getTab(tabId);
+    const tracked = s.registry.tabs.get(tabId);
+    if (!host && !tracked) return null;
+    return {
+        id: tabId,
+        windowId: host?.windowId ?? 1,
+        url: tracked?.url || host?.url || "",
+        title: tracked?.title || host?.title || "",
+        active: host ? host.active || (s.host.getActiveTabId?.() ?? null) === tabId : false,
+        index: host?.index,
+        pinned: host?.pinned,
+        favIconUrl: tracked?.favIconUrl || host?.favIconUrl,
+        status: tracked?.status ?? host?.status ?? "complete",
+        audible: host?.audible,
+        muted: host?.muted,
+        incognito: host?.incognito,
+        openerTabId: host?.openerTabId
+    };
+}
+function allTabInfos(s) {
+    const seen = new Set();
+    const out = [];
+    for (const t of s.host.getAllTabs()){
+        if (seen.has(t.id)) continue;
+        seen.add(t.id);
+        const info = tabInfo(s, t.id);
+        if (info) out.push(info);
+    }
+    return out;
+}
+const lastAccessed = new Map();
+function touchTab(tabId) {
+    lastAccessed.set(tabId, Date.now());
+}
+function buildTab(s, tabId) {
+    if (tabId === null || tabId < 0) return null;
+    const info = tabInfo(s, tabId);
+    if (!info) return null;
+    const all = s.host.getAllTabs().filter((t)=>(t.windowId ?? 1) === info.windowId);
+    const index = info.index ?? Math.max(0, all.findIndex((t)=>t.id === tabId));
+    let width = 800;
+    let height = 600;
+    try {
+        const win = s.host.getTabWindow?.(tabId);
+        if (win) {
+            width = win.innerWidth || width;
+            height = win.innerHeight || height;
+        }
+    } catch  {
+    // cross-origin
+    }
+    const url = info.url;
+    return {
+        id: tabId,
+        index,
+        windowId: info.windowId,
+        ...info.openerTabId !== undefined ? {
+            openerTabId: info.openerTabId
+        } : {},
+        highlighted: info.active,
+        active: info.active,
+        selected: info.active,
+        pinned: info.pinned ?? false,
+        audible: info.audible ?? false,
+        discarded: false,
+        autoDiscardable: true,
+        frozen: false,
+        mutedInfo: {
+            muted: info.muted ?? false
+        },
+        url,
+        title: info.title || url,
+        favIconUrl: info.favIconUrl ?? "",
+        status: info.status ?? "complete",
+        incognito: info.incognito ?? false,
+        width,
+        height,
+        groupId: -1,
+        lastAccessed: lastAccessed.get(tabId) ?? Date.now()
+    };
+}
+function buildWindow(s, windowId, populate) {
+    const tabs = allTabInfos(s).filter((t)=>t.windowId === windowId);
+    const win = {
+        id: windowId,
+        focused: true,
+        top: 0,
+        left: 0,
+        width: globalThis.innerWidth || 1280,
+        height: globalThis.innerHeight || 800,
+        incognito: false,
+        type: "normal",
+        state: document.fullscreenElement ? "fullscreen" : "normal",
+        alwaysOnTop: false,
+        sessionId: undefined
+    };
+    if (populate) win.tabs = tabs.map((t)=>buildTab(s, t.id)).filter(Boolean);
+    return win;
+}
+function windowIds(s) {
+    const ids = new Set();
+    for (const t of s.host.getAllTabs())ids.add(t.windowId ?? 1);
+    if (!ids.size) ids.add(1);
+    return [
+        ...ids
+    ].sort((a, b)=>a - b);
+}
+function currentWindowId(s, tabId) {
+    if (tabId !== null) {
+        const t = s.host.getTab(tabId);
+        if (t) return t.windowId ?? 1;
+    }
+    const active = s.host.getActiveTabId?.();
+    if (active != null) return s.host.getTab(active)?.windowId ?? 1;
+    return windowIds(s)[0];
 }
 
 
@@ -3226,6 +10769,118 @@ function decodeSapphireUrl(input) {
         return decodeSapphirePath(url.pathname);
     } catch  {
         return null;
+    }
+}
+
+
+},
+"./node_modules/@x8r/sapphire/src/urls.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  displayExtensionUrl: () => (displayExtensionUrl),
+  extensionHostSuffix: () => (extensionHostSuffix),
+  extensionOrigin: () => (extensionOrigin),
+  extensionUrl: () => (extensionUrl),
+  isExtensionHost: () => (isExtensionHost),
+  normalizeExtensionUrl: () => (normalizeExtensionUrl),
+  parseExtensionUrl: () => (parseExtensionUrl),
+  resolvePackagePath: () => (resolvePackagePath),
+  setExtensionHostSuffix: () => (setExtensionHostSuffix)
+});
+/* import */ var _urlScheme__rspack_import_0 = __webpack_require__("./node_modules/@x8r/sapphire/src/urlScheme.ts");
+// Extension resources live on a per-extension https origin instead of
+// chrome-extension://. Scramjet only proxies http(s) URLs — anything else is
+// passed through untouched and the real browser refuses to load it — so an
+// https alias is what lets extension pages, content-script `getURL()` images,
+// injected extension iframes, and `fetch(getURL(...))` all flow through the
+// proxy, where Sapphire's fetch hook answers them from IndexedDB. `.invalid` is
+// reserved (RFC 2606): if a request ever escaped the hook it cannot resolve.
+
+let hostSuffix = "sapphire-extension.invalid";
+function setExtensionHostSuffix(suffix) {
+    hostSuffix = suffix.replace(/^\.+/, "");
+}
+function extensionHostSuffix() {
+    return hostSuffix;
+}
+function extensionOrigin(extId) {
+    return `https://${extId}.${hostSuffix}`;
+}
+function extensionUrl(extId, path = "") {
+    const clean = String(path).replace(/^\/+/, "");
+    return `${extensionOrigin(extId)}/${clean}`;
+}
+function isExtensionHost(hostname) {
+    const suffix = `.${hostSuffix}`;
+    if (!hostname.endsWith(suffix)) return null;
+    const id = hostname.slice(0, -suffix.length);
+    return /^[a-p]{32}$|^[a-z0-9]{1,64}$/.test(id) ? id : null;
+}
+/**
+ * Recognises every spelling an extension URL can arrive in: the alias origin,
+ * a literal chrome-extension:// URL (hard-coded strings, `tabs.create`), and the
+ * legacy `/~/sx/<id>/` host path from older Sapphire versions.
+ */ function parseExtensionUrl(input, base) {
+    let url;
+    try {
+        url = new URL(String(input), base ?? globalThis.location?.href);
+    } catch  {
+        return null;
+    }
+    const decode = (p)=>{
+        try {
+            return decodeURIComponent(p);
+        } catch  {
+            return p;
+        }
+    };
+    if (url.protocol === "chrome-extension:" || url.protocol === "moz-extension:") {
+        if (!url.hostname) return null;
+        return {
+            extId: url.hostname,
+            path: decode(url.pathname.replace(/^\/+/, "")),
+            search: url.search,
+            hash: url.hash
+        };
+    }
+    if (url.protocol === "https:" || url.protocol === "http:") {
+        const extId = isExtensionHost(url.hostname);
+        if (extId) return {
+            extId,
+            path: decode(url.pathname.replace(/^\/+/, "")),
+            search: url.search,
+            hash: url.hash
+        };
+        if (globalThis.location && url.origin === globalThis.location.origin && url.pathname.startsWith(_urlScheme__rspack_import_0.SAPPHIRE_PREFIX)) {
+            const rest = url.pathname.slice(_urlScheme__rspack_import_0.SAPPHIRE_PREFIX.length);
+            const slash = rest.indexOf("/");
+            if (slash > 0) return {
+                extId: rest.slice(0, slash),
+                path: decode(rest.slice(slash + 1)),
+                search: url.search,
+                hash: url.hash
+            };
+        }
+    }
+    return null;
+}
+/** chrome-extension:// (or legacy) URL → alias URL. Anything else is returned unchanged. */ function normalizeExtensionUrl(input, base) {
+    const parsed = parseExtensionUrl(input, base);
+    if (!parsed) return input;
+    return extensionUrl(parsed.extId, parsed.path) + parsed.search + parsed.hash;
+}
+/** Alias URL → chrome-extension:// for display in host UI. */ function displayExtensionUrl(input) {
+    const parsed = parseExtensionUrl(input);
+    if (!parsed) return input;
+    return `chrome-extension://${parsed.extId}/${parsed.path}${parsed.search}${parsed.hash}`;
+}
+/** Resolve a manifest-relative or page-relative reference to a package path. */ function resolvePackagePath(ref, fromPath = "") {
+    const dir = fromPath.includes("/") ? fromPath.slice(0, fromPath.lastIndexOf("/") + 1) : "";
+    const resolved = new URL(ref, `https://x.invalid/${ref.startsWith("/") ? "" : dir}`);
+    try {
+        return decodeURIComponent(resolved.pathname.replace(/^\/+/, ""));
+    } catch  {
+        return resolved.pathname.replace(/^\/+/, "");
     }
 }
 
@@ -8480,6 +16135,10 @@ function rewriteUrl(url, meta) {
         if (base.startsWith("about:")) base = unrewriteUrl(self.location.href); // jank!!!!! weird jank!!!
         const realUrl = tryCanParseURL(url, base);
         if (!realUrl) return url;
+        // Skip mailto and chrome-extension scheme (which should remain literal)
+        if (realUrl.protocol === "chrome-extension:" || realUrl.protocol === "moz-extension:") {
+            return realUrl.href;
+        }
         const encodedHash = (0,_shared__rspack_import_0.codecEncode)(realUrl.hash.slice(1));
         const realHash = encodedHash ? "#" + encodedHash : "";
         realUrl.hash = "";
@@ -9342,6 +17001,101 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 
+async function getExtensionFileFromIDB(extId, filePath) {
+    if (typeof indexedDB === "undefined") return null;
+    try {
+        const db = await new Promise((resolve)=>{
+            const req = indexedDB.open("sapphire_extensions");
+            req.onsuccess = ()=>resolve(req.result);
+            req.onerror = ()=>resolve(null);
+        });
+        if (!db || !db.objectStoreNames.contains("extension_files")) return null;
+        const cleanPath = filePath.replace(/^\/+/, "");
+        let keysToTry = [
+            `${extId}/${cleanPath}`
+        ];
+        if (!cleanPath || cleanPath === "index.html") {
+            keysToTry.push(`${extId}/popup.html`, `${extId}/index.html`);
+        }
+        let bytes = null;
+        let foundPath = cleanPath;
+        for (const key of keysToTry){
+            bytes = await new Promise((resolve)=>{
+                try {
+                    const tx = db.transaction("extension_files", "readonly");
+                    const req = tx.objectStore("extension_files").get(key);
+                    req.onsuccess = ()=>resolve(req.result || null);
+                    req.onerror = ()=>resolve(null);
+                } catch  {
+                    resolve(null);
+                }
+            });
+            if (bytes) {
+                foundPath = key.slice(extId.length + 1);
+                break;
+            }
+        }
+        if (!bytes) {
+            const allKeys = await new Promise((resolve)=>{
+                try {
+                    const tx = db.transaction("extension_files", "readonly");
+                    const req = tx.objectStore("extension_files").getAllKeys();
+                    req.onsuccess = ()=>resolve(req.result || []);
+                    req.onerror = ()=>resolve([]);
+                } catch  {
+                    resolve([]);
+                }
+            });
+            for (const k of allKeys){
+                if (typeof k === "string" && k.startsWith(`${extId}/`) && k.endsWith(`/${cleanPath}`)) {
+                    bytes = await new Promise((resolve)=>{
+                        try {
+                            const tx = db.transaction("extension_files", "readonly");
+                            const req = tx.objectStore("extension_files").get(k);
+                            req.onsuccess = ()=>resolve(req.result || null);
+                            req.onerror = ()=>resolve(null);
+                        } catch  {
+                            resolve(null);
+                        }
+                    });
+                    if (bytes) {
+                        foundPath = k.slice(extId.length + 1);
+                        break;
+                    }
+                }
+            }
+        }
+        db.close();
+        if (!bytes) return null;
+        const ext = foundPath.split(".").pop()?.toLowerCase() || "";
+        const mimeMap = {
+            html: "text/html",
+            htm: "text/html",
+            js: "application/javascript",
+            mjs: "application/javascript",
+            css: "text/css",
+            json: "application/json",
+            png: "image/png",
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            gif: "image/gif",
+            svg: "image/svg+xml",
+            webp: "image/webp",
+            ico: "image/x-icon",
+            woff: "font/woff",
+            woff2: "font/woff2",
+            ttf: "font/ttf",
+            wasm: "application/wasm"
+        };
+        const mime = mimeMap[ext] || "application/octet-stream";
+        return {
+            bytes,
+            mime
+        };
+    } catch  {
+        return null;
+    }
+}
 function isRedirect(response) {
     return response.status >= 300 && response.status < 400;
 }
@@ -9442,6 +17196,61 @@ async function handleFetch(request, client) {
         // now that we're past unrewriting it's safe to add back the params
         for (const [param, value] of Object.entries(extraParams)){
             url.searchParams.set(param, value);
+        }
+        if (url.hostname.endsWith(".sapphire-extension.invalid") || url.hostname.endsWith(".invalid") || url.protocol === "chrome-extension:" || url.protocol === "moz-extension:") {
+            let extId = "";
+            let path = "";
+            if (url.protocol === "chrome-extension:" || url.protocol === "moz-extension:") {
+                extId = url.hostname;
+                path = url.pathname.replace(/^\/+/, "");
+            } else {
+                const match = url.hostname.match(/^([a-z0-9]+)\.(?:sapphire-extension\.)?invalid$/i);
+                if (match) extId = match[1];
+                path = url.pathname.replace(/^\/+/, "");
+            }
+            if (extId) {
+                try {
+                    path = decodeURIComponent(path);
+                } catch  {
+                // keep
+                }
+                const res = await getExtensionFileFromIDB(extId, path);
+                if (res) {
+                    let bodyBytes = res.bytes;
+                    if (res.mime === "text/html" || res.mime === "text/css" || res.mime === "application/javascript" || res.mime === "application/json") {
+                        let text = new TextDecoder().decode(res.bytes);
+                        text = text.replace(/chrome-extension:\/\/([a-z0-9]{1,64})\//g, (_, id)=>`https://${id}.sapphire-extension.invalid/`);
+                        text = text.replace(/__MSG_@@extension_id__/g, extId);
+                        const meta = {
+                            origin: url,
+                            base: url,
+                            topFrameName,
+                            parentFrameName
+                        };
+                        if (res.mime === "text/html") {
+                            text = (0,_rewriters_html__rspack_import_8.rewriteHtml)(text, this.cookieStore, meta, true);
+                        } else if (res.mime === "text/css") {
+                            text = (0,_rewriters_css__rspack_import_9.rewriteCss)(text, meta);
+                        }
+                        bodyBytes = new TextEncoder().encode(text).buffer;
+                    }
+                    return new Response(bodyBytes, {
+                        status: 200,
+                        headers: {
+                            "content-type": res.mime.startsWith("text/") || res.mime === "application/javascript" || res.mime === "application/json" ? `${res.mime}; charset=utf-8` : res.mime,
+                            "access-control-allow-origin": "*",
+                            "cache-control": "no-cache"
+                        }
+                    });
+                }
+            }
+            return new Response("", {
+                status: 404,
+                headers: {
+                    "content-type": "text/plain",
+                    "access-control-allow-origin": "*"
+                }
+            });
         }
         const meta = {
             origin: url,
@@ -15346,35 +23155,72 @@ __webpack_require__.d(__webpack_exports__, {
   "default": () => (init),
   initSync: () => (initSync)
 });
-function initSync(opts) {
-	return {};
-}
+let wasm;
 
 class Rewriter {
+	static __wrap(ptr) {
+		ptr = ptr >>> 0;
+		const obj = Object.create(Rewriter.prototype);
+		obj.__wbg_ptr = ptr;
+		return obj;
+	}
+
+	__destroy_into_raw() {
+		const ptr = this.__wbg_ptr;
+		this.__wbg_ptr = 0;
+		return ptr;
+	}
+
+	free() {
+		const ptr = this.__destroy_into_raw();
+		if (ptr && wasm && wasm.__wbg_rewriter_free) {
+			wasm.__wbg_rewriter_free(ptr);
+		}
+	}
+
 	constructor(scramjet) {
 		this.scramjet = scramjet;
+		this.__wbg_ptr = 1;
 	}
-	rewrite_js(input, base, source, isModule) {
+
+	rewrite_js(js, base, url, module) {
 		const encoder = new TextEncoder();
 		return {
-			js: encoder.encode(input),
-			map: new Uint8Array(),
-			scramtag: "scramtag_" + Math.random().toString(36).slice(2),
+			js: encoder.encode(js),
+			map: null,
+			scramtag: "",
 			errors: []
 		};
 	}
-	rewrite_js_bytes(input, base, source, isModule) {
+
+	rewrite_js_bytes(js, base, url, module) {
 		return {
-			js: input instanceof Uint8Array ? input : new Uint8Array(input),
-			map: new Uint8Array(),
-			scramtag: "scramtag_" + Math.random().toString(36).slice(2),
+			js: js instanceof Uint8Array ? js : new Uint8Array(js),
+			map: null,
+			scramtag: "",
 			errors: []
 		};
 	}
 }
 
-function init() {
-	return Promise.resolve({});
+function initSync(module) {
+	if (typeof module === "object" && module !== null && module.module instanceof WebAssembly.Module) {
+		module = module.module;
+	}
+	try {
+		const instance = new WebAssembly.Instance(module, {
+			env: {},
+			wbg: {}
+		});
+		wasm = instance.exports;
+		return wasm;
+	} catch (e) {
+		return {};
+	}
+}
+
+function init(input) {
+	return Promise.resolve(initSync(input));
 }
 
 
@@ -15460,52 +23306,23 @@ __webpack_require__.d(__webpack_exports__, {
   $scramjetLoadController: () => ($scramjetLoadController),
   $scramjetLoadWorker: () => ($scramjetLoadWorker),
   $scramjetVersion: () => ($scramjetVersion),
-  JSZip: () => (/* reexport default from dynamic */ jszip__rspack_import_2_default.a),
-  Sapphire: () => (/* reexport safe */ _x8r_sapphire__rspack_import_1.Sapphire),
-  SapphireContentScriptPlugin: () => (/* reexport safe */ _x8r_sapphire__rspack_import_1.SapphireContentScriptPlugin),
+  JSZip: () => (/* reexport default from dynamic */ jszip__rspack_import_1_default.a),
+  Sapphire: () => (/* reexport safe */ _x8r_sapphire__rspack_import_2.Sapphire),
+  SapphireContentScriptPlugin: () => (/* reexport safe */ _x8r_sapphire__rspack_import_2.SapphireContentScriptPlugin),
+  SapphirePlugin: () => (/* reexport safe */ _x8r_sapphire__rspack_import_2.SapphirePlugin),
   crxToZip: () => (crxToZip),
-  findMatchingCommand: () => (/* reexport safe */ _x8r_sapphire__rspack_import_1.findMatchingCommand),
+  findMatchingCommand: () => (/* reexport safe */ _x8r_sapphire__rspack_import_2.findMatchingCommand),
   normalizeExtensionBuffer: () => (normalizeExtensionBuffer),
-  triggerCommand: () => (/* reexport safe */ _x8r_sapphire__rspack_import_1.triggerCommand)
+  triggerCommand: () => (/* reexport safe */ _x8r_sapphire__rspack_import_2.triggerCommand)
 });
 /* import */ var _safe_postmessage__rspack_import_0 = __webpack_require__("./src/safe-postmessage.ts");
-/* import */ var _x8r_sapphire__rspack_import_1 = __webpack_require__("./node_modules/@x8r/sapphire/src/index.ts");
-/* import */ var jszip__rspack_import_2 = __webpack_require__("./node_modules/jszip/dist/jszip.min.js");
-/* import */ var jszip__rspack_import_2_default = /*#__PURE__*/__webpack_require__.n(jszip__rspack_import_2);
+/* import */ var jszip__rspack_import_1 = __webpack_require__("./node_modules/jszip/dist/jszip.min.js");
+/* import */ var jszip__rspack_import_1_default = /*#__PURE__*/__webpack_require__.n(jszip__rspack_import_1);
+/* import */ var _x8r_sapphire__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/index.ts");
 /// <reference types="@rspack/core/module" />
 
 
 
-
-// Polyfill getPopupUrl on Sapphire prototype if missing
-if (typeof _x8r_sapphire__rspack_import_1.Sapphire.prototype.getPopupUrl !== "function") {
-    _x8r_sapphire__rspack_import_1.Sapphire.prototype.getPopupUrl = async function(extId) {
-        if (!extId) {
-            return null;
-        }
-        try {
-            const page = typeof this.getExtensionPopupPage === "function" ? this.getExtensionPopupPage(extId) : null;
-            if (page) {
-                const cleanPage = String(page).replace(/^\//, "");
-                const origin = typeof globalThis.location !== "undefined" && globalThis.location.origin ? globalThis.location.origin : "";
-                return `${origin}/~/sx/${extId}/${cleanPage}`;
-            }
-            const ext = this.registry?.get ? this.registry.get(extId) : null;
-            if (ext) {
-                const manifest = ext.manifest;
-                const fallback = ext.popupPage || manifest?.action?.default_popup || manifest?.browser_action?.default_popup || manifest?.page_action?.default_popup;
-                if (fallback) {
-                    const cleanFallback = String(fallback).replace(/^\//, "");
-                    const origin = typeof globalThis.location !== "undefined" && globalThis.location.origin ? globalThis.location.origin : "";
-                    return `${origin}/~/sx/${extId}/${cleanFallback}`;
-                }
-            }
-        } catch (err) {
-            console.warn("[Sapphire.getPopupUrl] Failed to resolve popup URL:", err);
-        }
-        return null;
-    };
-}
 function crxToZip(buffer) {
     if (!buffer || buffer.byteLength < 16) return buffer;
     const view = new DataView(buffer);
@@ -15528,9 +23345,16 @@ function crxToZip(buffer) {
     return buffer.slice(zipStart);
 }
 async function normalizeExtensionBuffer(buffer, _filename = "extension.zip") {
+    if (!buffer || buffer.byteLength < 16) return buffer;
     try {
         const zipBuffer = crxToZip(buffer);
-        const zip = await jszip__rspack_import_2_default().loadAsync(zipBuffer);
+        if (zipBuffer.byteLength >= 2) {
+            const v = new Uint8Array(zipBuffer);
+            if (v[0] !== 0x50 || v[1] !== 0x4b) {
+                return zipBuffer;
+            }
+        }
+        const zip = await jszip__rspack_import_1_default().loadAsync(zipBuffer);
         if (zip.file("manifest.json")) {
             return zipBuffer;
         }
@@ -15544,7 +23368,7 @@ async function normalizeExtensionBuffer(buffer, _filename = "extension.zip") {
         });
         if (manifestPath) {
             const prefix = manifestPath.slice(0, manifestPath.length - "manifest.json".length);
-            const newZip = new (jszip__rspack_import_2_default())();
+            const newZip = new (jszip__rspack_import_1_default())();
             const promises = [];
             zip.forEach((relativePath, file)=>{
                 if (relativePath.startsWith(prefix) && !file.dir) {
@@ -15676,13 +23500,16 @@ globalThis.$scramjetLoadClient = $scramjetLoadClient;
 globalThis.$scramjetLoadWorker = $scramjetLoadWorker;
 globalThis.$scramjetVersion = $scramjetVersion;
 globalThis.$scramjetController = __webpack_require__("./src/controller/shim.ts");
-globalThis.Sapphire = _x8r_sapphire__rspack_import_1.Sapphire;
-globalThis.SapphireContentScriptPlugin = _x8r_sapphire__rspack_import_1.SapphireContentScriptPlugin;
-globalThis.findMatchingCommand = _x8r_sapphire__rspack_import_1.findMatchingCommand;
-globalThis.triggerCommand = _x8r_sapphire__rspack_import_1.triggerCommand;
-globalThis.JSZip = (jszip__rspack_import_2_default());
+globalThis.JSZip = (jszip__rspack_import_1_default());
 globalThis.crxToZip = crxToZip;
 globalThis.normalizeExtensionBuffer = normalizeExtensionBuffer;
+
+
+globalThis.Sapphire = _x8r_sapphire__rspack_import_2.Sapphire;
+globalThis.SapphirePlugin = _x8r_sapphire__rspack_import_2.SapphirePlugin;
+globalThis.SapphireContentScriptPlugin = _x8r_sapphire__rspack_import_2.SapphireContentScriptPlugin;
+globalThis.findMatchingCommand = _x8r_sapphire__rspack_import_2.findMatchingCommand;
+globalThis.triggerCommand = _x8r_sapphire__rspack_import_2.triggerCommand;
 if ("document" in globalThis && document?.currentScript) {
     document.currentScript.remove();
 }

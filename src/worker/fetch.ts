@@ -24,6 +24,107 @@ import { rewriteCss } from "@rewriters/css";
 import { rewriteWorkers } from "@rewriters/worker";
 import { ScramjetDownload } from "@client/events";
 
+async function getExtensionFileFromIDB(
+	extId: string,
+	filePath: string
+): Promise<{ bytes: ArrayBuffer; mime: string } | null> {
+	if (typeof indexedDB === "undefined") return null;
+	try {
+		const db = await new Promise<IDBDatabase | null>((resolve) => {
+			const req = indexedDB.open("sapphire_extensions");
+			req.onsuccess = () => resolve(req.result);
+			req.onerror = () => resolve(null);
+		});
+		if (!db || !db.objectStoreNames.contains("extension_files")) return null;
+
+		const cleanPath = filePath.replace(/^\/+/, "");
+		let keysToTry = [`${extId}/${cleanPath}`];
+		if (!cleanPath || cleanPath === "index.html") {
+			keysToTry.push(`${extId}/popup.html`, `${extId}/index.html`);
+		}
+
+		let bytes: ArrayBuffer | null = null;
+		let foundPath = cleanPath;
+
+		for (const key of keysToTry) {
+			bytes = await new Promise<any>((resolve) => {
+				try {
+					const tx = db.transaction("extension_files", "readonly");
+					const req = tx.objectStore("extension_files").get(key);
+					req.onsuccess = () => resolve(req.result || null);
+					req.onerror = () => resolve(null);
+				} catch {
+					resolve(null);
+				}
+			});
+			if (bytes) {
+				foundPath = key.slice(extId.length + 1);
+				break;
+			}
+		}
+
+		if (!bytes) {
+			const allKeys = await new Promise<IDBValidKey[]>((resolve) => {
+				try {
+					const tx = db.transaction("extension_files", "readonly");
+					const req = tx.objectStore("extension_files").getAllKeys();
+					req.onsuccess = () => resolve(req.result || []);
+					req.onerror = () => resolve([]);
+				} catch {
+					resolve([]);
+				}
+			});
+			for (const k of allKeys) {
+				if (typeof k === "string" && k.startsWith(`${extId}/`) && k.endsWith(`/${cleanPath}`)) {
+					bytes = await new Promise<any>((resolve) => {
+						try {
+							const tx = db.transaction("extension_files", "readonly");
+							const req = tx.objectStore("extension_files").get(k);
+							req.onsuccess = () => resolve(req.result || null);
+							req.onerror = () => resolve(null);
+						} catch {
+							resolve(null);
+						}
+					});
+					if (bytes) {
+						foundPath = k.slice(extId.length + 1);
+						break;
+					}
+				}
+			}
+		}
+
+		db.close();
+
+		if (!bytes) return null;
+
+		const ext = foundPath.split(".").pop()?.toLowerCase() || "";
+		const mimeMap: Record<string, string> = {
+			html: "text/html",
+			htm: "text/html",
+			js: "application/javascript",
+			mjs: "application/javascript",
+			css: "text/css",
+			json: "application/json",
+			png: "image/png",
+			jpg: "image/jpeg",
+			jpeg: "image/jpeg",
+			gif: "image/gif",
+			svg: "image/svg+xml",
+			webp: "image/webp",
+			ico: "image/x-icon",
+			woff: "font/woff",
+			woff2: "font/woff2",
+			ttf: "font/ttf",
+			wasm: "application/wasm",
+		};
+		const mime = mimeMap[ext] || "application/octet-stream";
+		return { bytes, mime };
+	} catch {
+		return null;
+	}
+}
+
 function isRedirect(response: BareResponseFetch) {
 	return response.status >= 300 && response.status < 400;
 }
@@ -149,6 +250,83 @@ export async function handleFetch(
 		// now that we're past unrewriting it's safe to add back the params
 		for (const [param, value] of Object.entries(extraParams)) {
 			url.searchParams.set(param, value);
+		}
+
+		if (
+			url.hostname.endsWith(".sapphire-extension.invalid") ||
+			url.hostname.endsWith(".invalid") ||
+			url.protocol === "chrome-extension:" ||
+			url.protocol === "moz-extension:"
+		) {
+			let extId = "";
+			let path = "";
+			if (url.protocol === "chrome-extension:" || url.protocol === "moz-extension:") {
+				extId = url.hostname;
+				path = url.pathname.replace(/^\/+/, "");
+			} else {
+				const match = url.hostname.match(/^([a-z0-9]+)\.(?:sapphire-extension\.)?invalid$/i);
+				if (match) extId = match[1];
+				path = url.pathname.replace(/^\/+/, "");
+			}
+
+			if (extId) {
+				try {
+					path = decodeURIComponent(path);
+				} catch {
+					// keep
+				}
+				const res = await getExtensionFileFromIDB(extId, path);
+				if (res) {
+					let bodyBytes = res.bytes;
+					if (
+						res.mime === "text/html" ||
+						res.mime === "text/css" ||
+						res.mime === "application/javascript" ||
+						res.mime === "application/json"
+					) {
+						let text = new TextDecoder().decode(res.bytes);
+						text = text.replace(
+							/chrome-extension:\/\/([a-z0-9]{1,64})\//g,
+							(_, id) => `https://${id}.sapphire-extension.invalid/`
+						);
+						text = text.replace(/__MSG_@@extension_id__/g, extId);
+
+						const meta: URLMeta = {
+							origin: url,
+							base: url,
+							topFrameName,
+							parentFrameName,
+						};
+
+						if (res.mime === "text/html") {
+							text = rewriteHtml(text, this.cookieStore, meta, true);
+						} else if (res.mime === "text/css") {
+							text = rewriteCss(text, meta);
+						}
+
+						bodyBytes = new TextEncoder().encode(text).buffer;
+					}
+
+					return new Response(bodyBytes, {
+						status: 200,
+						headers: {
+							"content-type":
+								res.mime.startsWith("text/") ||
+								res.mime === "application/javascript" ||
+								res.mime === "application/json"
+									? `${res.mime}; charset=utf-8`
+									: res.mime,
+							"access-control-allow-origin": "*",
+							"cache-control": "no-cache",
+						},
+					});
+				}
+			}
+
+			return new Response("", {
+				status: 404,
+				headers: { "content-type": "text/plain", "access-control-allow-origin": "*" },
+			});
 		}
 
 		const meta: URLMeta = {

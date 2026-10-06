@@ -54,6 +54,7 @@ const bare = createBareServer("/bare/", {
 
 wisp.options.allow_loopback_ips = true;
 wisp.options.allow_private_ips = true;
+wisp.options.hostname_blacklist = [/\.invalid$/i];
 
 const fastify = Fastify({
 	serverFactory: (handler) => {
@@ -240,23 +241,7 @@ fastify.all("/api/music/*", async (request, reply) => {
 	}
 });
 
-// Sapphire Extension bootstrap and fallback routes
-fastify.get("/~/sx/:extId/__bootstrap__", async (request, reply) => {
-	return reply
-		.header("Content-Type", "text/html; charset=utf-8")
-		.header("Cache-Control", "no-cache, no-store, must-revalidate")
-		.send("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Sapphire Extension</title></head><body></body></html>");
-});
 
-fastify.get("/~/sx/*", async (request, reply) => {
-	if (request.url.includes("__bootstrap__")) {
-		return reply
-			.header("Content-Type", "text/html; charset=utf-8")
-			.header("Cache-Control", "no-cache, no-store, must-revalidate")
-			.send("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Sapphire Extension</title></head><body></body></html>");
-	}
-	return reply.status(404).send("Extension resource handled via Service Worker.");
-});
 
 // Emis LLM OpenAI-Compatible API Configuration
 const EMIS_BASE_URL = (process.env.EMIS_BASE_URL || "https://emis.zxs-is-very.cool/v1").replace(/\/$/, "");
@@ -1026,46 +1011,63 @@ fastify.get("/api/webstore/download", async (request, reply) => {
 		}
 
 		const cleanId = String(id).trim().toLowerCase();
-		const downloadUrls = [
-			`https://clients2.google.com/service/update2/crx?response=redirect&prodversion=130.0&acceptformat=crx2,crx3&x=id%3D${cleanId}%26uc`,
-			`https://clients2.google.com/service/update2/crx?response=redirect&prodversion=120.0&acceptformat=crx2,crx3&x=id%3D${cleanId}%26installsource%3Dondemand%26uc`,
-			`https://clients2.google.com/service/update2/crx?response=redirect&prodversion=114.0&acceptformat=crx2,crx3&x=id%3D${cleanId}%26uc`,
+
+		// Query Omaha update endpoints to resolve actual CRX binary location
+		const metaUrls = [
+			`https://clients2.google.com/service/update2/crx?prodversion=130.0.6723.70&acceptformat=crx2,crx3&x=id%3D${cleanId}%26installsource%3Dondemand%26uc`,
+			`https://clients2.google.com/service/update2/crx?prodversion=120.0.0.0&acceptformat=crx2,crx3&x=id%3D${cleanId}%26installsource%3Dondemand%26uc`,
+			`https://clients2.google.com/service/update2/crx?prodversion=130.0.6723.70&acceptformat=crx2,crx3&x=id%3D${cleanId}%26uc`,
+			`https://clients2.google.com/service/update2/crx?prodversion=114.0.0.0&acceptformat=crx2,crx3&x=id%3D${cleanId}%26uc`,
 		];
 
-		let resp = null;
-		for (const url of downloadUrls) {
+		let crxBuffer = null;
+
+		for (const metaUrl of metaUrls) {
 			try {
-				const r = await fetch(url, {
+				const metaRes = await fetch(metaUrl, {
 					headers: {
 						"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
 						"Accept": "*/*",
 					},
-					redirect: "follow",
 				});
-				if (r.ok && r.status === 200) {
-					resp = r;
-					break;
+				if (!metaRes.ok) continue;
+
+				const metaText = await metaRes.text();
+				const match = metaText.match(/codebase="([^"]+)"/i);
+				if (match && match[1]) {
+					const crxUrl = match[1];
+					const crxRes = await fetch(crxUrl, {
+						headers: {
+							"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+							"Accept": "*/*",
+						},
+					});
+					if (crxRes.ok) {
+						const ab = await crxRes.arrayBuffer();
+						const buf = Buffer.from(ab);
+						if (buf.length >= 16) {
+							crxBuffer = buf;
+							break;
+						}
+					}
 				}
 			} catch (fetchErr) {
-				console.warn(`[CRX Download] Failed URL: ${url}`, fetchErr.message);
+				console.warn(`[CRX Download] Attempt failed for ${metaUrl}:`, fetchErr.message);
 			}
 		}
 
-		if (!resp) {
+		if (!crxBuffer) {
 			return reply.code(404).send({
-				error: "Failed to download CRX from Chrome Web Store. The extension might be private, removed, or incompatible."
+				error: "Failed to download CRX from Chrome Web Store. The extension might be removed, incompatible, or private."
 			});
 		}
-
-		const arrayBuffer = await resp.arrayBuffer();
-		const buffer = Buffer.from(arrayBuffer);
 
 		return reply
 			.header("Content-Type", "application/x-chrome-extension")
 			.header("Content-Disposition", `attachment; filename="${cleanId}.crx"`)
-			.header("Content-Length", buffer.length)
+			.header("Content-Length", crxBuffer.length)
 			.header("Cache-Control", "public, max-age=3600")
-			.send(buffer);
+			.send(crxBuffer);
 	} catch (err) {
 		console.error("WebStore Download API Error:", err);
 		return reply.code(500).send({ error: err.message || "Failed to download extension CRX" });

@@ -18,10 +18,6 @@ interface Window {
 	VAULT_MOVIES?: any;
 	VAULT_TV?: any;
 	VAULT_ANIME?: any;
-	Sapphire?: any;
-	SapphireContentScriptPlugin?: any;
-	findMatchingCommand?: any;
-	triggerCommand?: any;
 	JSZip?: any;
 	normalizeExtensionBuffer?: (buffer: ArrayBuffer, filename?: string) => Promise<ArrayBuffer>;
 	ScramjetController?: any;

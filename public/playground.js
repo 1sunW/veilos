@@ -1,13 +1,13 @@
 // Google tag (gtag.js)
 const script1 = document.createElement('script');
 script1.async = true;
-script1.src = 'https://www.googletagmanager.com/gtag/js?id=G-CC007RV79S';
+script1.src = 'https://www.googletagmanager.com/gtag/js?id=G-0LH2MR13BF';
 document.head.appendChild(script1);
 
 window.dataLayer = window.dataLayer || [];
 function gtag(){window.dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', 'G-CC007RV79S');
+gtag('config', 'G-0LH2MR13BF');
 
 const loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
 if (!loadController) {

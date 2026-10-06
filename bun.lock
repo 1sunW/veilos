@@ -7,7 +7,7 @@
       "dependencies": {
         "@google/genai": "^2.15.0",
         "@mercuryworkshop/bare-mux": "^2.1.7",
-        "@x8r/sapphire": "^0.1.3",
+        "@x8r/sapphire": "^0.1.4",
         "dom-serializer": "^2.0.0",
         "domhandler": "^5.0.3",
         "domutils": "^3.2.2",
@@ -483,7 +483,7 @@
 
     "@vercel/nft": ["@vercel/nft@0.29.4", "", { "dependencies": { "@mapbox/node-pre-gyp": "^2.0.0", "@rollup/pluginutils": "^5.1.3", "acorn": "^8.6.0", "acorn-import-attributes": "^1.9.5", "async-sema": "^3.1.1", "bindings": "^1.4.0", "estree-walker": "2.0.2", "glob": "^10.4.5", "graceful-fs": "^4.2.9", "node-gyp-build": "^4.2.2", "picomatch": "^4.0.2", "resolve-from": "^5.0.0" }, "bin": { "nft": "out/cli.js" } }, "sha512-6lLqMNX3TuycBPABycx7A9F1bHQR7kiQln6abjFbPrf5C/05qHM9M5E4PeTE59c7z8g6vHnx1Ioihb2AQl7BTA=="],
 
-    "@x8r/sapphire": ["@x8r/sapphire@0.1.3", "", { "dependencies": { "@mercuryworkshop/scramjet": "^2.0.67-alpha.1", "jszip": "^3.10.1" }, "peerDependencies": { "@mercuryworkshop/scramjet-controller": "^0.0.13" } }, "sha512-5O+zGgz5J2qlJjvX1pb8fEZzuuT9kt+CsAhIgAKjqCzFSlveNg3TpDfOP3QvixL9D8FJnHwAshZujZrGXJ5+Sg=="],
+    "@x8r/sapphire": ["@x8r/sapphire@0.1.4", "", { "dependencies": { "jszip": "^3.10.1" }, "peerDependencies": { "@mercuryworkshop/scramjet-controller": "^0.0.13" } }, "sha512-qjmtjaK4KPskr1hem7/ocQtuVOl20G+e+Rvz+vKP5nlaBVnS7gXGMavK++pon5fgbFA12GwYp7ihmU7AfHPVdg=="],
 
     "abbrev": ["abbrev@3.0.1", "", {}, "sha512-AO2ac6pjRB3SJmGJo+v5/aK6Omggp6fsLrs6wN9bd35ulu4cCwaAU9+7ZhXjeqHVkaHThLuzH0nZr0YpCDhygg=="],
 
@@ -1356,7 +1356,6 @@
     "readdirp": ["readdirp@3.6.0", "", { "dependencies": { "picomatch": "^2.2.1" } }, "sha512-hOS089on8RduqdbhvQ5Z37A0ESjsqz6qnRcffsMU3495FuTdqSm+7bhJ29JvIOsBDEEnan5DPu9t3To9VRlMzA=="],
 
     "real-require": ["real-require@0.2.0", "", {}, "sha512-57frrGM/OCTLqLOAh0mhVA9VBMHd+9U7Zb2THMGdBUoZVOtGbJzjxsYGDJ3A9AYYCP4hn6y1TVbaOfzWtm5GFg=="],
-
 
     "remark": ["remark@15.0.1", "", { "dependencies": { "@types/mdast": "^4.0.0", "remark-parse": "^11.0.0", "remark-stringify": "^11.0.0", "unified": "^11.0.0" } }, "sha512-Eht5w30ruCXgFmxVUSlNWQ9iiimq07URKeFS3hNc8cUWy1llX4KDWfyEDZRycMc+znsN9Ux5/tJ/BFdgdOwA3A=="],
 
