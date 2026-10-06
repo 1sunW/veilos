@@ -531,18 +531,19 @@ function Config() {
 
 window.addEventListener("load", async () => {
 	let loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
-	if (!loadController) {
-		for (let i = 0; i < 30; i++) {
+	let ScramjetController = loadController ? (loadController().ScramjetController || loadController().Controller) : (window.$scramjetController?.Controller || window.$scramjetController?.ScramjetController);
+	if (!ScramjetController) {
+		for (let i = 0; i < 50; i++) {
 			await new Promise((r) => setTimeout(r, 100));
 			loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
-			if (loadController) break;
+			ScramjetController = loadController ? (loadController().ScramjetController || loadController().Controller) : (window.$scramjetController?.Controller || window.$scramjetController?.ScramjetController);
+			if (ScramjetController) break;
 		}
 	}
-	if (!loadController) {
+	if (!ScramjetController) {
 		console.error("Scramjet controller loader ($scramjetLoadController) is not defined.");
 		return;
 	}
-	const { ScramjetController } = loadController();
 
 	const scramjet = new ScramjetController({
 		files: {
@@ -561,68 +562,6 @@ window.addEventListener("load", async () => {
 	await scramjet.init();
 	window.$scramjet = scramjet;
 	window.scramjet = scramjet;
-
-	if (window.Sapphire) {
-		try {
-			const sapphire = new window.Sapphire({
-				controller: scramjet,
-				host: {
-					getTabId: (winObj) => {
-						const activeId = win.customState?.activeTabId;
-						if (!winObj) return activeId || 1;
-						const match = (win.customState?.tabs || []).find(t => t.frameObj?.frame?.contentWindow === winObj);
-						return match ? match.numericId : (activeId || 1);
-					},
-					getTab: (id) => {
-						const match = (win.customState?.tabs || []).find(t => t.numericId === id || t.id === id);
-						if (!match) return null;
-						return {
-							id: match.numericId || 1,
-							windowId: 1,
-							url: match.url || "about:blank",
-							title: match.title || "New Tab",
-							active: match.id === win.customState?.activeTabId,
-						};
-					},
-					getAllTabs: () => {
-						return (win.customState?.tabs || []).map(t => ({
-							id: t.numericId || 1,
-							windowId: 1,
-							url: t.url || "about:blank",
-							title: t.title || "New Tab",
-							active: t.id === win.customState?.activeTabId,
-						}));
-					},
-					getTabWindow: (id) => {
-						const match = (win.customState?.tabs || []).find(t => t.numericId === id || t.id === id);
-						return match?.frameObj?.frame?.contentWindow || null;
-					},
-					navigateTab: (id, url) => {
-						const match = (win.customState?.tabs || []).find(t => t.numericId === id || t.id === id);
-						if (match && match.frameObj) {
-							match.frameObj.go(url);
-						}
-					},
-				},
-			});
-			await sapphire.init();
-			window.sapphire = sapphire;
-			if (typeof sapphire.registry?.list === "function") {
-				for (const ext of sapphire.registry.list()) {
-					if (ext.enabled && !ext.background && typeof sapphire.startBackground === "function") {
-						try {
-							sapphire.startBackground(ext);
-						} catch (bgErr) {
-							console.warn("[Sapphire] Background boot error:", bgErr);
-						}
-					}
-				}
-			}
-			console.log("[Sapphire] Extension orchestrator initialized successfully");
-		} catch (e) {
-			console.warn("[Sapphire] Failed to initialize Sapphire orchestrator:", e);
-		}
-	}
 	window.encodeProxyUrl = (url) => {
 		try {
 			return scramjet.encodeUrl(url);
@@ -661,7 +600,264 @@ window.addEventListener("load", async () => {
 		}
 	}
 
+	// Robust Sapphire Chrome Extensions Engine Initialization
+	window.ensureSapphire = async function () {
+		if (window.sapphire) return window.sapphire;
+		let SapphireClass = window.Sapphire || globalThis.Sapphire;
+		if (!SapphireClass) {
+			for (let i = 0; i < 50; i++) {
+				await new Promise((r) => setTimeout(r, 60));
+				SapphireClass = window.Sapphire || globalThis.Sapphire;
+				if (SapphireClass) break;
+			}
+		}
+		if (!SapphireClass) {
+			console.error("[Sapphire] Sapphire constructor is not loaded on window.");
+			return null;
+		}
 
+		if (window.__sapphireInitPromise) {
+			return await window.__sapphireInitPromise;
+		}
+
+		window.__sapphireInitPromise = (async () => {
+			try {
+				const sInstance = new SapphireClass({
+					host: {
+						getTabId: (win) => {
+							const os = window.osGlobalInstance;
+							if (!os) return null;
+							for (const osWin of os.windows) {
+								if (osWin.customState && osWin.customState.tabs) {
+									for (const tab of osWin.customState.tabs) {
+										if (tab.frameObj?.frame?.contentWindow === win) {
+											return tab.numericId;
+										}
+									}
+								}
+							}
+							return null;
+						},
+						getActiveTabId: () => {
+							const os = window.osGlobalInstance;
+							if (!os) return 1;
+							const activeWin = os.windows.find((w) => w.focused && w.customState?.tabs?.length) ||
+							                  os.windows.find((w) => w.customState?.tabs?.length);
+							if (activeWin && activeWin.customState && activeWin.customState.tabs) {
+								const activeTab = activeWin.customState.tabs.find((t) => t.id === activeWin.customState.activeTabId) ||
+								                  activeWin.customState.tabs[0];
+								return activeTab ? activeTab.numericId : 1;
+							}
+							return 1;
+						},
+						getTab: (id) => {
+							const os = window.osGlobalInstance;
+							if (!os) return null;
+							for (const osWin of os.windows) {
+								if (osWin.customState && osWin.customState.tabs) {
+									const tab = osWin.customState.tabs.find((t) => t.numericId === id);
+									if (tab) {
+										const rawUrl = tab.url || tab.frameObj?.url || "https://google.com";
+										return {
+											id: tab.numericId,
+											windowId: 1,
+											url: rawUrl.startsWith("http") ? rawUrl : (rawUrl.startsWith("about:") ? rawUrl : "https://google.com"),
+											title: tab.title || "Tab",
+											active: osWin.customState.activeTabId === tab.id,
+										};
+									}
+								}
+							}
+							return null;
+						},
+						getAllTabs: () => {
+							const all = [];
+							const os = window.osGlobalInstance;
+							if (!os) return all;
+							for (const osWin of os.windows) {
+								if (osWin.customState && osWin.customState.tabs) {
+									for (const tab of osWin.customState.tabs) {
+										const rawUrl = tab.url || tab.frameObj?.url || "https://google.com";
+										all.push({
+											id: tab.numericId,
+											windowId: 1,
+											url: rawUrl.startsWith("http") ? rawUrl : (rawUrl.startsWith("about:") ? rawUrl : "https://google.com"),
+											title: tab.title || "Tab",
+											active: osWin.customState.activeTabId === tab.id,
+										});
+									}
+								}
+							}
+							return all;
+						},
+						getTabWindow: (id) => {
+							const os = window.osGlobalInstance;
+							if (!os) return null;
+							for (const osWin of os.windows) {
+								if (osWin.customState && osWin.customState.tabs) {
+									const tab = osWin.customState.tabs.find((t) => t.numericId === id);
+									if (tab && tab.frameObj?.frame?.contentWindow) {
+										return tab.frameObj.frame.contentWindow;
+									}
+								}
+							}
+							return null;
+						},
+						openTab: (url, active = true) => {
+							const os = window.osGlobalInstance;
+							if (!os) return;
+							let targetWin = (os.activeWinId ? os.windows.find((w) => w.id === os.activeWinId && w.appId === "browser") : null) ||
+							                os.windows.find((w) => w.appId === "browser" && !w.isMinimized) ||
+							                os.windows.find((w) => w.appId === "browser");
+							if (!targetWin) {
+								os.openApp("browser", undefined, { url: url || "https://google.com" });
+								return;
+							}
+							if (targetWin.isMinimized) {
+								targetWin.isMinimized = false;
+							}
+							os.focusWindow(targetWin.id);
+							if (targetWin.customState?.hidePopover) {
+								targetWin.customState.hidePopover();
+							}
+							if (typeof targetWin.customState?.createNewTab === "function") {
+								targetWin.customState.createNewTab(url || "https://google.com");
+							} else {
+								targetWin.customState = targetWin.customState || {};
+								targetWin.customState.url = url || "https://google.com";
+							}
+						},
+						navigateTab: (id, url) => {
+							const os = window.osGlobalInstance;
+							if (!os) return;
+							if (id !== null && id !== undefined) {
+								for (const osWin of os.windows) {
+									if (osWin.customState && osWin.customState.tabs) {
+										const tab = osWin.customState.tabs.find((t) => t.numericId === id);
+										if (tab) {
+											tab.url = url;
+											if (tab.frameObj?.go) {
+												tab.frameObj.go(url);
+											}
+											return;
+										}
+									}
+								}
+							}
+							let targetWin = (os.activeWinId ? os.windows.find((w) => w.id === os.activeWinId && w.appId === "browser") : null) ||
+							                os.windows.find((w) => w.appId === "browser" && !w.isMinimized) ||
+							                os.windows.find((w) => w.appId === "browser");
+							if (!targetWin) {
+								os.openApp("browser", undefined, { url: url || "https://google.com" });
+								return;
+							}
+							if (targetWin.isMinimized) {
+								targetWin.isMinimized = false;
+							}
+							os.focusWindow(targetWin.id);
+							if (targetWin.customState?.hidePopover) {
+								targetWin.customState.hidePopover();
+							}
+							if (typeof targetWin.customState?.createNewTab === "function") {
+								targetWin.customState.createNewTab(url || "https://google.com");
+							} else {
+								targetWin.customState = targetWin.customState || {};
+								targetWin.customState.url = url || "https://google.com";
+							}
+						},
+						openExtensionTab: (extId, page, tabId) => {
+							const pageUrl = `${window.location.origin}/~/sx/${extId}/${String(page || "").replace(/^\//, "")}`;
+							const os = window.osGlobalInstance;
+							if (!os) return;
+							if (tabId !== null && tabId !== undefined) {
+								for (const osWin of os.windows) {
+									if (osWin.customState && osWin.customState.tabs) {
+										const tab = osWin.customState.tabs.find((t) => t.numericId === id);
+										if (tab) {
+											tab.url = pageUrl;
+											if (tab.frameObj?.go) {
+												tab.frameObj.go(pageUrl);
+											}
+											return;
+										}
+									}
+								}
+							}
+							let targetWin = (os.activeWinId ? os.windows.find((w) => w.id === os.activeWinId && w.appId === "browser") : null) ||
+							                os.windows.find((w) => w.appId === "browser" && !w.isMinimized) ||
+							                os.windows.find((w) => w.appId === "browser");
+							if (!targetWin) {
+								os.openApp("browser", undefined, { url: pageUrl });
+								return;
+							}
+							if (targetWin.isMinimized) {
+								targetWin.isMinimized = false;
+							}
+							os.focusWindow(targetWin.id);
+							if (targetWin.customState?.hidePopover) {
+								targetWin.customState.hidePopover();
+							}
+							if (typeof targetWin.customState?.createNewTab === "function") {
+								targetWin.customState.createNewTab(pageUrl);
+							} else {
+								targetWin.customState = targetWin.customState || {};
+								targetWin.customState.url = pageUrl;
+							}
+						},
+						showNotification: (title, message) => {
+							console.log(`[Extension Notification] ${title}: ${message}`);
+						},
+					},
+				});
+
+				// Assign immediately so it is available synchronously
+				window.sapphire = sInstance;
+
+				if (typeof sInstance.getPopupUrl !== "function") {
+					sInstance.getPopupUrl = async function (extId) {
+						if (!extId) return null;
+						try {
+							const page = typeof this.getExtensionPopupPage === "function" ? this.getExtensionPopupPage(extId) : null;
+							if (page) {
+								return `${window.location.origin}/~/sx/${extId}/${String(page).replace(/^\//, "")}`;
+							}
+							const ext = this.registry?.get ? this.registry.get(extId) : null;
+							if (ext) {
+								const fallback =
+									ext.popupPage ||
+									ext.manifest?.action?.default_popup ||
+									ext.manifest?.browser_action?.default_popup ||
+									ext.manifest?.page_action?.default_popup;
+								if (fallback) {
+									return `${window.location.origin}/~/sx/${extId}/${String(fallback).replace(/^\//, "")}`;
+								}
+							}
+						} catch (e) {
+							console.warn("[getPopupUrl] error:", e);
+						}
+						return null;
+					};
+				}
+
+				try {
+					await sInstance.init();
+				} catch (initErr) {
+					console.warn("[Sapphire] sInstance.init warning:", initErr);
+				}
+
+				console.log("[OnyxOS] Sapphire Chrome Extensions engine initialized");
+				return sInstance;
+			} catch (err) {
+				console.error("[OnyxOS] Failed to initialize Sapphire:", err);
+				return window.sapphire || null;
+			}
+		})();
+
+		return await window.__sapphireInitPromise;
+	};
+
+	// Start Sapphire initialization right away
+	window.ensureSapphire().catch((e) => console.warn("[Sapphire Auto-Init Error]", e));
 
 	connection = new BareMux.BareMuxConnection("/baremux/worker.js");
 	await applyTransport(store.transport || "/baremod/index.mjs", store.wispurl, store.bareurl);
@@ -1154,6 +1350,14 @@ window.addEventListener("load", async () => {
 					this.controlCenterOpen = false;
 					this.windows = [...this.windows];
 				}
+			}
+			if (window.sapphire && window.findMatchingCommand && window.triggerCommand) {
+				try {
+					const match = window.findMatchingCommand(window.sapphire.registry, e);
+					if (match) {
+						window.triggerCommand(window.sapphire.registry, match.extId, match.name);
+					}
+				} catch (err) {}
 			}
 		});
 
@@ -2546,6 +2750,13 @@ window.addEventListener("load", async () => {
 			if (clean.startsWith("http://") || clean.startsWith("https://") || clean.startsWith("about:") || clean.startsWith("data:") || clean.startsWith("blob:")) {
 				return clean;
 			}
+			if (clean.startsWith("/~/sx/")) {
+				return window.location.origin + clean;
+			}
+			if (clean.startsWith("chrome-extension://")) {
+				const extPart = clean.slice("chrome-extension://".length);
+				return window.location.origin + "/~/sx/" + extPart;
+			}
 			if (!clean.includes(".") || clean.includes(" ")) {
 				const engine = (store.searchEngine || "google").toLowerCase();
 				if (engine === "duckduckgo") {
@@ -2706,911 +2917,130 @@ window.addEventListener("load", async () => {
 		goBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i>';
 		goBtn.title = "Go to URL";
 
-		// DEVTOOLS - GUST DEV TOOLS EXTRACTED INTEGRATION
-		const devToggleBtn = document.createElement("button");
-		devToggleBtn.className = "tool-btn dev-toggle-btn text-neutral-300 hover:text-white";
-		devToggleBtn.id = "devToggle";
-		devToggleBtn.title = "Toggle logs (Ctrl+Shift+I)";
-		devToggleBtn.innerHTML = '<i class="fas fa-server"></i>';
-
-		const codeBtn = document.createElement("button");
-		codeBtn.className = "tool-btn code-toggle-btn text-neutral-300 hover:text-white";
-		codeBtn.id = "codeBtn";
-		codeBtn.title = "Toggle elements inspector";
-		codeBtn.innerHTML = '<i class="fas fa-code"></i>';
-
-		// Highlight overlay for elements inspector inside viewport
-		let elemHighlightOverlay = win.customState.viewportEl.querySelector("#elemHighlightOverlay");
-		if (!elemHighlightOverlay) {
-			elemHighlightOverlay = document.createElement("div");
-			elemHighlightOverlay.id = "elemHighlightOverlay";
-			elemHighlightOverlay.style.cssText = `
-				display: none;
-				position: absolute;
-				pointer-events: none;
-				z-index: 50;
-				outline: 2px solid var(--ac, #9de5ff);
-				outline-offset: 0px;
-				box-shadow: 0 0 0 4px rgba(157, 229, 255, 0.18), inset 0 0 0 9999px rgba(157, 229, 255, 0.08);
-				border-radius: 2px;
-				transition: top .08s, left .08s, width .08s, height .08s;
-			`;
-			win.customState.viewportEl.appendChild(elemHighlightOverlay);
-		}
-
-		// LOGS PANEL
-		const logsEl = document.createElement("div");
-		logsEl.className = "logs hidden";
-		logsEl.id = "logs";
-		logsEl.innerHTML = `
-			<div class="panel-resize-handle"></div>
-			<div class="log-head">
-				<div class="log-head-top">
-					<span>
-						Logs
-						<span class="log-count-badge">0</span>
-						<div class="log-search-wrap">
-							<i class="fas fa-magnifying-glass log-search-icon"></i>
-							<input class="log-search" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false">
-						</div>
-					</span>
-					<div class="log-head-controls">
-						<button class="tool-btn copy-btn" title="Copy logs">
-							<i class="fas fa-copy"></i>
-						</button>
-						<button class="tool-btn clear-btn" title="Clear logs">
-							<i class="fas fa-trash"></i>
-						</button>
-					</div>
-				</div>
-				<div class="log-filter-bar">
-					<button class="log-filter-btn f-all active" data-filter="all">All</button>
-					<button class="log-filter-btn f-info" data-filter="info"><i class="fas fa-circle-info" style="font-size:8px;"></i> Info</button>
-					<button class="log-filter-btn f-ok" data-filter="ok"><i class="fas fa-check" style="font-size:8px;"></i> OK</button>
-					<button class="log-filter-btn f-warn" data-filter="warn"><i class="fas fa-triangle-exclamation" style="font-size:8px;"></i> Warn</button>
-					<button class="log-filter-btn f-err" data-filter="err"><i class="fas fa-xmark" style="font-size:8px;"></i> Err</button>
-					<button class="log-filter-btn f-stream" data-filter="stream"><i class="fas fa-wave-square" style="font-size:8px;"></i> Stream</button>
-				</div>
-			</div>
-			<div class="log-body">
-				<div class="log-no-results">No matching entries</div>
-			</div>
-			<div class="log-footer">
-				<span class="status"><span class="dot idle"></span><span class="status-text">Ready</span></span>
-				<div class="log-footer-right">
-					<span class="stats">0 requests</span>
-					<button class="log-autoscroll-btn pinned" title="Toggle auto-scroll">
-						<i class="fas fa-angles-down"></i>
-					</button>
-				</div>
-			</div>
-		`;
-
-		// ELEMENTS PANEL
-		const elementsEl = document.createElement("div");
-		elementsEl.className = "elements hidden";
-		elementsEl.id = "elements";
-		elementsEl.innerHTML = `
-			<div class="panel-resize-handle"></div>
-			<div class="elements-head">
-				<div class="elements-head-top">
-					<span class="elements-head-label">Elements</span>
-					<div class="elements-search-wrap">
-						<i class="fas fa-magnifying-glass elements-search-icon"></i>
-						<input class="elements-search" type="text" placeholder="Filter tags, attrs…" autocomplete="off" spellcheck="false">
-					</div>
-					<div style="display:flex;gap:4px;flex-shrink:0;align-items:center;">
-						<button class="tool-btn refresh-elements-btn" title="Refresh elements">
-							<i class="fas fa-rotate-right"></i>
-						</button>
-						<button class="elem-detail-toggle on" title="Toggle details panel">
-							<i class="fas fa-table-cells-large"></i>
-						</button>
-					</div>
-				</div>
-				<div class="elements-breadcrumb"></div>
-			</div>
-			<div class="elements-body">
-				<ul class="elements-tree"></ul>
-			</div>
-			<div class="elements-detail"
-				style="border-top:1px solid var(--bd);flex-shrink:0;overflow-y:auto;max-height:240px;display:flex;flex-direction:column;background:var(--bg1);">
-				<div style="display:flex;gap:0;border-bottom:1px solid var(--bd);">
-					<button class="elem-tab active" data-tab="styles"
-						style="flex:1;padding:6px 4px;font-size:11px;background:none;border:none;color:var(--tx);cursor:pointer;border-bottom:2px solid var(--ac);font-family:var(--ui);">Styles</button>
-					<button class="elem-tab" data-tab="box"
-						style="flex:1;padding:6px 4px;font-size:11px;background:none;border:none;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;font-family:var(--ui);">Box</button>
-					<button class="elem-tab" data-tab="attrs"
-						style="flex:1;padding:6px 4px;font-size:11px;background:none;border:none;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;font-family:var(--ui);">Attrs</button>
-				</div>
-				<div class="elem-detail-content"
-					style="padding:8px;font-size:11px;font-family:var(--mono);color:var(--tx2);line-height:1.7;"></div>
-			</div>
-			<div class="elem-ctx-menu"
-				style="display:none;position:fixed;z-index:99999;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:4px;min-width:170px;box-shadow:0 8px 24px rgba(0,0,0,.5);">
-				<button class="ctx-item ctx-copy-selector"><i class="fas fa-code" style="width:14px"></i> Copy Selector</button>
-				<button class="ctx-item ctx-copy-html"><i class="fas fa-copy" style="width:14px"></i> Copy HTML</button>
-				<button class="ctx-item ctx-copy-text"><i class="fas fa-font" style="width:14px"></i> Copy Text</button>
-				<div style="height:1px;background:var(--bd);margin:3px 0;"></div>
-				<button class="ctx-item ctx-scroll-to"><i class="fas fa-eye" style="width:14px"></i> Scroll Into View</button>
-				<button class="ctx-item ctx-hide-element"><i class="fas fa-eye-slash" style="width:14px"></i> Hide Element</button>
-			</div>
-		`;
-
-		// Gust DevTools Logic & State
-		const logbox = logsEl.querySelector(".log-body");
-		const logCountBadge = logsEl.querySelector(".log-count-badge");
-		const logSearchInput = logsEl.querySelector(".log-search");
-		const logFilterBar = logsEl.querySelector(".log-filter-bar");
-		const copyLogsBtn = logsEl.querySelector(".copy-btn");
-		const clearLogsBtn = logsEl.querySelector(".clear-btn");
-		const statusDot = logsEl.querySelector(".dot");
-		const statusText = logsEl.querySelector(".status-text");
-		const statsEl = logsEl.querySelector(".stats");
-		const logAutoScrollBtn = logsEl.querySelector(".log-autoscroll-btn");
-		const logsResizeHandle = logsEl.querySelector(".panel-resize-handle");
-
-		const elementsTree = elementsEl.querySelector(".elements-tree");
-		const elementsSearchInput = elementsEl.querySelector(".elements-search");
-		const elementsBreadcrumb = elementsEl.querySelector(".elements-breadcrumb");
-		const refreshElementsBtn = elementsEl.querySelector(".refresh-elements-btn");
-		const elemDetailToggleBtn = elementsEl.querySelector(".elem-detail-toggle");
-		const elementsDetailPanel = elementsEl.querySelector(".elements-detail");
-		const elemDetailContent = elementsEl.querySelector(".elem-detail-content");
-		const elemCtxMenu = elementsEl.querySelector(".elem-ctx-menu");
-		const elementsResizeHandle = elementsEl.querySelector(".panel-resize-handle");
-
-		let totalRequests = 0;
-		let _logFilter = "all";
-		let _logSearch = "";
-		let _logAutoScroll = true;
-		const recentLogs = new Map();
-		let selectedElement = null;
-		let currentDetailTab = "styles";
-
-		function setDevStatus(state, text) {
-			if (statusDot) statusDot.className = "dot " + state;
-			if (statusText) statusText.textContent = text;
-		}
-
-		function updateLogCountBadge() {
-			if (!logCountBadge || !logbox) return;
-			const all = logbox.querySelectorAll(".log-entry");
-			const visible = logbox.querySelectorAll(".log-entry:not(.hidden-by-filter)");
-			logCountBadge.textContent = (visible.length < all.length) ? `${visible.length}/${all.length}` : `${all.length}`;
-		}
-
-		function entryMatchesFilter(entry) {
-			const type = entry.dataset.type || "";
-			const text = (entry.dataset.text || "").toLowerCase();
-			const filterOk = (_logFilter === "all") || (type === _logFilter);
-			const searchOk = !_logSearch || text.includes(_logSearch);
-			return filterOk && searchOk;
-		}
-
-		function applyLogFilter() {
-			if (!logbox) return;
-			let anyVisible = false;
-			logbox.querySelectorAll(".log-entry").forEach(el => {
-				const show = entryMatchesFilter(el);
-				el.classList.toggle("hidden-by-filter", !show);
-				if (show) anyVisible = true;
-			});
-			const noResults = logbox.querySelector(".log-no-results");
-			if (noResults) noResults.classList.toggle("visible", !anyVisible);
-			updateLogCountBadge();
-		}
-
-		function log(msg, type = "") {
-			if (!logbox) return;
-			totalRequests++;
-			if (statsEl) statsEl.textContent = `${totalRequests} requests`;
-
-			const d = document.createElement("div");
-			d.className = `log-entry ${type}`.trim();
-			d.dataset.type = type || "default";
-
-			const now = new Date();
-			const ts = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
-			const tempDiv = document.createElement("div");
-			tempDiv.innerHTML = String(msg);
-			const plainText = tempDiv.textContent || String(msg);
-			d.dataset.text = plainText.toLowerCase();
-
-			const msgKey = String(msg).slice(0, 500);
-			const lastSeen = recentLogs.get(msgKey);
-
-			if (lastSeen && (Date.now() - lastSeen.time) < 5000) {
-				lastSeen.count++;
-				if (lastSeen.el) {
-					let badge = lastSeen.el.querySelector(".log-dup-badge");
-					if (!badge) {
-						badge = document.createElement("span");
-						badge.className = "log-dup-badge";
-						lastSeen.el.appendChild(badge);
-					}
-					badge.textContent = `×${lastSeen.count + 1}`;
-				}
-				return;
-			}
-
-			recentLogs.set(msgKey, { time: Date.now(), count: 1, el: d });
-
-			if (recentLogs.size > 200) {
-				const cutoff = Date.now() - 10000;
-				for (const [k, v] of recentLogs.entries()) {
-					if (v.time < cutoff) recentLogs.delete(k);
-				}
-			}
-
-			const tsSpan = document.createElement("span");
-			tsSpan.className = "log-ts";
-			tsSpan.textContent = ts;
-
-			const msgSpan = document.createElement("span");
-			msgSpan.className = "log-msg";
-			msgSpan.innerHTML = String(msg).slice(0, 500);
-
-			d.appendChild(tsSpan);
-			d.appendChild(msgSpan);
-
-			if (!entryMatchesFilter(d)) d.classList.add("hidden-by-filter");
-
-			const noResults = logbox.querySelector(".log-no-results");
-			if (noResults) logbox.insertBefore(d, noResults);
-			else logbox.appendChild(d);
-
-			if (logbox.querySelectorAll(".log-entry").length > 400) {
-				const first = logbox.querySelector(".log-entry");
-				if (first) logbox.removeChild(first);
-			}
-
-			updateLogCountBadge();
-			if (noResults) {
-				const anyVisible = logbox.querySelector(".log-entry:not(.hidden-by-filter)");
-				noResults.classList.toggle("visible", !anyVisible);
-			}
-
-			if (_logAutoScroll) logbox.scrollTop = logbox.scrollHeight;
-		}
-
-		// Filter bar event listeners
-		if (logFilterBar) {
-			logFilterBar.querySelectorAll(".log-filter-btn").forEach(btn => {
-				btn.addEventListener("click", () => {
-					logFilterBar.querySelectorAll(".log-filter-btn").forEach(b => b.classList.remove("active"));
-					btn.classList.add("active");
-					_logFilter = btn.dataset.filter;
-					applyLogFilter();
-				});
-			});
-		}
-
-		if (logSearchInput) {
-			logSearchInput.addEventListener("input", () => {
-				_logSearch = logSearchInput.value.trim().toLowerCase();
-				applyLogFilter();
-			});
-		}
-
-		if (logAutoScrollBtn) {
-			logAutoScrollBtn.addEventListener("click", () => {
-				_logAutoScroll = !_logAutoScroll;
-				logAutoScrollBtn.classList.toggle("pinned", _logAutoScroll);
-				logAutoScrollBtn.title = _logAutoScroll ? "Auto-scroll on" : "Auto-scroll off";
-				if (_logAutoScroll) logbox.scrollTop = logbox.scrollHeight;
-			});
-		}
-
-		if (logbox) {
-			logbox.addEventListener("scroll", () => {
-				const atBottom = logbox.scrollHeight - logbox.scrollTop - logbox.clientHeight < 24;
-				if (!atBottom && _logAutoScroll) {
-					_logAutoScroll = false;
-					if (logAutoScrollBtn) { logAutoScrollBtn.classList.remove("pinned"); logAutoScrollBtn.title = "Auto-scroll off"; }
-				} else if (atBottom && !_logAutoScroll) {
-					_logAutoScroll = true;
-					if (logAutoScrollBtn) { logAutoScrollBtn.classList.add("pinned"); logAutoScrollBtn.title = "Auto-scroll on"; }
-				}
-			});
-		}
-
-		if (clearLogsBtn) {
-			clearLogsBtn.onclick = () => {
-				logbox.querySelectorAll(".log-entry").forEach(el => el.remove());
-				recentLogs.clear();
-				const nr = logbox.querySelector(".log-no-results");
-				if (nr) nr.classList.remove("visible");
-				updateLogCountBadge();
-				log("Logs cleared", "info");
-			};
-		}
-
-		if (copyLogsBtn) {
-			copyLogsBtn.onclick = () => {
-				const lines = Array.from(logbox.querySelectorAll(".log-entry")).map(el => {
-					const ts = el.querySelector(".log-ts")?.textContent || "";
-					const msg = el.querySelector(".log-msg")?.textContent || el.textContent;
-					return ts ? `[${ts}] ${msg}` : msg;
-				});
-				navigator.clipboard?.writeText(lines.join("\n")).then(() => {
-					log("Logs copied to clipboard", "info");
-				}).catch(err => {
-					log("Failed to copy logs: " + err.message, "err");
-				});
-			};
-		}
-
-		function toggleLogs() {
-			const wasHidden = logsEl.classList.contains("hidden");
-			logsEl.classList.toggle("hidden");
-			devToggleBtn.classList.toggle("text-sky-400", !logsEl.classList.contains("hidden"));
-		}
-
-		function toggleElements() {
-			const wasHidden = elementsEl.classList.contains("hidden");
-			elementsEl.classList.toggle("hidden");
-			codeBtn.classList.toggle("text-teal-400", !elementsEl.classList.contains("hidden"));
-			if (!elementsEl.classList.contains("hidden")) {
-				inspectCurrentPage();
-			} else if (elemHighlightOverlay) {
-				elemHighlightOverlay.style.display = "none";
-			}
-		}
-
-		function escapeHtml(text) {
-			const div = document.createElement("div");
-			div.textContent = text;
-			return div.innerHTML;
-		}
-
-		function getSelector(element) {
-			const path = [];
-			let current = element;
-			while (current && current.parentElement) {
-				const parent = current.parentElement;
-				const id = current.id ? "#" + current.id : null;
-				if (id) { path.unshift(current.tagName.toLowerCase() + id); break; }
-				const siblings = Array.from(parent.children).filter(c => c.tagName === current.tagName);
-				const index = siblings.indexOf(current);
-				path.unshift(current.tagName.toLowerCase() + (siblings.length > 1 ? ":nth-of-type(" + (index + 1) + ")" : ""));
-				current = parent;
-			}
-			return path.join(" > ");
-		}
-
-		function getBreadcrumb(element) {
-			const crumbs = [];
-			let current = element;
-			while (current && current.tagName) {
-				const tag = current.tagName.toLowerCase();
-				const id = current.id ? "#" + current.id : "";
-				const cls = current.className && typeof current.className === "string"
-					? "." + current.className.trim().split(/\s+/).slice(0,2).join(".") : "";
-				crumbs.unshift({ label: tag + id + cls, el: current });
-				current = current.parentElement;
-			}
-			return crumbs;
-		}
-
-		function updateBreadcrumb(element) {
-			if (!elementsBreadcrumb) return;
-			const crumbs = getBreadcrumb(element);
-			elementsBreadcrumb.innerHTML = crumbs.map((c, i) => {
-				const isCurrent = i === crumbs.length - 1;
-				return (i > 0 ? '<span class="elem-crumb-sep">›</span>' : "") +
-					`<span class="elem-crumb${isCurrent ? " current" : ""}" data-idx="${i}">${escapeHtml(c.label)}</span>`;
-			}).join("");
-			elementsBreadcrumb.classList.add("visible");
-			elementsBreadcrumb.querySelectorAll(".elem-crumb:not(.current)").forEach(span => {
-				span.onclick = () => {
-					const idx = parseInt(span.dataset.idx);
-					const el = crumbs[idx]?.el;
-					if (el) selectElementNode(el);
-				};
-			});
-		}
-
-		function highlightElementInPage(element) {
-			if (!elemHighlightOverlay || !element) {
-				if (elemHighlightOverlay) elemHighlightOverlay.style.display = "none";
-				return;
-			}
-			try {
-				const activeTab = getActiveTab();
-				const frameEl = activeTab?.frameObj?.frame;
-				if (!frameEl) return;
-				const frameRect = frameEl.getBoundingClientRect();
-				const elemRect = element.getBoundingClientRect();
-				const viewRect = win.customState.viewportEl.getBoundingClientRect();
-				const top = (frameRect.top - viewRect.top) + elemRect.top;
-				const left = (frameRect.left - viewRect.left) + elemRect.left;
-				elemHighlightOverlay.style.top = top + "px";
-				elemHighlightOverlay.style.left = left + "px";
-				elemHighlightOverlay.style.width = elemRect.width + "px";
-				elemHighlightOverlay.style.height = elemRect.height + "px";
-				elemHighlightOverlay.style.display = "block";
-			} catch (e) {
-				elemHighlightOverlay.style.display = "none";
-			}
-		}
-
-		function showElementDetail(element, tab) {
-			currentDetailTab = tab;
-			const tabs = elementsDetailPanel.querySelectorAll(".elem-tab");
-			tabs.forEach(t => {
-				const isActive = t.dataset.tab === tab;
-				t.style.color = isActive ? "var(--tx)" : "var(--tx3)";
-				t.style.borderBottomColor = isActive ? "var(--ac)" : "transparent";
-			});
-
-			if (tab === "styles") {
-				try {
-					const cs = element.ownerDocument.defaultView
-						? element.ownerDocument.defaultView.getComputedStyle(element)
-						: getComputedStyle(element);
-					const styleProps = ["display","position","width","height","min-width","min-height","max-width","max-height",
-						"flex","flex-direction","flex-wrap","grid","gap","overflow",
-						"margin","margin-top","margin-right","margin-bottom","margin-left",
-						"padding","padding-top","padding-right","padding-bottom","padding-left",
-						"color","background","background-color","border","border-radius",
-						"box-shadow","opacity","visibility","z-index",
-						"font-size","font-weight","font-family","line-height","text-align",
-						"text-decoration","white-space","letter-spacing",
-						"transform","transition","animation"];
-					const styles = {};
-					styleProps.forEach(p => { styles[p] = cs.getPropertyValue(p); });
-					const groups = [
-						{ label: "Layout", keys: ["display","position","width","height","min-width","min-height","max-width","max-height","flex","flex-direction","flex-wrap","grid","gap","overflow"] },
-						{ label: "Spacing", keys: ["margin","margin-top","margin-right","margin-bottom","margin-left","padding","padding-top","padding-right","padding-bottom","padding-left"] },
-						{ label: "Visual", keys: ["color","background","background-color","border","border-radius","box-shadow","opacity","visibility","z-index"] },
-						{ label: "Typography", keys: ["font-size","font-weight","font-family","line-height","text-align","text-decoration","white-space","letter-spacing"] },
-						{ label: "Transform", keys: ["transform","transition","animation"] },
-					];
-					const skip = new Set(["none","normal","auto","0px","rgba(0, 0, 0, 0)","","transparent","nowrap","static","visible","initial","unset"]);
-					let html = "";
-					groups.forEach(g => {
-						const rows = g.keys.filter(k => styles[k] && !skip.has(styles[k]));
-						if (!rows.length) return;
-						html += `<div style="font-size:9px;font-weight:700;color:var(--tx3);letter-spacing:.06em;text-transform:uppercase;margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid var(--bd)">${g.label}</div>`;
-						rows.forEach(k => {
-							html += `<div style="display:flex;gap:4px;margin-bottom:2px;flex-wrap:wrap;">` +
-								`<span style="color:#8aefb0;flex-shrink:0">${k}</span>` +
-								`<span style="color:var(--tx3);flex-shrink:0">:</span>` +
-								`<span style="color:#f8dc75;word-break:break-all">${escapeHtml(styles[k])}</span></div>`;
-						});
-					});
-					elemDetailContent.innerHTML = html || '<span style="color:var(--tx3)">No notable styles</span>';
-				} catch (e) {
-					elemDetailContent.innerHTML = '<span style="color:var(--tx3)">Could not read styles</span>';
-				}
-			} else if (tab === "box") {
-				try {
-					const r = element.getBoundingClientRect();
-					const cs = element.ownerDocument.defaultView
-						? element.ownerDocument.defaultView.getComputedStyle(element)
-						: getComputedStyle(element);
-					const parseNum = v => parseFloat(v) || 0;
-					const mt = parseNum(cs.marginTop), mr = parseNum(cs.marginRight), mb = parseNum(cs.marginBottom), ml = parseNum(cs.marginLeft);
-					const pt = parseNum(cs.paddingTop), pr = parseNum(cs.paddingRight), pb = parseNum(cs.paddingBottom), pl = parseNum(cs.paddingLeft);
-					const w = r.width?.toFixed(1) ?? "-";
-					const h = r.height?.toFixed(1) ?? "-";
-					elemDetailContent.innerHTML = `
-						<div style="display:flex;flex-direction:column;align-items:center;gap:0;padding:6px 2px;font-size:10px;">
-							<div style="width:100%;max-width:220px;">
-								<div style="background:rgba(253,186,116,.08);border:1px dashed rgba(253,186,116,.35);border-radius:5px;padding:4px;position:relative;">
-									<div style="text-align:center;color:rgba(253,186,116,.7);font-size:9px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px;">margin</div>
-									<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0;">
-										<span style="color:rgba(253,186,116,.8);padding:0 4px">${ml}px</span>
-										<div style="flex:1;background:rgba(134,239,172,.07);border:1px dashed rgba(134,239,172,.3);border-radius:4px;padding:4px;">
-											<div style="text-align:center;color:rgba(134,239,172,.65);font-size:9px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px;">padding</div>
-											<div style="display:flex;justify-content:space-between;align-items:flex-start;">
-												<span style="color:rgba(134,239,172,.8);padding:0 3px">${pl}px</span>
-												<div style="flex:1;background:rgba(157,229,255,.1);border:1px solid rgba(157,229,255,.25);border-radius:3px;padding:6px 4px;text-align:center;">
-													<div style="color:var(--ac);font-size:11px;font-weight:600">${w} × ${h}</div>
-													<div style="color:var(--tx3);font-size:9px;margin-top:1px">content</div>
-												</div>
-												<span style="color:rgba(134,239,172,.8);padding:0 3px">${pr}px</span>
-											</div>
-											<div style="text-align:center;color:rgba(134,239,172,.7);margin-top:2px">${pb}px</div>
-										</div>
-										<span style="color:rgba(253,186,116,.8);padding:0 4px">${mr}px</span>
-									</div>
-									<div style="text-align:center;color:rgba(253,186,116,.7);margin-top:2px">${mb}px</div>
-								</div>
-							</div>
-							<div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:10.5px;width:100%;max-width:220px;">
-								<div><span style="color:var(--tx3)">top: </span><span style="color:#f8dc75">${r.top?.toFixed(1) ?? "-"}px</span></div>
-								<div><span style="color:var(--tx3)">left: </span><span style="color:#f8dc75">${r.left?.toFixed(1) ?? "-"}px</span></div>
-								<div><span style="color:var(--tx3)">bottom: </span><span style="color:#f8dc75">${r.bottom?.toFixed(1) ?? "-"}px</span></div>
-								<div><span style="color:var(--tx3)">right: </span><span style="color:#f8dc75">${r.right?.toFixed(1) ?? "-"}px</span></div>
-							</div>
-						</div>`;
-				} catch (e) {
-					elemDetailContent.innerHTML = '<span style="color:var(--tx3)">Could not read box model</span>';
-				}
-			} else if (tab === "attrs") {
-				let html = "";
-				if (element.attributes && element.attributes.length > 0) {
-					for (let i = 0; i < element.attributes.length; i++) {
-						const a = element.attributes[i];
-						const val = escapeHtml(a.value);
-						html += `<div style="margin-bottom:4px;display:flex;gap:4px;align-items:baseline;flex-wrap:wrap;">` +
-							`<span style="color:#8aefb0;flex-shrink:0">${escapeHtml(a.name)}</span>` +
-							`<span style="color:var(--tx3);flex-shrink:0">=</span>` +
-							`<span style="color:#f8dc75;word-break:break-all">"${val}"</span></div>`;
-					}
-				} else {
-					html = '<span style="color:var(--tx3)">No attributes</span>';
-				}
-				elemDetailContent.innerHTML = html;
-			}
-		}
-
-		function selectElementNode(element) {
-			elementsTree.querySelectorAll(".element-content.selected").forEach(n => n.classList.remove("selected"));
-			selectedElement = element;
-			updateBreadcrumb(element);
-			showElementDetail(element, currentDetailTab || "styles");
-			highlightElementInPage(element);
-		}
-
-		function showElemCtxMenu(x, y, element) {
-			if (!elemCtxMenu) return;
-			elemCtxMenu.style.display = "block";
-			elemCtxMenu.style.left = Math.min(x, window.innerWidth - 185) + "px";
-			elemCtxMenu.style.top = Math.min(y, window.innerHeight - 180) + "px";
-		}
-		document.addEventListener("click", () => { if (elemCtxMenu) elemCtxMenu.style.display = "none"; });
-
-		elementsDetailPanel.querySelectorAll(".elem-tab").forEach(btn => {
-			btn.onclick = () => { if (selectedElement) showElementDetail(selectedElement, btn.dataset.tab); };
-		});
-
-		elementsEl.querySelector(".ctx-copy-selector")?.addEventListener("click", () => {
-			if (selectedElement) navigator.clipboard?.writeText(getSelector(selectedElement));
-		});
-		elementsEl.querySelector(".ctx-copy-html")?.addEventListener("click", () => {
-			if (selectedElement) navigator.clipboard?.writeText(selectedElement.outerHTML);
-		});
-		elementsEl.querySelector(".ctx-copy-text")?.addEventListener("click", () => {
-			if (selectedElement) navigator.clipboard?.writeText(selectedElement.textContent?.trim() || "");
-		});
-		elementsEl.querySelector(".ctx-scroll-to")?.addEventListener("click", () => {
-			if (selectedElement) selectedElement.scrollIntoView({ behavior: "smooth", block: "center" });
-		});
-		elementsEl.querySelector(".ctx-hide-element")?.addEventListener("click", () => {
-			if (selectedElement) selectedElement.style.display = selectedElement.style.display === "none" ? "" : "none";
-		});
-
-		if (elementsSearchInput) {
-			elementsSearchInput.addEventListener("input", () => {
-				const q = elementsSearchInput.value.trim().toLowerCase();
-				if (!elementsTree) return;
-				elementsTree.querySelectorAll(".element-node").forEach(node => {
-					const text = node.querySelector(".element-content")?.textContent?.toLowerCase() || "";
-					node.style.display = (!q || text.includes(q)) ? "" : "none";
-				});
-			});
-		}
-
-		if (elemDetailToggleBtn && elementsDetailPanel) {
-			elemDetailToggleBtn.addEventListener("click", () => {
-				const isOn = elemDetailToggleBtn.classList.toggle("on");
-				if (isOn && selectedElement) {
-					elementsDetailPanel.style.display = "flex";
-					showElementDetail(selectedElement, currentDetailTab || "styles");
-				} else if (!isOn) {
-					elementsDetailPanel.style.display = "none";
-				}
-			});
-		}
-
-		function renderElementNode(element, parent, depth) {
-			if (!element || !element.tagName) return;
-
-			const li = document.createElement("li");
-			li.className = "element-node";
-			li.style.paddingLeft = (depth * 8) + "px";
-
-			const hasChildren = element.children && element.children.length > 0;
-
-			const contentDiv = document.createElement("div");
-			contentDiv.className = "element-content";
-
-			if (hasChildren) {
-				const toggle = document.createElement("span");
-				toggle.className = "element-toggle collapsed";
-				contentDiv.appendChild(toggle);
-			} else {
-				const spacer = document.createElement("span");
-				spacer.className = "element-spacer";
-				contentDiv.appendChild(spacer);
-			}
-
-			const tagSpan = document.createElement("span");
-			let html = '<span class="element-tag">&lt;' + element.tagName.toLowerCase();
-
-			if (element.attributes) {
-				for (let i = 0; i < element.attributes.length; i++) {
-					const attr = element.attributes[i];
-					html += ' <span class="element-attr-name">' + escapeHtml(attr.name) + "</span>=";
-					html += '<span class="element-attr-value">"' + escapeHtml(attr.value.substring(0, 60)) + (attr.value.length > 60 ? '…"' : '"') + "</span>";
-				}
-			}
-			html += "&gt;</span>";
-
-			if (!hasChildren && element.textContent && element.textContent.trim()) {
-				const text = element.textContent.trim().substring(0, 60);
-				html += '<span class="element-text">' + escapeHtml(text) + (element.textContent.trim().length > 60 ? "…" : "") + "</span>";
-				html += '<span class="element-tag">&lt;/' + element.tagName.toLowerCase() + "&gt;</span>";
-			}
-
-			tagSpan.innerHTML = html;
-			contentDiv.appendChild(tagSpan);
-			li.appendChild(contentDiv);
-			parent.appendChild(li);
-
-			if (hasChildren) {
-				const toggle = contentDiv.querySelector(".element-toggle");
-				const childrenUl = document.createElement("ul");
-				childrenUl.className = "element-children";
-				li.appendChild(childrenUl);
-
-				toggle.onclick = (e) => {
-					e.stopPropagation();
-					toggle.classList.toggle("collapsed");
-					toggle.classList.toggle("expanded");
-					childrenUl.classList.toggle("expanded");
-					if (childrenUl.classList.contains("expanded") && childrenUl.children.length === 0) {
-						for (let i = 0; i < element.children.length; i++) {
-							renderElementNode(element.children[i], childrenUl, depth + 1);
-						}
-					}
-				};
-			}
-
-			contentDiv.onclick = (e) => {
-				e.stopPropagation();
-				selectElementNode(element);
-			};
-
-			contentDiv.oncontextmenu = (e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				selectedElement = element;
-				showElemCtxMenu(e.clientX, e.clientY, element);
-			};
-		}
-
-		function inspectCurrentPage() {
-			const activeTab = getActiveTab();
-			if (!activeTab) return;
-			const targetUrl = activeTab.url || "";
-			if (targetUrl.startsWith("onyx://") || targetUrl.startsWith("veil://")) {
-				if (activeTab.internalEl) {
-					elementsTree.innerHTML = "";
-					renderElementNode(activeTab.internalEl, elementsTree, 0);
-					return;
-				}
-			}
-
-			let liveDoc = null;
-			try {
-				liveDoc = activeTab.frameObj?.frame?.contentDocument || activeTab.frameObj?.frame?.contentWindow?.document;
-			} catch (e) {}
-
-			if (!liveDoc) {
-				elementsTree.innerHTML = '<li style="color: var(--tx3); padding: 8px;">No page loaded</li>';
-				return;
-			}
-
-			try {
-				elementsTree.innerHTML = "";
-				renderElementNode(liveDoc.documentElement, elementsTree, 0);
-			} catch (e) {
-				elementsTree.innerHTML = '<li style="color: var(--err); padding: 8px;">Cannot inspect: ' + e.message + '</li>';
-			}
-		}
-
-		if (refreshElementsBtn) {
-			refreshElementsBtn.onclick = () => inspectCurrentPage();
-		}
-
-		function setupPanelResize(panel, handle) {
-			if (!panel || !handle) return;
-			let isResizing = false;
-			let startX = 0;
-			let startWidth = 0;
-
-			handle.addEventListener("mousedown", (e) => {
-				isResizing = true;
-				startX = e.clientX;
-				startWidth = panel.offsetWidth;
-				document.body.style.cursor = "ew-resize";
-				const activeTab = getActiveTab();
-				if (activeTab?.frameObj?.frame) activeTab.frameObj.frame.style.pointerEvents = "none";
-				e.preventDefault();
-			});
-
-			document.addEventListener("mousemove", (e) => {
-				if (!isResizing) return;
-				const deltaX = startX - e.clientX;
-				const newWidth = Math.max(250, Math.min(800, startWidth + deltaX));
-				panel.style.width = newWidth + "px";
-			});
-
-			const stopResize = () => {
-				if (isResizing) {
-					isResizing = false;
-					document.body.style.cursor = "";
-					const activeTab = getActiveTab();
-					if (activeTab?.frameObj?.frame) activeTab.frameObj.frame.style.pointerEvents = "";
-				}
-			};
-
-			document.addEventListener("mouseup", stopResize);
-			window.addEventListener("blur", stopResize);
-		}
-
-		setupPanelResize(logsEl, logsResizeHandle);
-		setupPanelResize(elementsEl, elementsResizeHandle);
-
-		devToggleBtn.onclick = () => toggleLogs();
-		codeBtn.onclick = () => toggleElements();
-
-		document.addEventListener("keydown", (e) => {
-			if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
-				e.preventDefault();
-				toggleLogs();
-			}
-		});
-
-		function hookActiveFrame(tabObj) {
-			if (!tabObj || !tabObj.frameObj?.frame) return;
-			const fr = tabObj.frameObj.frame;
-			const hook = () => {
-				let w;
-				try {
-					w = fr.contentWindow;
-					if (!w || !w.document) return;
-				} catch (e) {
-					return;
-				}
-				if (w.__gustHooked) return;
-				w.__gustHooked = true;
-
-				const cls = { log: "", warn: "warn", error: "err", info: "info", debug: "info" };
-				const esc = s => String(s).slice(0, 300).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-				["log", "warn", "error", "info", "debug"].forEach(m => {
-					const orig = w.console ? w.console[m] : null;
-					if (orig && typeof orig === "function") {
-						w.console[m] = function (...a) {
-							orig.apply(w.console, a);
-							log("[Console] " + esc(a.slice(0, 3).map(x => { try { return typeof x === "object" ? JSON.stringify(x) : String(x); } catch { return "[Object]"; } }).join(" ")), cls[m] || "");
-						};
-					}
-				});
-				w.addEventListener("error", e => log("[Error] " + esc(e.message || ""), "err"));
-				w.addEventListener("unhandledrejection", e => log("[Promise] " + esc(e.reason?.message || e.reason || ""), "err"));
-			};
-
-			fr.addEventListener("load", () => {
-				hook();
-				setDevStatus("idle", "Ready");
-				log(`Page loaded: ${tabObj.url}`, "ok");
-				if (!elementsEl.classList.contains("hidden")) {
-					inspectCurrentPage();
-				}
-			});
-			hook();
-		}
-
-		const floatingPopover = document.createElement("div");
-		floatingPopover.className = "fixed top-14 right-4 z-50 w-96 bg-neutral-900 border border-white/20 rounded-2xl shadow-2xl overflow-hidden hidden flex flex-col";
-		floatingPopover.style.height = "520px";
-
-		const popoverHeader = document.createElement("div");
-		popoverHeader.className = "flex items-center justify-between px-4 py-2.5 bg-neutral-950 border-b border-white/10 shrink-0";
-
-		const popoverTitle = document.createElement("span");
-		popoverTitle.className = "text-xs font-bold text-neutral-200 truncate";
-		popoverTitle.textContent = "Extension Popup";
-
-		const popoverClose = document.createElement("button");
-		popoverClose.className = "text-neutral-400 hover:text-white text-xs font-bold px-2 py-0.5 rounded cursor-pointer";
-		popoverClose.textContent = "✕";
-		popoverClose.onclick = (e) => {
-			if (e) e.stopPropagation();
-			try {
-				if (window.sapphire && typeof window.sapphire.unmountExtensionPopup === "function") {
-					window.sapphire.unmountExtensionPopup(popoverFrame);
-				}
-			} catch (err) {}
-			try {
-				popoverFrame.src = "about:blank";
-			} catch (err) {}
-			floatingPopover.classList.add("hidden");
-		};
-
-		popoverHeader.appendChild(popoverTitle);
-		popoverHeader.appendChild(popoverClose);
-
-		const popoverFrame = document.createElement("iframe");
-		popoverFrame.className = "w-full flex-1 border-0 bg-white";
-
-		floatingPopover.appendChild(popoverHeader);
-		floatingPopover.appendChild(popoverFrame);
-
-		document.addEventListener("click", (e) => {
-			if (floatingPopover && !floatingPopover.classList.contains("hidden")) {
-				if (!floatingPopover.contains(e.target) && !toolbarExtensions.contains(e.target)) {
-					popoverClose.onclick(e);
-				}
-			}
-		});
-
-		const showExtensionPopover = async (extId, extName) => {
-			try {
-				if (window.sapphire && typeof window.sapphire.unmountExtensionPopup === "function") {
-					window.sapphire.unmountExtensionPopup(popoverFrame);
-				}
-			} catch (err) {}
-			try {
-				popoverFrame.src = "about:blank";
-			} catch (err) {}
-
-			floatingPopover.classList.remove("hidden");
-			popoverTitle.textContent = extName || "Extension Popup";
-
-			if (window.sapphire) {
-				const ext = typeof window.sapphire.registry?.get === "function" ? window.sapphire.registry.get(extId) : null;
-				if (ext && ext.enabled && !ext.background && typeof window.sapphire.startBackground === "function") {
-					try {
-						await window.sapphire.startBackground(ext);
-					} catch (bgErr) {
-						console.warn("[showExtensionPopover] startBackground error:", bgErr);
-					}
-				}
-				if (typeof window.sapphire.mountExtensionPopup === "function") {
-					const ok = await window.sapphire.mountExtensionPopup(popoverFrame, extId, win.customState?.activeTabId || 1);
-					if (ok) return;
-				}
-			}
-			let popupUrl = `https://${extId}.sapphire-extension.invalid/popup.html`;
-			popoverFrame.src = window.encodeProxyUrl ? window.encodeProxyUrl(popupUrl) : popupUrl;
-		};
-		win.customState.showExtensionPopover = (extId, _url, extName) => showExtensionPopover(extId, extName);
-
+		// EXTENSIONS TOOLBAR CONTAINER (Holds Chrome Extension Action buttons)
 		const toolbarExtensions = document.createElement("div");
-		toolbarExtensions.className = "flex items-center gap-1 shrink-0";
+		toolbarExtensions.className = "flex items-center gap-1.5 shrink-0";
+
+		// FLOATING EXTENSION POPOVER
+		const floatingPopover = document.createElement("div");
+		floatingPopover.className = "absolute right-2 top-[calc(100%+6px)] z-50 w-[360px] rounded-2xl border border-white/20 bg-[#191a24] shadow-2xl shadow-black/90 overflow-hidden flex flex-col hidden animate-fade";
+
+		function renderExtensionPopup(extId, popupUrl) {
+			floatingPopover.innerHTML = "";
+			let targetId = extId;
+			let ext = window.sapphire && window.sapphire.registry?.get ? window.sapphire.registry.get(targetId) : null;
+			if (!ext && window.sapphire && typeof window.sapphire.getInstalledExtensions === "function") {
+				const allExts = window.sapphire.getInstalledExtensions();
+				const match = allExts.find(e => e.id === targetId || e.id.toLowerCase() === targetId.toLowerCase() || (e.name && targetId.length > 20 && e.name.toLowerCase().includes("ublock")));
+				if (match) {
+					targetId = match.id;
+					ext = window.sapphire.registry.get(targetId);
+				}
+			}
+			const name = ext?.manifest?.name || "Extension";
+
+			const topBanner = document.createElement("div");
+			topBanner.className = "h-11 bg-[#1e202d] px-3 flex items-center justify-between border-b border-white/10 shrink-0";
+			topBanner.innerHTML = `
+				<div class="flex items-center gap-2 truncate">
+					<span class="text-sm">🧩</span>
+					<span class="text-xs font-bold text-white truncate">${name}</span>
+				</div>
+			`;
+			const closeBtn = document.createElement("button");
+			closeBtn.className = "text-neutral-400 hover:text-white text-xs cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10";
+			closeBtn.textContent = "✕";
+			closeBtn.onclick = (e) => {
+				e.stopPropagation();
+				floatingPopover.classList.add("hidden");
+				win.customState.activePopup = null;
+			};
+			topBanner.appendChild(closeBtn);
+			floatingPopover.appendChild(topBanner);
+
+			const frameContainer = document.createElement("div");
+			frameContainer.className = "w-full h-[480px] bg-[#0c0d14] relative overflow-hidden";
+			const iframe = document.createElement("iframe");
+			iframe.className = "w-full h-full border-0 outline-none bg-transparent";
+			frameContainer.appendChild(iframe);
+			floatingPopover.appendChild(frameContainer);
+
+			const activeTab = win.customState?.tabs?.find(t => t.id === win.customState.activeTabId) || win.customState?.tabs?.[0];
+			const activeTabId = activeTab ? activeTab.numericId : 1;
+
+			if (window.sapphire && typeof window.sapphire.mountExtensionPopup === "function") {
+				window.sapphire.mountExtensionPopup(iframe, targetId, activeTabId).then((mounted) => {
+					if (!mounted) {
+						console.warn("[renderExtensionPopup] mountExtensionPopup returned false, setting iframe.src");
+						iframe.src = popupUrl || `/~/sx/${targetId}/popup.html`;
+					}
+				}).catch((err) => {
+					console.warn("[renderExtensionPopup] mountExtensionPopup failed, fallback to src:", err);
+					iframe.src = popupUrl || `/~/sx/${targetId}/popup.html`;
+				});
+			} else {
+				iframe.src = popupUrl || `/~/sx/${targetId}/popup.html`;
+			}
+		}
+
+		win.customState.renderExtensionPopup = renderExtensionPopup;
+		win.customState.showExtensionPopover = (extId, popupUrl) => {
+			win.customState.activePopup = extId;
+			renderExtensionPopup(extId, popupUrl);
+			floatingPopover.classList.remove("hidden");
+		};
 
 		const renderToolbarExtensions = () => {
 			toolbarExtensions.innerHTML = "";
-			if (!window.sapphire) return;
-			const exts = typeof window.sapphire.getInstalledExtensions === "function" ? window.sapphire.getInstalledExtensions() : [];
-			for (const ext of exts) {
-				if (!ext.enabled || !ext.hasPopup) continue;
-				const btn = document.createElement("button");
-				btn.className = "w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-neutral-300 hover:text-white transition-colors cursor-pointer shrink-0 relative";
-				btn.title = ext.name || "Extension";
-				const rawIcon = ext.iconUrl || ext.icon;
-				if (rawIcon) {
-					const proxiedIcon = window.encodeProxyUrl ? window.encodeProxyUrl(rawIcon) : rawIcon;
-					btn.innerHTML = `<img src="${proxiedIcon}" class="w-4 h-4 object-contain rounded" alt="" onerror="this.outerHTML='<span class=\\'text-xs\\'>🧩</span>'" />`;
-				} else {
-					btn.innerHTML = `<span class="text-xs">🧩</span>`;
-				}
-				btn.onclick = (ev) => {
-					ev.stopPropagation();
-					showExtensionPopover(ext.id, ext.name || "Extension Popup");
-				};
-				toolbarExtensions.appendChild(btn);
+
+			if (window.sapphire && typeof window.sapphire.getInstalledExtensions === "function") {
+				const installed = window.sapphire.getInstalledExtensions();
+				installed.filter(ex => ex.enabled).forEach(ex => {
+					const extBtn = document.createElement("button");
+					extBtn.className = "w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all cursor-pointer shadow-sm relative shrink-0";
+					extBtn.title = ex.name || "Extension";
+					if (ex.iconUrl) {
+						extBtn.innerHTML = `<img src="${ex.iconUrl}" class="w-4 h-4 object-contain rounded" />`;
+					} else {
+						extBtn.innerHTML = `<span class="text-xs">🧩</span>`;
+					}
+					extBtn.onclick = async (e) => {
+						e.stopPropagation();
+						if (!floatingPopover.classList.contains("hidden") && win.customState.activePopup === ex.id) {
+							floatingPopover.classList.add("hidden");
+							win.customState.activePopup = null;
+							return;
+						}
+						try {
+							let popupUrl = null;
+							if (typeof window.sapphire.getPopupUrl === "function") {
+								popupUrl = await window.sapphire.getPopupUrl(ex.id);
+							}
+							win.customState.activePopup = ex.id;
+							renderExtensionPopup(ex.id, popupUrl);
+							floatingPopover.classList.remove("hidden");
+						} catch (popupErr) {
+							console.error("[ToolbarExtension] Failed to get popup URL:", popupErr);
+						}
+					};
+					toolbarExtensions.appendChild(extBtn);
+				});
 			}
 		};
 		win.customState.renderToolbarExtensions = renderToolbarExtensions;
-		setTimeout(renderToolbarExtensions, 300);
+
+		// Dismiss popover on outside click
+		const onDocumentClick = (e) => {
+			if (!floatingPopover.classList.contains("hidden")) {
+				if (!floatingPopover.contains(e.target) && !toolbarExtensions.contains(e.target)) {
+					floatingPopover.classList.add("hidden");
+					win.customState.activePopup = null;
+				}
+			}
+		};
+		document.addEventListener("mousedown", onDocumentClick);
+
+		renderToolbarExtensions();
 
 		urlBar.appendChild(backBtn);
 		urlBar.appendChild(fwdBtn);
@@ -3619,15 +3049,13 @@ window.addEventListener("load", async () => {
 		urlBar.appendChild(urlInputBox);
 		urlBar.appendChild(goBtn);
 		urlBar.appendChild(toolbarExtensions);
-		urlBar.appendChild(devToggleBtn);
-		urlBar.appendChild(codeBtn);
 		urlBar.appendChild(floatingPopover);
 
 		// QUICK BOOKMARKS BAR
 		const quickBmBar = document.createElement("div");
 		quickBmBar.className = "flex items-center gap-1.5 px-3 py-1.5 bg-neutral-950 border-b border-white/10 overflow-x-auto text-xs shrink-0 custom-scrollbar";
 
-		// MAIN CONTENT (Viewport + Logs Panel + Elements Panel + Side Drawer)
+		// MAIN CONTENT (Viewport + Side Drawer)
 		const mainContent = document.createElement("div");
 		mainContent.className = "flex-1 w-full h-full relative flex overflow-hidden";
 
@@ -3635,16 +3063,12 @@ window.addEventListener("load", async () => {
 		drawerContainer.className = "h-full flex shrink-0";
 
 		mainContent.appendChild(win.customState.viewportEl);
-		mainContent.appendChild(logsEl);
-		mainContent.appendChild(elementsEl);
 		mainContent.appendChild(drawerContainer);
 
 		browserRoot.appendChild(tabStrip);
 		browserRoot.appendChild(urlBar);
 		browserRoot.appendChild(quickBmBar);
 		browserRoot.appendChild(mainContent);
-
-		log("Onyx DevTools ready", "info");
 
 		// Tab and Navigation Helpers
 		const getActiveTab = () => {
@@ -4395,7 +3819,12 @@ window.addEventListener("load", async () => {
 											buffer = await window.normalizeExtensionBuffer(buffer, `${item.id}.crx`);
 										}
 
-										await window.sapphire.installExtension(buffer, `${item.id}.crx`);
+										const sEngine = window.sapphire || (window.ensureSapphire ? await window.ensureSapphire() : null);
+										if (!sEngine || typeof sEngine.installExtension !== "function") {
+											throw new Error("Sapphire extension engine is initializing. Please try again in a moment.");
+										}
+
+										await sEngine.installExtension(buffer, `${item.id}.crx`);
 
 										installBtn.className = "px-3.5 py-1.5 rounded-xl bg-emerald-600/30 text-emerald-300 text-xs font-bold border border-emerald-500/30 flex items-center gap-1.5 shrink-0";
 										installBtn.innerHTML = `<span>✓</span><span>Installed!</span>`;
@@ -4648,8 +4077,9 @@ window.addEventListener("load", async () => {
 
 					const handleExtUpload = async (file) => {
 						if (!file) return;
-						if (!window.sapphire) {
-							alert("Extensions engine is not ready.");
+						const sEngine = window.sapphire || (window.ensureSapphire ? await window.ensureSapphire() : null);
+						if (!sEngine || typeof sEngine.installExtension !== "function") {
+							alert("Extensions engine is initializing. Please try again in a moment.");
 							return;
 						}
 						statusBox.className = "text-xs text-emerald-300 flex items-center gap-2 p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/30";
@@ -4660,7 +4090,7 @@ window.addEventListener("load", async () => {
 							if (window.normalizeExtensionBuffer) {
 								buffer = await window.normalizeExtensionBuffer(buffer, file.name);
 							}
-							await window.sapphire.installExtension(buffer, file.name);
+							await sEngine.installExtension(buffer, file.name);
 							statusBox.className = "text-xs text-emerald-300 flex items-center gap-2 p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/30";
 							statusBox.innerHTML = `<span>✓</span><span>Successfully installed "${file.name}"!</span>`;
 							setTimeout(() => {
@@ -4859,13 +4289,7 @@ window.addEventListener("load", async () => {
 				tabObj.frameObj.frame.style.position = "";
 			}
 
-			const isExtensionPage =
-				target.includes("/~/sx/") ||
-				target.startsWith("chrome-extension://") ||
-				target.includes(".sapphire-extension.invalid") ||
-				target.includes("sapphire-extension.invalid") ||
-				target.startsWith("sapphire://");
-
+			const isExtensionPage = target.includes("/~/sx/") || target.startsWith("chrome-extension://");
 			if (isExtensionPage && window.sapphire) {
 				let extId = null;
 				let pagePath = "popup.html";
@@ -4873,21 +4297,6 @@ window.addEventListener("load", async () => {
 					const parts = target.slice("chrome-extension://".length).split("/");
 					extId = parts[0];
 					pagePath = parts.slice(1).join("/") || "popup.html";
-				} else if (target.includes("sapphire-extension.invalid")) {
-					try {
-						const u = new URL(target.startsWith("http") ? target : `https://${target}`);
-						const hostMatch = u.hostname.match(/^([a-z0-9]+)\.sapphire-extension\.invalid$/i);
-						if (hostMatch) {
-							extId = hostMatch[1];
-							pagePath = u.pathname.replace(/^\/+/, "") || "popup.html";
-						}
-					} catch {
-						const m = target.match(/([a-z0-9]+)\.sapphire-extension\.invalid(?:\/(.*))?/i);
-						if (m) {
-							extId = m[1];
-							pagePath = m[2] || "popup.html";
-						}
-					}
 				} else {
 					const match = target.match(/\/~\/sx\/([^/]+)(?:\/(.*))?/);
 					if (match) {
@@ -4911,8 +4320,9 @@ window.addEventListener("load", async () => {
 								if (ok) return;
 							}
 						} catch (mountErr) {
-							console.warn("[loadTabUrl] mountExtensionPage error:", mountErr);
+							console.warn("[loadTabUrl] mountExtensionPage error, falling back to frame.go:", mountErr);
 						}
+						tabObj.frameObj.go(target);
 					}, 0);
 					addHistory(tabObj.title, target);
 					if (win.customState.activeTabId === tabObj.id) {
@@ -4940,17 +4350,11 @@ window.addEventListener("load", async () => {
 			const target = formatUrl(rawUrl || "https://google.com");
 
 			const plugins = [];
-			if (window.sapphire) {
+			if (window.sapphire && window.SapphireContentScriptPlugin) {
 				try {
-					if (typeof window.sapphire.createPlugin === "function") {
-						plugins.push(window.sapphire.createPlugin(tabNumericId));
-					} else if (window.SapphirePlugin) {
-						plugins.push(new window.SapphirePlugin(window.sapphire, tabNumericId));
-					} else if (window.SapphireContentScriptPlugin) {
-						plugins.push(new window.SapphireContentScriptPlugin(window.sapphire, tabNumericId));
-					}
+					plugins.push(new window.SapphireContentScriptPlugin(window.sapphire, tabNumericId));
 				} catch (e) {
-					console.warn("[createTab] Failed to instantiate Sapphire plugin:", e);
+					console.warn("[createTab] Failed to instantiate SapphireContentScriptPlugin:", e);
 				}
 			}
 
@@ -5006,7 +4410,6 @@ window.addEventListener("load", async () => {
 			});
 
 			win.customState.viewportEl.appendChild(tabEl);
-			hookActiveFrame(tabObj);
 			loadTabUrl(tabObj, target);
 			return tabObj;
 		};
@@ -5033,10 +4436,6 @@ window.addEventListener("load", async () => {
 			const activeTab = getActiveTab();
 			if (activeTab) {
 				syncActiveTabUrl(activeTab.url);
-				hookActiveFrame(activeTab);
-				if (!elementsEl.classList.contains("hidden")) {
-					inspectCurrentPage();
-				}
 			}
 			renderTabStrip();
 		};

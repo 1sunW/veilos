@@ -114,11 +114,14 @@
 	"dependencies": {
 		"@google/genai": "^2.15.0",
 		"@mercuryworkshop/bare-mux": "^2.1.7",
+		"@types/jszip": "^3.4.1",
+		"@x8r/sapphire": "^0.1.4",
 		"dom-serializer": "^2.0.0",
 		"domhandler": "^5.0.3",
 		"domutils": "^3.2.2",
 		"htmlparser2": "10.0.0",
 		"idb": "^8.0.3",
+		"jszip": "^3.10.2",
 		"parse-domain": "^8.2.2",
 		"set-cookie-parser": "^2.7.1"
 	}

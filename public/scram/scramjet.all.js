@@ -423,7 +423,7 @@ __webpack_require__.d(__webpack_exports__, {
             tabId: tabIdOrOptions.tabId ?? null
         } : {
             kind: "tab",
-            tabId: tabIdOrOptions
+            tabId: typeof tabIdOrOptions === "number" ? tabIdOrOptions : null
         };
     }
     install(frame) {
@@ -7571,7 +7571,7 @@ function sameWindow(a, b) {
     define("ServiceWorkerGlobalScope", scopeCtor);
     define("WorkerGlobalScope", workerCtor);
     if (!("ExtendableEvent" in win)) {
-        define("ExtendableEvent", class extends win.Event {
+        define("ExtendableEvent", class extends (win.Event || Event) {
             waitUntil(_p) {}
             addRoutes() {
                 return Promise.resolve();
@@ -7692,11 +7692,9 @@ function frameType(frameId) {
     return info.kind === "tab" ? info.tabId : null;
 }
 function onInitPre(s, info, init) {
-    const win = init?.window;
-    if (!win) return;
-    const isTop = Boolean(init?.isTopLevel);
-    const rawUrl = init?.client?.url || win?.__scramjet$client$url || win?.location?.href || "about:blank";
-    const url = String(rawUrl);
+    const win = init.window;
+    const isTop = init.isTopLevel;
+    const url = String(init.client.url);
     const tabId = frameTabId(info);
     const { frameId, parentFrameId } = frameIds(s, tabId, win, isTop);
     const documentId = (0,_realm__rspack_import_3.randomId)(32);
@@ -7768,7 +7766,6 @@ function onInitPre(s, info, init) {
         // Non-configurable but writable in Chrome: assignment is the only way in.
         try {
             win.chrome = ctx.chrome;
-            win.browser = ctx.chrome;
         } catch (e) {
             console.error("[sapphire] could not install chrome on extension page", e);
         }
@@ -7788,13 +7785,11 @@ function onInitPre(s, info, init) {
     });
 }
 function onInitPost(s, info, init) {
-    const win = init?.window;
-    if (!win) return;
-    const isTop = Boolean(init?.isTopLevel);
+    const win = init.window;
+    const isTop = init.isTopLevel;
     const tabId = frameTabId(info);
     const world = (0,_content__rspack_import_2.contentWorldOf)(win);
-    const rawUrl = init?.client?.url || win?.__scramjet$client$url || win?.location?.href || "about:blank";
-    const url = String(rawUrl);
+    const url = String(init.client.url);
     const parsed = (0,_urls__rspack_import_4.parseExtensionUrl)(url);
     if (world && world.doc === win.document) (0,_content__rspack_import_2.startContentScripts)(s, world);
     if (parsed && isTop && (info.kind === "popup" || info.kind === "tab" || info.kind === "sidepanel")) {
@@ -7909,7 +7904,7 @@ function watchLifecycle(s, win, tabId, isTop, url, client) {
             if (!stillCurrent()) return;
             let current;
             try {
-                current = String(client?.url || win?.__scramjet$client$url || win.location?.href || "about:blank");
+                current = String(client.url);
             } catch  {
                 return;
             }
@@ -10728,7 +10723,7 @@ function buildExtensionUrl(extId, path) {
     return `${sapphireExtensionBase(extId)}${path.replace(/^\//, "")}`;
 }
 function chromeExtensionUrl(extId, path) {
-    return `chrome-extension://${extId}/${path.replace(/^\//, "")}`;
+    return `${sapphireExtensionBase(extId)}${path.replace(/^\//, "")}`;
 }
 function resolveExtensionResourcePath(pageDir, ref) {
     if (ref.startsWith("/")) return ref.replace(/^\//, "");
@@ -23156,71 +23151,47 @@ __webpack_require__.d(__webpack_exports__, {
   initSync: () => (initSync)
 });
 let wasm;
+const encoder = new TextEncoder();
 
 class Rewriter {
-	static __wrap(ptr) {
-		ptr = ptr >>> 0;
-		const obj = Object.create(Rewriter.prototype);
-		obj.__wbg_ptr = ptr;
-		return obj;
+	constructor(options) {
+		this.options = options;
 	}
-
-	__destroy_into_raw() {
-		const ptr = this.__wbg_ptr;
-		this.__wbg_ptr = 0;
-		return ptr;
+	free() {}
+	rewrite_html(html, base, cookie_store) {
+		return html;
 	}
-
-	free() {
-		const ptr = this.__destroy_into_raw();
-		if (ptr && wasm && wasm.__wbg_rewriter_free) {
-			wasm.__wbg_rewriter_free(ptr);
-		}
-	}
-
-	constructor(scramjet) {
-		this.scramjet = scramjet;
-		this.__wbg_ptr = 1;
-	}
-
-	rewrite_js(js, base, url, module) {
-		const encoder = new TextEncoder();
+	rewrite_js(input, base, source, module) {
 		return {
-			js: encoder.encode(js),
+			js: typeof input === "string" ? encoder.encode(input) : input,
 			map: null,
 			scramtag: "",
 			errors: []
 		};
 	}
-
-	rewrite_js_bytes(js, base, url, module) {
+	rewrite_js_bytes(input, base, source, module) {
 		return {
-			js: js instanceof Uint8Array ? js : new Uint8Array(js),
+			js: input,
 			map: null,
 			scramtag: "",
 			errors: []
 		};
+	}
+	rewrite_css(css, base) {
+		return css;
 	}
 }
 
-function initSync(module) {
-	if (typeof module === "object" && module !== null && module.module instanceof WebAssembly.Module) {
-		module = module.module;
-	}
-	try {
-		const instance = new WebAssembly.Instance(module, {
-			env: {},
-			wbg: {}
-		});
+function initSync(input) {
+	if (input && input.module) {
+		const instance = new WebAssembly.Instance(input.module, {});
 		wasm = instance.exports;
-		return wasm;
-	} catch (e) {
-		return {};
 	}
+	return wasm;
 }
 
-function init(input) {
-	return Promise.resolve(initSync(input));
+async function init(input) {
+	return initSync(input);
 }
 
 

@@ -531,18 +531,19 @@ function Config() {
 
 window.addEventListener("load", async () => {
 	let loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
-	if (!loadController) {
-		for (let i = 0; i < 30; i++) {
+	let ScramjetController = loadController ? (loadController().ScramjetController || loadController().Controller) : (window.$scramjetController?.Controller || window.$scramjetController?.ScramjetController);
+	if (!ScramjetController) {
+		for (let i = 0; i < 50; i++) {
 			await new Promise((r) => setTimeout(r, 100));
 			loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
-			if (loadController) break;
+			ScramjetController = loadController ? (loadController().ScramjetController || loadController().Controller) : (window.$scramjetController?.Controller || window.$scramjetController?.ScramjetController);
+			if (ScramjetController) break;
 		}
 	}
-	if (!loadController) {
+	if (!ScramjetController) {
 		console.error("Scramjet controller loader ($scramjetLoadController) is not defined.");
 		return;
 	}
-	const { ScramjetController } = loadController();
 
 	const scramjet = new ScramjetController({
 		files: {
