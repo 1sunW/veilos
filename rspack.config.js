@@ -64,7 +64,11 @@ const iifeConfig = defineConfig({
 		iife: true,
 	},
 	plugins: [
-		new TsCheckerRspackPlugin(),
+		new TsCheckerRspackPlugin({
+			issue: {
+				exclude: [{ file: "**/node_modules/**" }],
+			},
+		}),
 		new rspack.ProvidePlugin({
 			dbg: [join(__dirname, "src/log.ts"), "default"],
 		}),
@@ -164,7 +168,11 @@ const moduleConfig = defineConfig({
 		hints: false,
 	},
 	plugins: [
-		new TsCheckerRspackPlugin(),
+		new TsCheckerRspackPlugin({
+			issue: {
+				exclude: [{ file: "**/node_modules/**" }],
+			},
+		}),
 		new rspack.ProvidePlugin({
 			dbg: [join(__dirname, "src/log.ts"), "default"],
 		}),

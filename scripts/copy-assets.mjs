@@ -10,10 +10,14 @@ import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
 import { bareModulePath } from "@mercuryworkshop/bare-as-module3";
 
 import { patchAll } from "./patch-baremux.mjs";
+import { patchSapphire } from "./patch-sapphire.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const outDir = join(root, process.env.OUTPUT_DIR || "public");
+
+// Ensure any upstream quirks in dependencies are patched
+patchSapphire();
 
 // Ensure dist bundle exists before copying
 const distBundle = join(root, "dist", "scramjet.all.js");

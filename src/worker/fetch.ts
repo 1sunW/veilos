@@ -119,6 +119,7 @@ async function getExtensionFileFromIDB(
 			wasm: "application/wasm",
 		};
 		const mime = mimeMap[ext] || "application/octet-stream";
+
 		return { bytes, mime };
 	} catch {
 		return null;
