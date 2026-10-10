@@ -38,7 +38,7 @@ const scramjet = new ScramjetController({
 const connection = new BareMux.BareMuxConnection("/baremux/worker.js");
 var store = (typeof window !== "undefined" && window.store) ||
 	(typeof self !== "undefined" && self.store) ||
-	(typeof store !== "undefined" ? store : { transport: "/epoxy/index.mjs", wispurl: "wss://fern.best/wisp", bareurl: "https://fern.best/bare/" });
+	(typeof store !== "undefined" ? store : { transport: "/epoxy/index.mjs", wispurl: (typeof WISP_URL !== "undefined" ? WISP_URL : ((typeof window !== "undefined" && window.WISP_URL) || "wss://fern.best/wisp/")), bareurl: "https://fern.best/bare/" });
 const flex = css`
 	display: flex;
 `;
@@ -46,7 +46,7 @@ const col = css`
 	flex-direction: column;
 `;
 
-connection.setTransport(store.transport, [{ wisp: store.wispurl }]);
+connection.setTransport(store.transport, [{ wisp: store.wispurl || (typeof WISP_URL !== "undefined" ? WISP_URL : ((typeof window !== "undefined" && window.WISP_URL) || "wss://fern.best/wisp/")) }]);
 
 function PlaygroundApp() {
 	this.css = `

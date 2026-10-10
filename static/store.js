@@ -26,10 +26,7 @@ if (typeof window !== "undefined") {
 }
 
 const getLocalWisp = () => {
-	if (typeof location !== "undefined" && location.host) {
-		return (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wisp/";
-	}
-	return "wss://wisp.mercurywork.shop/";
+	return (typeof WISP_URL !== "undefined" ? WISP_URL : ((typeof window !== "undefined" && window.WISP_URL) || "wss://fern.best/wisp/"));
 };
 
 const getLocalBare = () => {
@@ -41,7 +38,7 @@ const getLocalBare = () => {
 
 const defaultWisp = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.wispurl) ||
 	(typeof window !== "undefined" && window._CONFIG && window._CONFIG.wispurl) ||
-	getLocalWisp();
+	(typeof WISP_URL !== "undefined" ? WISP_URL : "wss://fern.best/wisp/");
 
 const defaultBare = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.bareurl) ||
 	(typeof window !== "undefined" && window._CONFIG && window._CONFIG.bareurl) ||

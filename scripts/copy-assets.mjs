@@ -49,6 +49,31 @@ const copyDir = (src, dest) => {
 // 1. Copy static UI source files (/static) to build output directory
 copyDir(join(root, "static"), outDir);
 
+// 1b. Build and deploy dedicated onyx-chat application if present
+if (existsSync(join(root, "onyx-chat"))) {
+	const onyxDistHtml = join(root, "onyx-chat", "dist", "index.html");
+	if (!existsSync(onyxDistHtml)) {
+		console.log("Compiling Onyx Chat single-file application bundle via Vite...");
+		try {
+			execSync("npx vite build onyx-chat", { cwd: root, stdio: "inherit" });
+		} catch (e) {
+			console.error("Failed to compile Onyx Chat:", e);
+		}
+	}
+	// Copy full onyx-chat tree
+	copyDir(join(root, "onyx-chat"), join(outDir, "onyx-chat"));
+	// Ensure the root of onyx-chat in public and chat.html receive the compiled singlefile build
+	if (existsSync(onyxDistHtml)) {
+		mkdirSync(join(outDir, "onyx-chat"), { recursive: true });
+		cpSync(onyxDistHtml, join(outDir, "onyx-chat", "index.html"));
+		cpSync(onyxDistHtml, join(outDir, "chat.html"));
+		mkdirSync(join(root, "static", "onyx-chat"), { recursive: true });
+		cpSync(onyxDistHtml, join(root, "static", "onyx-chat", "index.html"));
+		cpSync(onyxDistHtml, join(root, "static", "chat.html"));
+		console.log("  ✓ Deployed compiled Onyx Chat to /onyx-chat/index.html and /chat.html");
+	}
+}
+
 // 2. Copy Scramjet compiled client bundle (/scram/scramjet.all.js, scramjet.sync.js, etc.)
 copyDir(join(root, "dist"), join(outDir, "scram"));
 

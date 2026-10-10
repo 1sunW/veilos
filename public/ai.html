@@ -335,7 +335,25 @@
     </div>
   </div>
 
-  <script>
+    const API_BASE = "https://veilos-s-production.up.railway.app";
+    let _apiBaseReachable = null;
+
+    async function safeApiFetch(urlPath, options) {
+      if (API_BASE && _apiBaseReachable !== false) {
+        try {
+          const res = await fetch(`${API_BASE}${urlPath}`, options);
+          if (res.ok) {
+            _apiBaseReachable = true;
+            return res;
+          }
+          _apiBaseReachable = false;
+        } catch (_) {
+          _apiBaseReachable = false;
+        }
+      }
+      return fetch(urlPath, options);
+    }
+
     // Embedded Catalog of All 80+ Supported Models (Instant 0ms Display)
     const STATIC_EMIS_MODELS = [
       {"id":"glm-5.3","object":"model","owned_by":"zai","label":"GLM 5.3","reasoning":true,"tools":true,"vision":false},
@@ -569,7 +587,7 @@
     // Fetch and populate models from server
     async function loadModels() {
       try {
-        const res = await fetch("/api/llm/models");
+        const res = await safeApiFetch(`/api/llm/models`);
         if (res.ok) {
           const json = await res.json();
           if (json && Array.isArray(json.data) && json.data.length > 0) {
@@ -836,7 +854,7 @@
       chatContainer.scrollTop = chatContainer.scrollHeight;
 
       try {
-        const response = await fetch("/api/llm/chat", {
+        const response = await safeApiFetch(`/api/llm/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -1,3 +1,22 @@
+const API_BASE = "https://veilos-s-production.up.railway.app";
+let _apiBaseReachable = null;
+
+async function safeApiFetch(urlPath, options) {
+	if (API_BASE && _apiBaseReachable !== false) {
+		try {
+			const res = await fetch(`${API_BASE}${urlPath}`, options);
+			if (res.ok) {
+				_apiBaseReachable = true;
+				return res;
+			}
+			_apiBaseReachable = false;
+		} catch (_) {
+			_apiBaseReachable = false;
+		}
+	}
+	return fetch(urlPath, options);
+}
+
 // Google tag (gtag.js)
 const script1 = document.createElement('script');
 script1.async = true;
@@ -20,7 +39,7 @@ if (!store) {
 		url: "https://google.com",
 		wispurl: (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.wispurl) ||
 			(typeof window !== "undefined" && window._CONFIG && window._CONFIG.wispurl) ||
-			"wss://fern.best/wisp",
+			(typeof WISP_URL !== "undefined" ? WISP_URL : "wss://fern.best/wisp/"),
 		bareurl: (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.bareurl) ||
 			(typeof window !== "undefined" && window._CONFIG && window._CONFIG.bareurl) ||
 			"https://fern.best/bare/",
@@ -116,7 +135,7 @@ const applyTransport = async (transport, wispurl, bareurl) => {
 			const bUrl = bareurl || store.bareurl || ((typeof location !== "undefined" && location.origin) ? (location.origin + "/bare/") : "/bare/");
 			await connection.setTransport("/baremod/index.mjs", [bUrl]);
 		} else {
-			let targetWisp = wispurl || store.wispurl || ((typeof location !== "undefined" && location.host) ? ((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wisp/") : "wss://wisp.mercurywork.shop/");
+			let targetWisp = wispurl || store.wispurl || (typeof WISP_URL !== "undefined" ? WISP_URL : ((typeof window !== "undefined" && window.WISP_URL) || "wss://fern.best/wisp/"));
 			if (targetWisp && !targetWisp.endsWith("/")) {
 				targetWisp += "/";
 			}
@@ -1041,7 +1060,7 @@ window.addEventListener("load", async () => {
 			category: "Social", 
 			defaultW: 860, 
 			defaultH: 580, 
-			inDock: false 
+			inDock: true 
 		},
 		{ 
 			id: "vault", 
@@ -2728,6 +2747,9 @@ window.addEventListener("load", async () => {
 			const lower = clean.toLowerCase();
 
 			// Normalization for onyx/veil internal URLs and chrome/about aliases
+			if (lower === "onyx://chat" || lower === "veil://chat" || lower === "chrome://chat" || lower === "about:chat" || lower === "onyx:chat" || lower === "veil:chat" || lower === "chrome:chat") {
+				return "onyx://chat";
+			}
 			if (lower === "onyx://bookmarks" || lower === "veil://bookmarks" || lower === "chrome://bookmarks" || lower === "about:bookmarks" || lower === "onyx:bookmarks" || lower === "veil:bookmarks" || lower === "chrome:bookmarks") {
 				return "onyx://bookmarks";
 			}
@@ -2773,6 +2795,7 @@ window.addEventListener("load", async () => {
 
 		const getTitleFromUrl = (urlStr) => {
 			if (!urlStr) return "New Tab";
+			if (urlStr === "veil://chat" || urlStr === "onyx://chat") return "Onyx Chat";
 			if (urlStr === "veil://bookmarks" || urlStr === "onyx://bookmarks") return "Bookmarks";
 			if (urlStr === "veil://history" || urlStr === "onyx://history") return "History";
 			if (urlStr === "veil://extensions" || urlStr === "onyx://extensions") return "Extensions";
@@ -3097,12 +3120,23 @@ window.addEventListener("load", async () => {
 			let currentSection = "bookmarks";
 			if (lower.startsWith("onyx://newtab") || lower.startsWith("onyx://home")) {
 				currentSection = "newtab";
+			} else if (lower.startsWith("onyx://chat")) {
+				currentSection = "chat";
 			} else if (lower.startsWith("onyx://history")) {
 				currentSection = "history";
 			} else if (lower.startsWith("onyx://extensions")) {
 				currentSection = "extensions";
 			} else if (lower.startsWith("onyx://settings")) {
 				currentSection = "settings";
+			}
+
+			// Onyx Chat Full Tab Page
+			if (currentSection === "chat") {
+				const chatFrame = document.createElement("iframe");
+				chatFrame.className = "w-full h-full border-0 outline-none bg-black";
+				chatFrame.src = "/chat.html";
+				container.appendChild(chatFrame);
+				return;
 			}
 
 			// 0. HOME / NEW TAB PAGE (Matching Image 2 exactly)
@@ -3181,6 +3215,25 @@ window.addEventListener("load", async () => {
 
 				homeWrap.appendChild(searchCard);
 
+				// Quick shortcuts below search card
+				const quickNav = document.createElement("div");
+				quickNav.className = "flex flex-wrap items-center justify-center gap-2 pt-1";
+				const quickItems = [
+					{ name: "Onyx Chat", url: "onyx://chat", icon: "💬" },
+					{ name: "Extensions", url: "onyx://extensions", icon: "🧩" },
+					{ name: "Settings", url: "onyx://settings", icon: "⚙️" },
+					{ name: "Bookmarks", url: "onyx://bookmarks", icon: "⭐" },
+					{ name: "History", url: "onyx://history", icon: "🕒" }
+				];
+				quickItems.forEach(item => {
+					const btn = document.createElement("button");
+					btn.className = "px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-xs font-medium text-neutral-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer";
+					btn.innerHTML = `<span>${item.icon}</span><span>${item.name}</span>`;
+					btn.onclick = () => handleNav(item.url);
+					quickNav.appendChild(btn);
+				});
+				homeWrap.appendChild(quickNav);
+
 				homeContainer.appendChild(homeWrap);
 				container.appendChild(homeContainer);
 				return;
@@ -3229,6 +3282,7 @@ window.addEventListener("load", async () => {
 
 			const internalTabs = [
 				{ id: "newtab", url: "onyx://newtab", label: "Home", icon: "🏠" },
+				{ id: "chat", url: "onyx://chat", label: "Chat", icon: "💬" },
 				{ id: "bookmarks", url: "onyx://bookmarks", label: "Bookmarks", icon: "⭐" },
 				{ id: "history", url: "onyx://history", label: "History", icon: "🕒" },
 				{ id: "extensions", url: "onyx://extensions", label: "Extensions", icon: "🧩" },
@@ -3685,7 +3739,7 @@ window.addEventListener("load", async () => {
 							</div>
 						`;
 						try {
-							const res = await fetch(`/api/webstore/search?q=${encodeURIComponent(query || "popular")}`);
+							const res = await safeApiFetch(`/api/webstore/search?q=${encodeURIComponent(query || "popular")}`);
 							if (!res.ok) throw new Error(`Search failed: HTTP ${res.status}`);
 							const data = await res.json();
 							renderSearchResults(data.results || [], query);
@@ -3806,7 +3860,7 @@ window.addEventListener("load", async () => {
 									installBtn.innerHTML = `<span class="animate-spin">⏳</span><span>Downloading...</span>`;
 
 									try {
-										const res = await fetch(`/api/webstore/download?id=${encodeURIComponent(item.id)}`);
+										const res = await safeApiFetch(`/api/webstore/download?id=${encodeURIComponent(item.id)}`);
 										if (!res.ok) {
 											const errJson = await res.json().catch(() => ({}));
 											throw new Error(errJson.error || `Download failed (HTTP ${res.status})`);
@@ -4977,7 +5031,7 @@ window.addEventListener("load", async () => {
 						`;
 
 						try {
-							const res = await fetch(`/api/webstore/search?q=${encodeURIComponent(query || "popular")}`);
+							const res = await safeApiFetch(`/api/webstore/search?q=${encodeURIComponent(query || "popular")}`);
 							if (!res.ok) throw new Error(`HTTP ${res.status}`);
 							const data = await res.json();
 							renderDrawerStoreItems(data.results || []);
@@ -5042,7 +5096,7 @@ window.addEventListener("load", async () => {
 									instBtn.innerHTML = `<span class="animate-spin">⏳</span><span>Installing...</span>`;
 
 									try {
-										const dl = await fetch(`/api/webstore/download?id=${encodeURIComponent(item.id)}`);
+										const dl = await safeApiFetch(`/api/webstore/download?id=${encodeURIComponent(item.id)}`);
 										if (!dl.ok) throw new Error(`Download failed`);
 										let buffer = await dl.arrayBuffer();
 										if (window.normalizeExtensionBuffer) {

@@ -111,6 +111,37 @@ fastify.register(fastifyStatic, {
 	decorateReply: false,
 });
 
+// Onyx Chat application route handlers
+fastify.get("/onyx-chat", async (request, reply) => {
+	const chatDist = existsSync("./public/onyx-chat/index.html")
+		? "./public/onyx-chat/index.html"
+		: (existsSync("./onyx-chat/dist/index.html")
+			? "./onyx-chat/dist/index.html"
+			: "./public/chat.html");
+	if (existsSync(chatDist)) {
+		const html = readFileSync(chatDist, "utf8");
+		return reply.type("text/html; charset=utf-8").send(html);
+	}
+	return reply.redirect("/chat.html");
+});
+
+fastify.get("/onyx-chat/", async (request, reply) => {
+	const chatDist = existsSync("./public/onyx-chat/index.html")
+		? "./public/onyx-chat/index.html"
+		: (existsSync("./onyx-chat/dist/index.html")
+			? "./onyx-chat/dist/index.html"
+			: "./public/chat.html");
+	if (existsSync(chatDist)) {
+		const html = readFileSync(chatDist, "utf8");
+		return reply.type("text/html; charset=utf-8").send(html);
+	}
+	return reply.redirect("/chat.html");
+});
+
+fastify.get("/chat", async (request, reply) => {
+	return reply.redirect("/chat.html");
+});
+
 // Helper to locate data.tsx / data.ts
 function getDataTsPath() {
 	if (existsSync("./data.tsx")) return "./data.tsx";

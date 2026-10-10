@@ -1083,6 +1083,7 @@
     </div>
 
     <script>
+        const WISP_URL = "wss://fern.best/wisp/";
         const splashes = [
             "AARUSH KAMAT KIRKY PROXY TUFF 67 1337 HACKOR!1!!",
             "PROXIED STREAMING VIA SCRAMJET & BAREMUX",
@@ -1271,7 +1272,7 @@
                 }
                 if (window.BareMux) {
                     const conn = new BareMux.BareMuxConnection("/baremux/worker.js");
-                    await conn.setTransport("/baremod/index.mjs", [{ wisp: (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wisp/" }]);
+                    await conn.setTransport("/baremod/index.mjs", [{ wisp: WISP_URL }]);
                 }
                 if (window.$scramjetLoadController) {
                     const { ScramjetController } = window.$scramjetLoadController();

@@ -1376,7 +1376,25 @@
   <span id="toastMsg">Action successful</span>
 </div>
 
-<script>
+const API_BASE = "https://veilos-s-production.up.railway.app";
+let _apiBaseReachable = null;
+
+async function safeApiFetch(urlPath, options) {
+  if (API_BASE && _apiBaseReachable !== false) {
+    try {
+      const res = await fetch(`${API_BASE}${urlPath}`, options);
+      if (res.ok) {
+        _apiBaseReachable = true;
+        return res;
+      }
+      _apiBaseReachable = false;
+    } catch (_) {
+      _apiBaseReachable = false;
+    }
+  }
+  return fetch(urlPath, options);
+}
+
 // State Store
 const state = {
   currentTrack: null,
@@ -1558,7 +1576,7 @@ async function executeSearch(query) {
   artistsGrid.innerHTML = `<div class="state-box"><div class="spinner"></div><p>Searching artists…</p></div>`;
 
   try {
-    const res = await fetch(`/api/music/search?q=${encodeURIComponent(query)}&source=octave`);
+    const res = await safeApiFetch(`/api/music/search?q=${encodeURIComponent(query)}&source=octave`);
     const data = await res.json();
     
     // Render Tracks
@@ -1615,7 +1633,7 @@ async function openAlbumDetail(albumId, fallbackTitle, fallbackArtist, fallbackC
   tracklistEl.innerHTML = `<div class="state-box"><div class="spinner"></div><p>Fetching full album tracklist…</p></div>`;
 
   try {
-    const res = await fetch(`/api/music/album/${encodeURIComponent(albumId)}`);
+    const res = await safeApiFetch(`/api/music/album/${encodeURIComponent(albumId)}`);
     const data = await res.json();
     const album = data.album || {};
     const tracks = (data.tracks || []).map(t => ({ ...t, source: 'octave' }));
@@ -1672,7 +1690,7 @@ async function openArtistDetail(artistId, fallbackName, fallbackPicture) {
   albumsGridEl.innerHTML = `<div class="state-box"><div class="spinner"></div><p>Loading albums…</p></div>`;
 
   try {
-    const res = await fetch(`/api/music/artist/${encodeURIComponent(artistId)}`);
+    const res = await safeApiFetch(`/api/music/artist/${encodeURIComponent(artistId)}`);
     const data = await res.json();
     const artist = data.artist || {};
     const tracks = (data.tracks || []).map(t => ({ ...t, source: 'octave' }));
