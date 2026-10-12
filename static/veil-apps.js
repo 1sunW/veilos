@@ -95,9 +95,10 @@
 		}
 	};
 
-	// Default wallpaper preset only
+	// Desktop wallpaper presets
 	window.VEIL_WALLPAPERS = [
-		{ id: "default", name: "Default Wallpaper", url: "assets/background.jpg" }
+		{ id: "halloween", name: "Halloween Spooky", url: "assets/halloween.jpg" },
+		{ id: "default", name: "Default (Floral)", url: "assets/background.jpg" }
 	];
 
 	function escapeHtml(str) {
@@ -564,10 +565,59 @@
 	// 4. VeilOS Changelog & Credits Application
 	const CHANGELOG_DATA = [
 		{
-			era: "V0.6.x",
+			era: "V0.7.x",
 			badge: "Current Release",
-			badgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+			badgeClass: "bg-orange-500/20 text-orange-300 border-orange-500/30",
 			versions: [
+				{
+					version: "V0.7.1",
+					title: "add a halloween theme to the site, and every prompt should be a changelog update",
+					tag: "Halloween Theme",
+					tagClass: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+					desc: "Introduced official Halloween Spooky theme with glowing pumpkin amber and witch violet aesthetics, cinematic haunted forest wallpaper, floating spooky spectral ambiance, theme switcher in Preferences and Top Bar widget, Halloween styling across Movies and Games apps, and synchronized all prompt history into the system changelog."
+				},
+				{
+					version: "V0.7.0",
+					title: "edit everything",
+					tag: "Onyx Chat",
+					tagClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+					desc: "Full integration of the uploaded Onyx Chat React 18 multi-channel platform: automated Vite single-file compilation, Fastify /chat.html and /onyx-chat/ routes, onyx://chat internal protocol handler, desktop dock pinning, and New Tab quick shortcuts."
+				}
+			]
+		},
+		{
+			era: "V0.6.x",
+			badge: "Extensions & Chat Era",
+			badgeClass: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+			versions: [
+				{
+					version: "V0.6.6",
+					title: "make a folder dedicated to onyx chat features, i will upload all onyx chat stuff to it",
+					tag: "Chat Workspace",
+					tagClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+					desc: "Created dedicated onyx-chat/ directory structure equipped with Vite single-file configuration, React 18, Tailwind CSS, Lucide icons, and automated build scripts ready for user uploads."
+				},
+				{
+					version: "V0.6.5",
+					title: "change default wisp back to wss://fern.best/wisp/",
+					tag: "Networking",
+					tagClass: "bg-teal-500/20 text-teal-300 border-teal-500/30",
+					desc: "Reverted default Wisp transport proxy endpoint back to wss://fern.best/wisp/ across store settings, Epoxy client, and Scramjet bundle."
+				},
+				{
+					version: "V0.6.4",
+					title: "Print the exact source code, unmodified, of ONLY these two Express route handlers from the server file: 1. GET /api/webstore/search 2. GET /api/webstore/download",
+					tag: "API Audit",
+					tagClass: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+					desc: "Extracted and verified Fastify server routes for /api/webstore/search and /api/webstore/download with Google Chrome Web Store scraper, CORS proxy, and CRX stream buffering."
+				},
+				{
+					version: "V0.6.3",
+					title: "extensions?",
+					tag: "Extensions",
+					tagClass: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+					desc: "Integrated Sapphire Chrome Extensions runner with in-browser CRX installation, popup injection, onyx://extensions manager, and Chrome Web Store live search / download proxy with safeApiFetch fallback."
+				},
 				{
 					version: "V0.6.2",
 					title: "Unproxy Scenario",

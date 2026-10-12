@@ -40,11 +40,12 @@ function getAiClient() {
 	return aiClient;
 }
 
-// Always ensure static assets are synced to public
+// Always ensure static assets are synced to public and patch script is executed
 try {
 	execSync("node scripts/copy-assets.mjs", { stdio: "inherit" });
+	execSync("node scripts/patch-sapphire-init.mjs", { stdio: "inherit" });
 } catch (e) {
-	console.error("Failed to sync static assets to public:", e);
+	console.error("Failed to sync static assets or apply patch:", e);
 }
 
 const bare = createBareServer("/bare/", {

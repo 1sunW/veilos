@@ -411,6 +411,10 @@ function Config() {
         </div>
 
         <div class="tab-pills">
+          <button class=${use(this.cfgTab, (t) => t === "theme" ? "active" : "")} on:click=${() => { this.cfgTab = "theme"; }}>
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Theme & Style</span>
+          </button>
           <button class=${use(this.cfgTab, (t) => t === "search" ? "active" : "")} on:click=${() => { this.cfgTab = "search"; }}>
             <i class="fa-solid fa-magnifying-glass"></i>
             <span>Search Engine</span>
@@ -422,7 +426,53 @@ function Config() {
         </div>
 
         ${use(this.cfgTab, (tab) => {
-					if (tab === "search") {
+					if (tab === "theme") {
+						const curTheme = (store.theme || "halloween").toLowerCase();
+						const themesList = [
+							{ id: "halloween", name: "Halloween Spooky", icon: "🎃", wp: "assets/halloween.jpg", accent: "orange", desc: "Haunted twilight forest, amber jack-o'-lanterns, and witch violet ambient glow." },
+							{ id: "default", name: "Midnight Dark", icon: "🌌", wp: "assets/background.jpg", accent: "indigo", desc: "Classic sleek dark mode with high-resolution aesthetic floral wallpaper." },
+							{ id: "cyber", name: "Cyber Matrix", icon: "⚡", wp: "gradient", accent: "emerald", desc: "High-tech emerald neon gradients and terminal aesthetic." },
+							{ id: "crimson", name: "Vampire Crimson", icon: "🩸", wp: "gradient", accent: "rose", desc: "Blood moon gothic deep red and obsidian styling." }
+						];
+						return html`
+              <div class="flex flex-col gap-3 mb-4 animate-fade">
+                <div class="flex items-center justify-between">
+                  <div class="section-title">System Theme & Appearance</div>
+                  <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${curTheme === 'halloween' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' : 'bg-white/10 text-neutral-300'}">
+                    ${curTheme === 'halloween' ? '🎃 Seasonal Active' : 'Active'}
+                  </span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                  ${themesList.map(th => {
+										const isSel = curTheme === th.id;
+										return html`
+                      <button class="p-3 rounded-2xl border text-left flex flex-col gap-1.5 cursor-pointer transition-all ${
+												isSel ? 'selected-item bg-orange-500/15 border-orange-500/50 text-white shadow-lg shadow-orange-950/40' : 'bg-white/5 border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'
+											}"
+                        on:click=${() => {
+													store.theme = th.id;
+													store.wallpaper = th.wp;
+													store.accentColor = th.accent;
+													try { localStorage.setItem("veil_user_theme", th.id); } catch(e){}
+													this.notify("Theme Changed", `Applied ${th.name}`, "fa-solid fa-wand-magic-sparkles");
+													this.windows = [...this.windows];
+													this.cfgTab = "theme";
+												}}>
+                        <div class="flex items-center justify-between">
+                          <div class="flex items-center gap-2">
+                            <span class="text-base">${th.icon}</span>
+                            <span class="text-xs font-bold text-white">${th.name}</span>
+                          </div>
+                          ${isSel ? html`<i class="fa-solid fa-circle-check text-orange-400 text-xs"></i>` : null}
+                        </div>
+                        <p class="text-[11px] text-neutral-400 leading-snug">${th.desc}</p>
+                      </button>
+                    `;
+									})}
+                </div>
+              </div>
+            `;
+					} else if (tab === "search") {
 						const curEng = (store.searchEngine || "duckduckgo").toLowerCase();
 						return html`
               <div class="flex flex-col gap-3 mb-4 animate-fade">
@@ -533,7 +583,7 @@ function Config() {
               <i class="fa-solid fa-scroll text-emerald-400"></i>
               <span>View VeilOS Changelog & Credits</span>
             </div>
-            <span class="text-[10px] text-emerald-400 font-mono">v0.6.2 &rarr;</span>
+            <span class="text-[10px] text-emerald-400 font-mono">v0.7.1 &rarr;</span>
           </button>
 
           <button class="close-btn" on:click=${() => {
@@ -1160,7 +1210,12 @@ window.addEventListener("load", async () => {
 		this.notifications = [];
 		this.soundEffects = (store && store.soundEffects !== undefined) ? store.soundEffects : true;
 		this.desktopWidgetsOpen = (store && store.desktopWidgets !== undefined) ? store.desktopWidgets : true;
-		store.wallpaper = "assets/background.jpg";
+		if (!store.wallpaper || store.wallpaper === "assets/background.jpg") {
+			store.wallpaper = "assets/halloween.jpg";
+		}
+		if (!store.theme) {
+			store.theme = "halloween";
+		}
 		this.batteryLevel = 100;
 		this.isCharging = true;
 		this.pingMs = 12;
@@ -1245,9 +1300,9 @@ window.addEventListener("load", async () => {
 			this.windows = [...this.windows];
 		};
 
-		this.setWallpaper = () => {
-			store.wallpaper = "assets/background.jpg";
-			this.notify("Wallpaper Set", "Desktop appearance set to default", "fa-solid fa-image");
+		this.setWallpaper = (wpUrl) => {
+			store.wallpaper = wpUrl || "assets/halloween.jpg";
+			this.notify("Wallpaper Updated", "Desktop appearance refreshed", "fa-solid fa-image");
 			this.windows = [...this.windows];
 		};
 
@@ -1653,7 +1708,8 @@ window.addEventListener("load", async () => {
 						}
 					}}>
 					${use(this.windows, () => {
-						const wp = (store && store.wallpaper) || "assets/background.jpg";
+						const wp = (store && store.wallpaper) || "assets/halloween.jpg";
+						const isHalloween = (store && store.theme === "halloween");
 						if (wp === "gradient") {
 							return html`<div class="w-full h-full bg-gradient-to-br from-indigo-950 via-neutral-950 to-black"></div>`;
 						}
@@ -1661,8 +1717,19 @@ window.addEventListener("load", async () => {
 							<img 
 								src="${wp}"
 								alt="Desktop Background"
-								onerror="this.src='assets/background.jpg'"
+								onerror="this.src='assets/halloween.jpg'"
 								class="w-full h-full object-cover pointer-events-none select-none" />
+							${isHalloween ? html`
+								<!-- Atmospheric Halloween Floating Particles & Embers Layer -->
+								<div class="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
+									<div class="absolute inset-0 bg-gradient-to-t from-orange-950/25 via-purple-950/15 to-transparent mix-blend-screen pointer-events-none"></div>
+									<div class="absolute w-2.5 h-2.5 rounded-full bg-amber-400/80 blur-[1px] animate-pulse" style="bottom: 22%; left: 18%; box-shadow: 0 0 14px #f97316;"></div>
+									<div class="absolute w-1.5 h-1.5 rounded-full bg-orange-400/70 blur-[1px] animate-ping" style="bottom: 35%; left: 28%; animation-duration: 3s; box-shadow: 0 0 10px #ea580c;"></div>
+									<div class="absolute w-2 h-2 rounded-full bg-amber-300/80 blur-[1px] animate-pulse" style="bottom: 18%; left: 65%; animation-duration: 2.2s; box-shadow: 0 0 12px #f59e0b;"></div>
+									<div class="absolute w-1.5 h-1.5 rounded-full bg-orange-400/70 blur-[1px] animate-pulse" style="bottom: 28%; left: 82%; animation-duration: 2.7s; box-shadow: 0 0 8px #f97316;"></div>
+									<div class="absolute w-2.5 h-2.5 rounded-full bg-purple-400/70 blur-[1px] animate-pulse" style="bottom: 45%; left: 45%; animation-duration: 3.5s; box-shadow: 0 0 14px #a855f7;"></div>
+								</div>
+							` : null}
 						`;
 					})}
 					<div class="absolute inset-0 bg-black/25 pointer-events-none"></div>
@@ -1692,6 +1759,21 @@ window.addEventListener("load", async () => {
 								<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
 								<span>${this.pingMs}ms</span>
 							</div>
+							<div class="w-px h-3.5 bg-white/15"></div>
+							<button class="px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${store.theme === 'halloween' ? 'bg-orange-500/25 text-orange-300 border border-orange-500/40 shadow-[0_0_12px_rgba(249,115,22,0.3)]' : 'bg-white/10 hover:bg-white/20 text-neutral-300'}"
+								on:click=${() => {
+									const isH = store.theme === "halloween";
+									const newT = isH ? "default" : "halloween";
+									store.theme = newT;
+									store.wallpaper = newT === "halloween" ? "assets/halloween.jpg" : "assets/background.jpg";
+									store.accentColor = newT === "halloween" ? "orange" : "indigo";
+									try { localStorage.setItem("veil_user_theme", newT); } catch(e){}
+									this.notify(newT === "halloween" ? "🎃 Spooky Mode Active" : "Default Theme Active", newT === "halloween" ? "Happy Halloween season in VeilOS!" : "Restored classic desktop appearance", "fa-solid fa-ghost");
+									this.windows = [...this.windows];
+								}} title="Toggle Halloween Theme (🎃)">
+								<span>🎃</span>
+								<span class="font-bold text-[10px] uppercase tracking-wider">${store.theme === 'halloween' ? 'Spooky' : 'Halloween'}</span>
+							</button>
 							<div class="w-px h-3.5 bg-white/15"></div>
 							<button class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-white flex items-center gap-1 transition-all cursor-pointer active:scale-95"
 								on:click=${() => this.openSpotlight()} title="Quick Search (⌘K)">
@@ -1836,7 +1918,7 @@ window.addEventListener("load", async () => {
 							</div>
 							<div class="flex flex-col text-left">
 								<span class="font-bold text-white text-[11px]">Changelog & Credits</span>
-								<span class="text-[9px] text-emerald-300/80">v0.6.2 &bull; 60+ updates & attributions</span>
+								<span class="text-[9px] text-emerald-300/80">v0.7.1 &bull; 65+ updates & attributions</span>
 							</div>
 						</div>
 						<i class="fa-solid fa-chevron-right text-[10px] text-emerald-400/60"></i>
@@ -1877,7 +1959,7 @@ window.addEventListener("load", async () => {
 				</div>
 
 				<!-- FLOATING DOCK (Centered Glass Pill at Bottom) -->
-				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-2 bg-black/75 border border-white/15 rounded-3xl shadow-2xl backdrop-blur-2xl text-white max-w-[96vw] overflow-visible transition-all"
+				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-2 ${store.theme === 'halloween' ? 'bg-black/85 border border-orange-500/40 shadow-[0_0_25px_rgba(249,115,22,0.25)]' : 'bg-black/75 border border-white/15 shadow-2xl'} rounded-3xl backdrop-blur-2xl text-white max-w-[96vw] overflow-visible transition-all"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
@@ -1929,6 +2011,23 @@ window.addEventListener("load", async () => {
 							`;
 						})}
 					</div>
+
+					<!-- Halloween Theme Quick Toggle in Dock -->
+					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
+					<button class="w-10 h-10 rounded-2xl ${store.theme === 'halloween' ? 'bg-orange-500/25 text-orange-300 border border-orange-400/50 shadow-[0_0_14px_rgba(249,115,22,0.35)]' : 'bg-white/10 hover:bg-white/20 border border-white/20 text-neutral-300'} active:scale-95 transition-all flex items-center justify-center text-lg cursor-pointer shrink-0 dock-icon-anim"
+						on:click=${(e) => {
+							e.stopPropagation();
+							const isH = store.theme === "halloween";
+							const newT = isH ? "default" : "halloween";
+							store.theme = newT;
+							store.wallpaper = newT === "halloween" ? "assets/halloween.jpg" : "assets/background.jpg";
+							store.accentColor = newT === "halloween" ? "orange" : "indigo";
+							try { localStorage.setItem("veil_user_theme", newT); } catch(err){}
+							this.notify(newT === "halloween" ? "🎃 Spooky Mode Active" : "Default Theme Active", newT === "halloween" ? "Happy Halloween season in VeilOS!" : "Restored classic desktop appearance", "fa-solid fa-ghost");
+							this.windows = [...this.windows];
+						}} title="Toggle Halloween Theme (🎃)">
+						<span>🎃</span>
+					</button>
 
 					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
 
@@ -2383,10 +2482,15 @@ window.addEventListener("load", async () => {
 			win.domEl.style.borderWidth = "1px";
 			win.domEl.style.zIndex = "" + win.zIndex;
 		}
+		const isHalloween = (typeof store !== "undefined" && store.theme === "halloween");
 		if (isFocused) {
-			win.domEl.className = "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl";
+			win.domEl.className = isHalloween
+				? "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-orange-500/40 shadow-[0_12px_40px_rgba(249,115,22,0.25)] bg-[#0c0616]/95 backdrop-blur-2xl"
+				: "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl";
 		} else {
-			win.domEl.className = "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/10 bg-neutral-950/90 backdrop-blur-xl";
+			win.domEl.className = isHalloween
+				? "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-purple-500/20 bg-[#08040f]/90 backdrop-blur-xl"
+				: "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/10 bg-neutral-950/90 backdrop-blur-xl";
 		}
 	}
 
@@ -2401,6 +2505,10 @@ window.addEventListener("load", async () => {
 		}
 
 		const isFocused = win.id === osInstance.activeWinId;
+		const isHalloween = (typeof store !== "undefined" && store.theme === "halloween");
+		const winClass = isFocused
+			? (isHalloween ? 'border-orange-500/40 shadow-[0_12px_40px_rgba(249,115,22,0.25)] bg-[#0c0616]/95 backdrop-blur-2xl' : 'border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl')
+			: (isHalloween ? 'border-purple-500/20 bg-[#08040f]/90 backdrop-blur-xl' : 'border-white/10 bg-neutral-950/90 backdrop-blur-xl');
 		const styleStr = win.isMaximized 
 			? `position: absolute; top:0; left:0; width:100%; height:100%; z-index:${win.zIndex || 100}; display:flex; visibility:${win.isMinimized ? 'hidden' : 'visible'}; opacity:${win.isMinimized ? '0' : '1'}; pointer-events:${win.isMinimized ? 'none' : 'auto'}; border-radius: 0px; border-width: 0px;`
 			: `position: absolute; top:${win.y}px; left:${win.x}px; width:${win.w}px; height:${win.h}px; z-index:${win.zIndex}; display:flex; visibility:${win.isMinimized ? 'hidden' : 'visible'}; opacity:${win.isMinimized ? '0' : '1'}; pointer-events:${win.isMinimized ? 'none' : 'auto'}; border-radius: 1rem; border-width: 1px;`;
@@ -2408,7 +2516,7 @@ window.addEventListener("load", async () => {
 		const contentEl = renderAppContent(win, scramjet, osInstance);
 
 		const winEl = html`
-			<div class="pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 ${isFocused ? 'border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl' : 'border-white/10 bg-neutral-950/90 backdrop-blur-xl'}"
+			<div class="pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 ${winClass}"
 				style=${styleStr}
 				on:mousedown=${(e) => {
 					if (!e.target.closest('button')) {
@@ -3147,15 +3255,28 @@ window.addEventListener("load", async () => {
 				const homeWrap = document.createElement("div");
 				homeWrap.className = "flex flex-col items-center justify-center max-w-xl w-full gap-7";
 
+				const isHalloween = (store && store.theme === "halloween");
+
+				if (isHalloween) {
+					const spookBadge = document.createElement("div");
+					spookBadge.className = "text-xs font-bold uppercase tracking-widest text-orange-400 flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-950/50 border border-orange-500/40 shadow-[0_0_15px_rgba(249,115,22,0.25)]";
+					spookBadge.innerHTML = '<span>🎃</span><span>Halloween Spooky Edition</span><span>🎃</span>';
+					homeWrap.appendChild(spookBadge);
+				}
+
 				// Title: onyx (lowercase bold centered)
 				const titleEl = document.createElement("h1");
-				titleEl.className = "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none";
+				titleEl.className = isHalloween 
+					? "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none drop-shadow-[0_0_25px_rgba(249,115,22,0.35)]" 
+					: "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none";
 				titleEl.textContent = "onyx";
 				homeWrap.appendChild(titleEl);
 
 				// Search card: rounded-full pill with "search here...", engine switcher chip & arrow button
 				const searchCard = document.createElement("div");
-				searchCard.className = "w-full flex items-center bg-[#13141b] border border-white/10 hover:border-white/20 focus-within:border-white/25 rounded-full px-4 py-2.5 gap-3 shadow-2xl transition-all";
+				searchCard.className = isHalloween
+					? "w-full flex items-center bg-[#150a22]/90 border border-orange-500/40 hover:border-orange-500/60 focus-within:border-orange-400 rounded-full px-4 py-2.5 gap-3 shadow-[0_4px_25px_rgba(249,115,22,0.2)] transition-all"
+					: "w-full flex items-center bg-[#13141b] border border-white/10 hover:border-white/20 focus-within:border-white/25 rounded-full px-4 py-2.5 gap-3 shadow-2xl transition-all";
 
 				const searchIcon = document.createElement("span");
 				searchIcon.className = "text-neutral-400 text-sm pl-1";
@@ -4192,6 +4313,64 @@ window.addEventListener("load", async () => {
 			else if (currentSection === "settings") {
 				const settingsWrap = document.createElement("div");
 				settingsWrap.className = "flex flex-col gap-6 max-w-3xl";
+
+				// Section 0: Theme & Aesthetics
+				const themeSec = document.createElement("div");
+				themeSec.className = "p-5 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-4";
+				const curTheme = (store.theme || "halloween").toLowerCase();
+				themeSec.innerHTML = `
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-2.5">
+							<span class="text-lg">🎃</span>
+							<div>
+								<h3 class="text-sm font-bold text-white">Theme & Desktop Style</h3>
+								<p class="text-xs text-neutral-400">Select your active aesthetic theme for VeilOS and Onyx Browser.</p>
+							</div>
+						</div>
+						<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${curTheme === 'halloween' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' : 'bg-white/10 text-neutral-300'}">
+							${curTheme === 'halloween' ? '🎃 Halloween Active' : 'Active'}
+						</span>
+					</div>
+				`;
+				const themesGrid = document.createElement("div");
+				themesGrid.className = "grid grid-cols-1 sm:grid-cols-2 gap-2.5";
+				const themeOptions = [
+					{ id: "halloween", label: "Halloween Spooky", icon: "🎃", wp: "assets/halloween.jpg", accent: "orange", desc: "Haunted twilight forest, glowing jack-o'-lanterns, and witch violet ambient glow." },
+					{ id: "default", label: "Midnight Dark", icon: "🌌", wp: "assets/background.jpg", accent: "indigo", desc: "Classic sleek dark mode with high-resolution floral aesthetic wallpaper." },
+					{ id: "cyber", label: "Cyber Matrix", icon: "⚡", wp: "gradient", accent: "emerald", desc: "High-tech emerald neon gradients and terminal aesthetic." },
+					{ id: "crimson", label: "Vampire Crimson", icon: "🩸", wp: "gradient", accent: "rose", desc: "Blood moon gothic deep red and obsidian styling." }
+				];
+				themeOptions.forEach(th => {
+					const btn = document.createElement("button");
+					const isSel = curTheme === th.id;
+					btn.className = `p-3 rounded-xl border text-left flex flex-col gap-1 cursor-pointer transition-all ${
+						isSel ? 'selected-item bg-orange-500/15 border-orange-500/50 text-white shadow-lg shadow-orange-950/40' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
+					}`;
+					btn.innerHTML = `
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<span>${th.icon}</span>
+								<span class="text-xs font-bold text-white">${th.label}</span>
+							</div>
+							${isSel ? '<span class="text-xs text-orange-400 font-bold">✓</span>' : ''}
+						</div>
+						<p class="text-[10px] text-neutral-400 leading-snug">${th.desc}</p>
+					`;
+					btn.onclick = () => {
+						store.theme = th.id;
+						store.wallpaper = th.wp;
+						store.accentColor = th.accent;
+						try { localStorage.setItem("veil_user_theme", th.id); } catch(e){}
+						if (osInstance && osInstance.notify) {
+							osInstance.notify("Theme Updated", `Switched to ${th.label}`, "fa-solid fa-wand-magic-sparkles");
+							osInstance.windows = [...osInstance.windows];
+						}
+						renderInternalPageView(tabObj, targetUrl);
+					};
+					themesGrid.appendChild(btn);
+				});
+				themeSec.appendChild(themesGrid);
+				settingsWrap.appendChild(themeSec);
 
 				// Section 1: Search Engine
 				const searchSec = document.createElement("div");

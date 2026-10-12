@@ -482,6 +482,10 @@
       <span>Color Theme</span>
       <i data-lucide="sparkles"></i>
     </div>
+    <button class="theme-option-item" onclick="pickTheme('halloween')">
+      <span class="theme-color-preview" style="background: #f97316; box-shadow: 0 0 8px #f97316;"></span>
+      <span>🎃 Halloween Spooky</span>
+    </button>
     <button class="theme-option-item" onclick="pickTheme('default')">
       <span class="theme-color-preview" style="background: #8b5cf6;"></span>
       <span>Cosmic Violet</span>
@@ -1347,6 +1351,15 @@ const root = document.documentElement;
 const themeSelect = document.getElementById('themeSelect');
 
 const themes = {
+  halloween: {
+    "--bg": "#0c0614",
+    "--accent": "#f97316",
+    "--blue": "#a855f7",
+    "--text": "#fff7ed",
+    "--surface": "rgba(249, 115, 22, 0.08)",
+    "--border": "rgba(249, 115, 22, 0.3)",
+    "--glow": "rgba(249, 115, 22, 0.45)"
+  },
   default: {
     "--bg": "#090814",
     "--accent": "#8b5cf6",

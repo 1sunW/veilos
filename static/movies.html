@@ -20,6 +20,21 @@
             font-family: 'Lexend', sans-serif;
         }
 
+        html[data-theme="halloween"] {
+            --bg: #0c0614;
+            --bg-2: #140b22;
+            --bg-3: #1d1033;
+            --bg-4: #291647;
+            --border: rgba(249, 115, 22, 0.35);
+            --border-2: rgba(249, 115, 22, 0.18);
+            --text: #f3f4f6;
+            --text-2: #fed7aa;
+            --bright-text: #ffffff;
+            --accent: #f97316;
+            --accent-2: #ea580c;
+            --accent-glow: rgba(249, 115, 22, 0.25);
+        }
+
         html[data-theme="default"] {
             --bg: #0e001a;
             --bg-2: #0a0a0a;
@@ -1095,7 +1110,7 @@
         const $ = (s) => document.querySelector(s);
 
         const availableThemes = [
-            "default", "blood", "blossom", "crimson", "forest",
+            "halloween", "default", "blood", "blossom", "crimson", "forest",
             "lavendar", "light", "midnight", "monochrome", "ocean", "sunset"
         ];
 

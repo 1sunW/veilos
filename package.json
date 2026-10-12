@@ -9,8 +9,8 @@
 		"url": "https://github.com/MercuryWorkshop/scramjet"
 	},
 	"scripts": {
-		"build": "npx rspack build && node scripts/copy-assets.mjs",
-		"build:static": "node scripts/copy-assets.mjs",
+		"build": "node scripts/patch-sapphire.mjs && npx rspack build && node scripts/copy-assets.mjs",
+		"build:static": "node scripts/patch-sapphire-init.mjs && node scripts/copy-assets.mjs && node scripts/patch-sapphire-init.mjs",
 		"build:types": "rslib build && rm -rf dist/temp",
 		"build:all": "npm run build && npm run build:types",
 		"rewriter:build": "cd rewriter/wasm/ && bash build.sh && cd ../../",

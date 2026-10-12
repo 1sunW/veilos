@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -13,6 +14,9 @@ export function patchSapphire() {
 	}
 
 	console.log("Applying @x8r/sapphire compatibility patches...");
+	try {
+		execSync("node scripts/patch-sapphire-init.mjs", { cwd: root, stdio: "inherit" });
+	} catch (e) {}
 
 	// 1. extensions.ts: line 136 Set typing and 32-letter extension ID preservation
 	const extensionsPath = join(sapphireDir, "extensions.ts");
@@ -149,6 +153,27 @@ export function patchSapphire() {
 				writeFileSync(chromeApiPath, code, "utf8");
 				console.log("  ✓ Patched @x8r/sapphire/src/chromeApi.ts");
 			}
+		}
+	}
+
+	// 6. db.ts: files.ts imports dbGetAllKeysPrefix but db.ts never defines it
+	const dbPath = join(sapphireDir, "db.ts");
+	if (existsSync(dbPath)) {
+		let code = readFileSync(dbPath, "utf8");
+		if (!code.includes("dbGetAllKeysPrefix")) {
+			code += `
+export async function dbGetAllKeysPrefix(store: string, prefix: string): Promise<string[]> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readonly");
+    const req = tx.objectStore(store).getAllKeys(IDBKeyRange.bound(prefix, prefix + "\\uffff"));
+    req.onsuccess = () => resolve((req.result as IDBValidKey[]).map(String));
+    req.onerror = () => reject(req.error);
+  });
+}
+`;
+			writeFileSync(dbPath, code, "utf8");
+			console.log("  ✓ Patched @x8r/sapphire/src/db.ts (added dbGetAllKeysPrefix)");
 		}
 	}
 

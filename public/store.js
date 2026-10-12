@@ -88,8 +88,9 @@ const initialSettings = {
 	history: [
 		{ id: "h1", name: "Google", url: "https://google.com", visitedAt: Date.now() - 3600000 }
 	],
-	wallpaper: "assets/background.jpg",
-	accentColor: "indigo",
+	theme: "halloween",
+	wallpaper: "assets/halloween.jpg",
+	accentColor: "orange",
 	notes: defaultNotes,
 	osUsername: "Veil User",
 	dockPosition: "bottom",
@@ -150,6 +151,15 @@ if (store.showBookmarksBar === undefined) {
 }
 if (!store.history || !Array.isArray(store.history)) {
 	store.history = [];
+}
+if (!store.theme) {
+	store.theme = "halloween";
+}
+if (!store.wallpaper || store.wallpaper === "assets/background.jpg") {
+	store.wallpaper = "assets/halloween.jpg";
+}
+if (!store.accentColor) {
+	store.accentColor = "orange";
 }
 
 // Global Tab Cloak Helper
