@@ -5,7 +5,6 @@ test.describe("YouTube", () => {
 	test("The front page can load.", async ({ page }) => {
 		const frame = await setupPage(page, "https://www.youtube.com/");
 
-		// Wait for the page inside the iframe to load
 
 		const logo = await frame
 			.locator("#logo-icon > span > div")

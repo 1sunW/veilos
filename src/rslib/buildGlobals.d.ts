@@ -1,8 +1,3 @@
-/**
- * @fileoverview
- * Type declarations so that Rslib doesn't complain about missing types.
- * Don't worry; these are handed perfectly fine by Rspack!
- */
 
 declare global {
 	interface GlobalThis {

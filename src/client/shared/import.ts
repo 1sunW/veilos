@@ -20,10 +20,8 @@ export default function (client: ScramjetClient, self: Self) {
 				url.startsWith(".") ||
 				url.startsWith("..")
 			) {
-				// this is a url
 				return boundimport(`${rewriteUrl(resolved, client.meta)}?type=module`);
 			} else {
-				// this is a specifier handled by importmaps
 				return boundimport(url);
 			}
 		},

@@ -76,12 +76,8 @@ function registerRewrites(
 const SCRAMTAG = "/*scramtag ";
 
 function extractTag(fn: string): [string, number, number] | null {
-	// every function rewritten will have a scramtag comment
-	// it will look like this:
-	// function name()[possible whitespace]/*scramtag [index] [tag]*/[possible whitespace]{ ... }
 
 	const start = fn.indexOf(SCRAMTAG);
-	// no scramtag, probably native function or stolen from scramjet
 	if (start === -1) return null;
 
 	const end = fn.indexOf("*/", start);
@@ -122,7 +118,6 @@ function doUnrewrite(client: ScramjetClient, ctx: ProxyCtx) {
 	}
 
 	let i = 0;
-	// skip all rewrites in the file before the fn
 	while (i < rewrites.length) {
 		if (rewrites[i].start < fnStart) i++;
 		else break;
@@ -161,7 +156,6 @@ export const enabled = (client: ScramjetClient) =>
 	flagEnabled("sourcemaps", client.url);
 
 export default function (client: ScramjetClient, self: Self) {
-	// every script will push a sourcemap
 	Object.defineProperty(self, config.globals.pushsourcemapfn, {
 		value: (buf: Array<number>, tag: string) => {
 			const before = performance.now();
@@ -173,13 +167,10 @@ export default function (client: ScramjetClient, self: Self) {
 		configurable: false,
 	});
 
-	// when we rewrite javascript it will make function.toString leak internals
-	// this can lead to double rewrites which is bad
 	client.Proxy("Function.prototype.toString", {
 		apply(ctx) {
 			const before = performance.now();
 			doUnrewrite(client, ctx);
-			// dbg.time(client.meta, before, `scramtag unrewrite for ${ctx.fn.name}`);
 		},
 	});
 }

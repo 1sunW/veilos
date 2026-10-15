@@ -5,7 +5,6 @@ import { config } from "@/shared";
 export default function (client: ScramjetClient, _self: Self) {
 	client.Trap("PerformanceEntry.prototype.name", {
 		get(ctx) {
-			// name is going to be a url typically
 			const name = ctx.get() as string;
 
 			if (name && name.startsWith(location.origin + config.prefix)) {

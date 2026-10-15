@@ -8,24 +8,13 @@ import { ScramjetDB } from "@/types";
 import { IDBPDatabase } from "idb";
 import { openScramjetDB } from "@/shared/db";
 
-// Cache every hour
 const CACHE_DURATION_MINUTES = 60;
 const CACHE_KEY = "publicSuffixList";
 
-/**
- * Gets a connection to the IndexedDB database
- *
- * @returns Resolves to the database connection
- */
 async function getDB(): Promise<IDBPDatabase<ScramjetDB>> {
 	return openScramjetDB();
 }
 
-/**
- * Gets cached Public Suffix List
- *
- * @returns Cached Public Suffix List data if not expired, or `null`
- */
 async function getCachedSuffixList(): Promise<{
 	data: string[];
 	expiry: number;
@@ -42,11 +31,6 @@ async function getCachedSuffixList(): Promise<{
 	}
 }
 
-/**
- * Stores public suffix list
- *
- * @param data Public Suffix list data to cache
- */
 async function setCachedSuffixList(data: string[]): Promise<void> {
 	try {
 		const db = await getDB();
@@ -64,9 +48,6 @@ async function setCachedSuffixList(data: string[]): Promise<void> {
 	}
 }
 
-/**
- * Emulate `Sec-Fetch-Site` header using the referrer (another reason why Force Referrer is now a needed SJ feature)
- */
 export async function getSiteDirective(
 	meta: URLMeta,
 	referrerURL: URL,
@@ -88,20 +69,6 @@ export async function getSiteDirective(
 	return "cross-site";
 }
 
-/**
- * Tests if the two URLs are from the same site.
- * This will be used in the response header rewriter.
- *
- * @see https://developer.mozilla.org/en-US/docs/Glossary/Site
- * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Sec-Fetch-Site#directives
- *
- * @param url1 First URL to compare
- * @param url2 Second URL to compare
- * @param client `BareClient` instance used for fetching
- * @returns Whether the two URLs are from the same site
- *
- * @throws {Error} If an error occurs while getting the Public Suffix List
- */
 export async function isSameSite(
 	url1: URL,
 	url2: URL,
@@ -113,12 +80,6 @@ export async function isSameSite(
 	return registrableDomain1 === registrableDomain2;
 }
 
-/**
- * Gets the registrable domain (eTLD+1) for a URL
- * @param url URL to get registrable domain for
- * @param client `BareClient` instance for fetching public suffix list
- * @returns Registrable domain
- */
 async function getRegistrableDomain(
 	url: URL,
 	client: BareClient
@@ -158,12 +119,6 @@ async function getRegistrableDomain(
 	return labels.slice(-domainLabelCount).join(".");
 }
 
-/**
- * Checks if hostname labels match a suffix pattern
- * @param hostnameLabels Labels of the hostname (split by `.`)
- * @param suffixLabels Labels of the suffix pattern (split by `.`)
- * @returns Whether the hostname matches the suffix
- */
 function matchesSuffix(
 	hostnameLabels: string[],
 	suffixLabels: string[]
@@ -189,17 +144,6 @@ function matchesSuffix(
 	return true;
 }
 
-/**
- * Gets parsed Public Suffix list from the API.
- *
- * Complies with the standard format.
- * @see https://github.com/publicsuffix/list/wiki/Format#format
- *
- * @param {BareClient} client `BareClient` instance used for fetching
- * @returns {Promise<string[]>} Parsed Public Suffix list
- *
- * @throws {Error} If an error occurs while fetching from the Public Suffix List
- */
 export async function getPublicSuffixList(
 	client: BareClient
 ): Promise<string[]> {

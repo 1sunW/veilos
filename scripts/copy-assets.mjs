@@ -16,10 +16,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const outDir = join(root, process.env.OUTPUT_DIR || "public");
 
-// Ensure any upstream quirks in dependencies are patched
 patchSapphire();
 
-// Ensure dist bundle exists before copying
 const distBundle = join(root, "dist", "scramjet.all.js");
 if (!existsSync(distBundle)) {
 	console.log("Compiling Scramjet bundle via Rspack...");
@@ -32,10 +30,8 @@ if (!existsSync(distBundle)) {
 
 console.log(`Copying static client runtime assets to ${outDir}...`);
 
-// Ensure output directory exists
 mkdirSync(outDir, { recursive: true });
 
-// Helper to safely copy directories
 const copyDir = (src, dest) => {
 	if (src && existsSync(src)) {
 		mkdirSync(dest, { recursive: true });
@@ -46,10 +42,8 @@ const copyDir = (src, dest) => {
 	}
 };
 
-// 1. Copy static UI source files (/static) to build output directory
 copyDir(join(root, "static"), outDir);
 
-// 1b. Build and deploy dedicated onyx-chat application if present
 if (existsSync(join(root, "onyx-chat"))) {
 	const onyxDistHtml = join(root, "onyx-chat", "dist", "index.html");
 	if (!existsSync(onyxDistHtml)) {
@@ -60,9 +54,7 @@ if (existsSync(join(root, "onyx-chat"))) {
 			console.error("Failed to compile Onyx Chat:", e);
 		}
 	}
-	// Copy full onyx-chat tree
 	copyDir(join(root, "onyx-chat"), join(outDir, "onyx-chat"));
-	// Ensure the root of onyx-chat in public and chat.html receive the compiled singlefile build
 	if (existsSync(onyxDistHtml)) {
 		mkdirSync(join(outDir, "onyx-chat"), { recursive: true });
 		cpSync(onyxDistHtml, join(outDir, "onyx-chat", "index.html"));
@@ -74,10 +66,8 @@ if (existsSync(join(root, "onyx-chat"))) {
 	}
 }
 
-// 2. Copy Scramjet compiled client bundle (/scram/scramjet.all.js, scramjet.sync.js, etc.)
 copyDir(join(root, "dist"), join(outDir, "scram"));
 
-// Copy scramjet wasm assets
 const scramjetWasmSrc = join(root, "node_modules", "@mercuryworkshop", "scramjet", "dist", "scramjet.wasm");
 if (existsSync(scramjetWasmSrc)) {
 	try {
@@ -95,16 +85,13 @@ if (existsSync(scramjetWasmSrc)) {
 	}
 }
 
-// 3. Copy static asset files (/assets/)
 copyDir(join(root, "assets"), join(outDir, "assets"));
 
-// 4. Copy node_modules client transport runtime libraries
 copyDir(baremuxPath, join(outDir, "baremux"));
 copyDir(epoxyPath, join(outDir, "epoxy"));
 copyDir(libcurlPath, join(outDir, "libcurl"));
 bareModulePath && copyDir(bareModulePath, join(outDir, "baremod"));
 
-// 5. Transpile single data.tsx / data.ts into public/data.js, public/data.ts, and public/data.tsx
 const dataTsPath = existsSync(join(root, "data.tsx"))
 	? join(root, "data.tsx")
 	: (existsSync(join(root, "src", "data.tsx"))
@@ -131,7 +118,6 @@ if (dataTsPath) {
 	}
 }
 
-// 6. Apply DataCloneError & Event serialization patches to client transport bundles
 patchAll();
 
 console.log("Static asset copying complete!");

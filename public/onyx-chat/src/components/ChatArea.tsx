@@ -30,7 +30,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Extract unique candidate usernames from messages for mention autocomplete
   const candidateUsernames = useMemo(() => {
     const list = new Set<string>();
     messages.forEach((m) => {
@@ -39,7 +38,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     return Array.from(list);
   }, [messages]);
 
-  // Check if current input contains a trailing @mention prompt
   const lastAtMatch = inputText.match(/@([a-zA-Z0-9_.-]*)$/);
   const mentionSearchTerm = lastAtMatch ? lastAtMatch[1].toLowerCase() : null;
 
@@ -190,14 +188,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   return (
     <div className="flex-1 flex flex-col bg-[#000000] h-full overflow-hidden">
-      {/* Header */}
       <div className="p-5 px-6 border-b border-[#1c1c21] flex items-center justify-between bg-[#000000] shrink-0">
         <span className="font-bold text-lg text-white lowercase tracking-tight">
           {channelLabel}
         </span>
       </div>
 
-      {/* Messages Feed */}
       <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-4 bg-[#000000]">
         {messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-xs text-[#52525b]">
@@ -318,12 +314,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
       <form
         onSubmit={handleSubmit}
         className="p-4 border-t border-[#1c1c21] flex flex-col gap-2 bg-[#000000] shrink-0 relative"
       >
-        {/* Mention Suggestions Popup */}
         {showMentionSuggestions && matchingUsers.length > 0 && (
           <div className="absolute bottom-full left-4 mb-2 bg-[#141418] border border-[#27272a] rounded-xl shadow-2xl p-1.5 max-h-48 overflow-y-auto z-50 flex flex-col min-w-[200px]">
             <div className="text-[10px] font-bold text-[#71717a] uppercase px-2.5 py-1 tracking-wider">

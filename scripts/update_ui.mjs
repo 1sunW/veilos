@@ -2,7 +2,6 @@ import fs from "fs";
 
 let content = fs.readFileSync("public/ui.js", "utf8");
 
-// 1. Update APPS definitions to include reiconName and updated icon colors/classes
 const oldAppsDef = `	const APPS = [
 		{ id: "browser", name: "Onyx Browser", iconClass: "fa-solid fa-compass", iconColor: "text-sky-400", dockGradient: "from-blue-500 to-indigo-600", desc: "Proxy Web Browser with tabs & search", category: "Internet", defaultW: 980, defaultH: 640 },
 		{ id: "chat", name: "Onyx Chat", iconClass: "fa-solid fa-comments", iconColor: "text-emerald-400", dockGradient: "from-emerald-500 to-teal-600", desc: "Multi-channel community chat room", category: "Social", defaultW: 860, defaultH: 580 },
@@ -30,38 +29,32 @@ if (content.includes(oldAppsDef)) {
   console.warn("Could not find exact APPS definition, checking alternative match...");
 }
 
-// 2. Update Dock Badges to use Reicon icons
-const oldDockBadges = `					<!-- Dock Application Badges (Default 4 Apps) -->
+const oldDockBadges = `					
 					<div class="flex items-center gap-2 shrink-0">
-						<!-- 1. Onyx Browser Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=\${() => this.openApp("browser")} title="Onyx Browser">
 							<i class="fa-solid fa-compass text-lg text-white drop-shadow-md"></i>
 							\${use(this.windows, (winList) => winList.some(w => w.appId === "browser") ? html\`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>\` : null)}
 						</div>
 
-						<!-- 2. Onyx Chat Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=\${() => this.openApp("chat")} title="Onyx Chat">
 							<i class="fa-solid fa-comments text-lg text-white drop-shadow-md"></i>
 							\${use(this.windows, (winList) => winList.some(w => w.appId === "chat") ? html\`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>\` : null)}
 						</div>
 
-						<!-- 3. Scenario Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=\${() => this.openApp("ai")} title="Scenario">
 							<i class="fa-solid fa-wand-magic-sparkles text-lg text-white drop-shadow-md"></i>
 							\${use(this.windows, (winList) => winList.some(w => w.appId === "ai") ? html\`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>\` : null)}
 						</div>
 
-						<!-- 4. SSV Movies Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-600 via-purple-700 to-indigo-800 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=\${() => this.openApp("movies")} title="SSV Movies & TV (Proxied)">
 							<i class="fa-solid fa-film text-lg text-white drop-shadow-md"></i>
 							\${use(this.windows, (winList) => winList.some(w => w.appId === "movies") ? html\`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>\` : null)}
 						</div>
 
-						<!-- Other Running Apps Dynamically Displayed in Bar When Open -->
 						\${use(this.windows, (winList) => {
 							const otherRunning = ["vault", "games", "cloudgaming"].filter(id => winList.some(w => w.appId === id));
 							if (otherRunning.length === 0) return null;
@@ -85,37 +78,32 @@ const oldDockBadges = `					<!-- Dock Application Badges (Default 4 Apps) -->
 							\`;
 						})}`;
 
-const newDockBadges = `					<!-- Dock Application Badges (Default 4 Apps with Reicon Icons) -->
+const newDockBadges = `					
 					<div class="flex items-center gap-2 shrink-0">
-						<!-- 1. Onyx Browser Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-700 to-[#040706] hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-[#35b97a]/40 shadow-[#1f7a4d]/20"
 							on:click=\${() => this.openApp("browser")} title="Onyx Browser">
 							\${window.reicon ? html([window.reicon.toSvg('compass', { size: 20, color: '#35b97a' })]) : html\`<i class="fa-solid fa-compass text-lg text-emerald-400"></i>\`}
 							\${use(this.windows, (winList) => winList.some(w => w.appId === "browser") ? html\`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-[#35b97a] shadow-sm shadow-[#35b97a]"></div>\` : null)}
 						</div>
 
-						<!-- 2. Onyx Chat Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=\${() => this.openApp("chat")} title="Onyx Chat">
 							\${window.reicon ? html([window.reicon.toSvg('chat', { size: 20, color: '#ffffff' })]) : html\`<i class="fa-solid fa-comments text-lg text-white drop-shadow-md"></i>\`}
 							\${use(this.windows, (winList) => winList.some(w => w.appId === "chat") ? html\`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>\` : null)}
 						</div>
 
-						<!-- 3. Scenario Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=\${() => this.openApp("ai")} title="Scenario">
 							\${window.reicon ? html([window.reicon.toSvg('sparkles', { size: 20, color: '#ffffff' })]) : html\`<i class="fa-solid fa-wand-magic-sparkles text-lg text-white drop-shadow-md"></i>\`}
 							\${use(this.windows, (winList) => winList.some(w => w.appId === "ai") ? html\`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>\` : null)}
 						</div>
 
-						<!-- 4. SSV Movies Badge -->
 						<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-600 via-purple-700 to-indigo-800 hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-md shrink-0 border border-white/20"
 							on:click=\${() => this.openApp("movies")} title="SSV Movies & TV (Proxied)">
 							\${window.reicon ? html([window.reicon.toSvg('film', { size: 20, color: '#ffffff' })]) : html\`<i class="fa-solid fa-film text-lg text-white drop-shadow-md"></i>\`}
 							\${use(this.windows, (winList) => winList.some(w => w.appId === "movies") ? html\`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></div>\` : null)}
 						</div>
 
-						<!-- Other Running Apps Dynamically Displayed in Bar When Open (with Reicon Icons) -->
 						\${use(this.windows, (winList) => {
 							const otherRunning = ["vault", "games", "cloudgaming"].filter(id => winList.some(w => w.appId === id));
 							if (otherRunning.length === 0) return null;
@@ -147,7 +135,6 @@ if (content.includes(oldDockBadges)) {
   console.warn("Could not find exact oldDockBadges.");
 }
 
-// 3. Update Lock Screen icons to Reicon
 const oldLockAvatar = `<div class="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center shadow-xl border-2 border-white/30 overflow-hidden">
 										<img src="https://raw.githubusercontent.com/1sunW/ICONS-FOR-LINKS/refs/heads/main/the-veil-icon-1024.png" alt="Veil OS" class="w-full h-full object-cover rounded-full" />
 									</div>`;

@@ -40,7 +40,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onyx
       </div>
 
-      {/* Channels */}
       <div className="text-[0.7rem] font-bold text-[#52525b] uppercase tracking-wider mb-2 pl-2">
         channels
       </div>
@@ -63,7 +62,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </div>
 
-      {/* Direct Messages Header */}
       <div className="flex items-center justify-between mb-2 pl-2">
         <span className="text-[0.7rem] font-bold text-[#52525b] uppercase tracking-wider">
           direct messages
@@ -77,7 +75,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      {/* DM List */}
       <div className="flex flex-col gap-1 mb-5 max-h-[160px] overflow-y-auto pr-1">
         {dms.length === 0 ? (
           <div className="text-[0.75rem] text-[#52525b] pl-2 py-1">no active dms</div>
@@ -106,7 +103,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      {/* User Profile Footer */}
       {currentUser && (
         <div className="mt-auto pt-4 border-t border-[#1c1c21] flex flex-col gap-2">
           <div className="flex items-center justify-between">

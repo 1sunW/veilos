@@ -1,18 +1,8 @@
-# Onyx Chat Features
+# Onyx Chat Client Assets
 
-This directory is dedicated to **Onyx Chat** features, components, scripts, styles, and assets.
+This directory is dedicated to **Onyx Chat** client files.
 
-## Uploading Files
-You can upload your Onyx Chat files directly to this directory:
-- UI pages and templates (e.g. `index.html`, `chat.html`)
-- JavaScript modules, scripts, and components
-- Stylesheets and Tailwind CSS files
-- Media, icons, and chat assets
-- Configuration files
-
-## Serving
-Any static assets placed in `onyx-chat/` or `static/onyx-chat/` will automatically be built and served at:
+Any files added here will automatically sync to `public/onyx-chat/` and be accessible at:
 ```
 /onyx-chat/<filename>
 ```
-For example, if you upload `index.html` here, it can be viewed directly in VeilOS or in the browser at `/onyx-chat/` or `/onyx-chat/index.html`.

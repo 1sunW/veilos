@@ -1,4 +1,3 @@
-// entrypoint for scramjet.client.js
 
 import { loadCodecs, setConfig } from "@/shared/index";
 import { SCRAMJETCLIENT } from "@/symbols";
@@ -27,7 +26,6 @@ function createFrameId() {
 export function loadAndHook(config: ScramjetConfig) {
 	setConfig(config);
 	dbg.log("initializing scramjet client");
-	// if it already exists, that means the handlers have probably already been setup by the parent document
 	if (!(SCRAMJETCLIENT in <Partial<typeof self>>globalThis)) {
 		loadCodecs();
 
@@ -35,7 +33,6 @@ export function loadAndHook(config: ScramjetConfig) {
 		const frame: HTMLIFrameElement =
 			globalThis.frameElement as HTMLIFrameElement;
 		if (frame && !frame.name) {
-			// all frames need to be named for our logic to work
 			frame.name = createFrameId();
 		}
 

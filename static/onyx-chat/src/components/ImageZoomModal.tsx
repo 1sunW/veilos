@@ -20,7 +20,6 @@ export const ImageZoomModal: React.FC<ImageZoomModalProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Reset zoom & pan when opening a new image
   useEffect(() => {
     if (isOpen) {
       setZoomScale(1);
@@ -28,7 +27,6 @@ export const ImageZoomModal: React.FC<ImageZoomModalProps> = ({
     }
   }, [isOpen, imageUrl]);
 
-  // Handle ESC key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -123,7 +121,6 @@ export const ImageZoomModal: React.FC<ImageZoomModalProps> = ({
       className="fixed inset-0 z-[3000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none"
       onClick={onClose}
     >
-      {/* Top Floating Controls */}
       <div
         className="absolute top-5 right-5 z-20 flex items-center gap-2 bg-[#141418]/90 border border-[#27272a] p-2 rounded-2xl shadow-xl backdrop-blur-md"
         onClick={(e) => e.stopPropagation()}
@@ -187,7 +184,6 @@ export const ImageZoomModal: React.FC<ImageZoomModalProps> = ({
         </button>
       </div>
 
-      {/* Main Image Container */}
       <div
         ref={containerRef}
         className="w-full h-full flex items-center justify-center overflow-hidden relative cursor-grab active:cursor-grabbing"
@@ -212,7 +208,6 @@ export const ImageZoomModal: React.FC<ImageZoomModalProps> = ({
         />
       </div>
 
-      {/* Bottom Floating Hint */}
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 bg-[#141418]/80 border border-[#27272a] px-4 py-2 rounded-full text-xs text-[#a1a1aa] pointer-events-none backdrop-blur-md">
         Click image to toggle zoom • Scroll or drag to pan • ESC to exit
       </div>

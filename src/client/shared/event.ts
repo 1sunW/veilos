@@ -11,22 +11,16 @@ export default function (client: ScramjetClient, self: Self) {
 		message: {
 			_init() {
 				if (typeof this.data === "object" && "$scramjet$type" in this.data) {
-					// this is a ctl message
 					return false;
 				}
 
 				return true;
 			},
 			ports() {
-				// don't know why i have to do this?
 				return this.ports;
 			},
 			source() {
 				if (this.source === null) return null;
-
-				// const scram: ScramjetClient = this.source[SCRAMJETCLIENT];
-
-				// if (scram) return scram.globalProxy;
 
 				return this.source;
 			},
@@ -69,7 +63,6 @@ export default function (client: ScramjetClient, self: Self) {
 			apply(target, that, args) {
 				const realEvent: Event = args[0];
 
-				// we only need to handle events dispatched from the browser
 				if (realEvent.isTrusted) {
 					const type = realEvent.type;
 
@@ -184,7 +177,6 @@ export default function (client: ScramjetClient, self: Self) {
 				if (!descriptor.get || !descriptor.set || !descriptor.configurable)
 					continue;
 
-				// these are the `onmessage`, `onclick`, etc. properties
 				client.RawTrap(target, key, {
 					get(ctx) {
 						if (this[realOnEvent]) return this[realOnEvent];

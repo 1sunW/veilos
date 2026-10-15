@@ -8,12 +8,10 @@ export function createLocationProxy(
 	self: typeof globalThis
 ) {
 	const Location = iswindow ? self.Location : self.WorkerLocation;
-	// location cannot be Proxy()d
 	const fakeLocation: any = {};
 	Object.setPrototypeOf(fakeLocation, Location.prototype);
 	fakeLocation.constructor = Location;
 
-	// for some reason it's on the object for Location and on the prototype for WorkerLocation??
 	const descriptorSource = iswindow ? self.location : Location.prototype;
 	const urlprops = [
 		"protocol",
@@ -50,7 +48,6 @@ export function createLocationProxy(
 			desc.set = new Proxy(native.set, {
 				apply(target, that, args) {
 					if (prop === "href") {
-						// special case
 						client.url = args[0];
 
 						return;
@@ -71,7 +68,6 @@ export function createLocationProxy(
 		Object.defineProperty(fakeLocation, prop, desc);
 	}
 
-	// functions
 	fakeLocation.toString = new Proxy(self.location.toString, {
 		apply() {
 			return client.url.href;

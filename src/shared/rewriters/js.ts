@@ -22,7 +22,6 @@ function rewriteJsWasm(
 	try {
 		let out: JsRewriterOutput;
 		const before = performance.now();
-		// try {
 		if (typeof input === "string") {
 			out = rewriter.rewrite_js(
 				input,
@@ -38,17 +37,7 @@ function rewriteJsWasm(
 				module
 			);
 		}
-		// } catch (err) {
-		// 	const err1 = err as Error;
-		// 	console.warn(
-		// 		"failed rewriting js for",
-		// 		source,
-		// 		err1.message,
-		// 		input instanceof Uint8Array ? textDecoder.decode(input) : input
-		// 	);
 
-		// 	return { js: input, tag: "", map: null };
-		// }
 		dbg.time(meta, before, `oxc rewrite for "${source || "(unknown)"}"`);
 
 		const { js, map, scramtag, errors } = out;
@@ -93,7 +82,6 @@ export function rewriteJs(
 				}
 				const sourcemapfn = `${config.globals.pushsourcemapfn}([${res.map.join(",")}], "${res.tag}");`;
 
-				// don't put the sourcemap call before "use strict"
 				const strictMode = /^\s*(['"])use strict\1;?/;
 				if (strictMode.test(newjs)) {
 					newjs = newjs.replace(strictMode, `$&\n${sourcemapfn}`);

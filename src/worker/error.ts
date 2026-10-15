@@ -1,5 +1,4 @@
 export function errorTemplate(trace: string, fetchedURL: string) {
-	// turn script into a data URI so we don"t have to escape any HTML values
 	const script = `
                 errorTrace.value = ${JSON.stringify(trace)};
                 fetchedURL.textContent = ${JSON.stringify(fetchedURL)};
@@ -141,7 +140,6 @@ export function errorTemplate(trace: string, fetchedURL: string) {
                     <div id="inner">
                         <h1 id="errorTitle">Uh oh!</h1>
                         <p>There was an error loading <b id="fetchedURL"></b></p>
-                        <!-- <p id="errorMessage">Internal Server Error</p> -->
 
                         <div id="info">
                             <div id="errorTrace-wrapper">

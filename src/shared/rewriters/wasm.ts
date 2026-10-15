@@ -1,4 +1,3 @@
-// i am a cat. i like to be petted. i like to be fed. i like to be
 import { initSync, Rewriter } from "../../../rewriter/wasm/out/wasm.js";
 import type { JsRewriterOutput } from "../../../rewriter/wasm/out/wasm.js";
 import { codecDecode, codecEncode, config, flagEnabled } from "@/shared";
@@ -20,7 +19,6 @@ if (REWRITERWASM)
 else if (self.WASM)
 	wasm_u8 = Uint8Array.from(atob(self.WASM), (c) => c.charCodeAt(0));
 
-// only use in sw
 export async function asyncSetWasm() {
 	try {
 		const res = await fetch(config.files.wasm);

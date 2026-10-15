@@ -19,7 +19,6 @@ export default function (client: ScramjetClient) {
 				return ctx.return(realwin[SCRAMJETCLIENT].global);
 			} else {
 				const newclient = new ScramjetClient(realwin);
-				// hook the opened window
 				newclient.hook();
 
 				return ctx.return(newclient.global);
@@ -34,10 +33,8 @@ export default function (client: ScramjetClient) {
 
 			const win = f.ownerDocument.defaultView;
 			if (win[SCRAMJETCLIENT]) {
-				// then this is a subframe in a scramjet context, and it's safe to pass back the real iframe
 				return f;
 			} else {
-				// no, the top frame is outside the sandbox
 				return null;
 			}
 		},

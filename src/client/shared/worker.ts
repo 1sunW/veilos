@@ -29,7 +29,6 @@ export default function (client: ScramjetClient, _self: typeof globalThis) {
 		},
 	});
 
-	// sharedworkers can only be constructed from window
 	client.Proxy("SharedWorker", {
 		construct(ctx) {
 			ctx.args[0] = rewriteUrl(ctx.args[0], client.meta) + "?dest=sharedworker";

@@ -28,7 +28,6 @@ export class ScramjetServiceWorkerRuntime {
 	hook() {
 		// @ts-ignore
 		this.client.global.registration = {
-			// TODO IMPLEMENT SCOPES
 			scope: this.client.url.href,
 			active: {
 				scriptURL: this.client.url.href,
@@ -86,7 +85,6 @@ function handleMessage(
 				value: request.destinitation,
 			});
 
-			// TODO: clean up, maybe put into a class
 			const fakeFetchEvent: any = new Event("fetch");
 			fakeFetchEvent.request = fakeRequest;
 			let responded = false;
@@ -159,8 +157,6 @@ type FetchRequestMessage = {
 	scramjet$type: "fetch";
 	scramjet$request: TransferrableRequest;
 };
-
-// r2w = runtime to (service) worker
 
 type MessageTypeR2W = FetchResponseMessage;
 type MessageTypeW2R = FetchRequestMessage;

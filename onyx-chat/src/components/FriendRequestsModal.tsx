@@ -34,7 +34,6 @@ export const FriendRequestsModal: React.FC<FriendRequestsModalProps> = ({
       const senderNameLower = senderUsername.toLowerCase();
       const myNameLower = currentUser.username.toLowerCase();
 
-      // 1. My User Document
       const myRef = doc(db, 'users', currentUser.uid);
       const mySnap = await getDoc(myRef);
       const myData = mySnap.exists() ? mySnap.data() : {};
@@ -58,7 +57,6 @@ export const FriendRequestsModal: React.FC<FriendRequestsModalProps> = ({
       currentUser.friends = updatedMyFriends;
       currentUser.friendRequestsIncoming = updatedMyIncoming;
 
-      // 2. Sender User Document
       const senderFound = await findUserDocByUsername(senderUsername);
       if (senderFound) {
         const senderFriends: string[] = senderFound.data.friends || [];

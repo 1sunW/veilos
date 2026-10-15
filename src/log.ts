@@ -1,4 +1,3 @@
-// import { flagEnabled } from "@/shared";
 import type { URLMeta } from "@rewriters/url";
 
 const logfuncs = {
@@ -14,15 +13,13 @@ export default {
 		const old = Error.prepareStackTrace;
 
 		Error.prepareStackTrace = (_, stack) => {
-			stack.shift(); // stack();
-			stack.shift(); // fmt();
+			stack.shift();
+			stack.shift();
 			stack.shift();
 
 			let fmt = "";
 			for (let i = 1; i < Math.min(2, stack.length); i++) {
 				if (stack[i].getFunctionName()) {
-					// const f = stack[i].getThis()?.constructor?.name;
-					// if (f) fmt += `${f}.`
 					fmt += `${stack[i].getFunctionName()} -> ` + fmt;
 				}
 			}

@@ -62,8 +62,6 @@ export default function (client: ScramjetClient) {
 
 	client.Trap("HTMLElement.prototype.style", {
 		get(ctx) {
-			// unfortunate and dumb hack. we have to trap every property of this
-			// since the prototype chain is fucked
 
 			const style = ctx.get() as CSSStyleDeclaration;
 
@@ -94,7 +92,6 @@ export default function (client: ScramjetClient) {
 			});
 		},
 		set(ctx, value: string) {
-			// this will actually run the trap for cssText. don't rewrite it here
 			ctx.set(value);
 		},
 	});

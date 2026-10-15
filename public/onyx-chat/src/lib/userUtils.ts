@@ -6,21 +6,18 @@ export async function findUserDocByUsername(username: string): Promise<{ id: str
   const clean = username.trim().toLowerCase();
 
   try {
-    // Query 1: lowercase match
     const q1 = query(collection(db, 'users'), where('username', '==', clean));
     const snap1 = await getDocs(q1);
     if (!snap1.empty) {
       return { id: snap1.docs[0].id, data: snap1.docs[0].data() };
     }
 
-    // Query 2: original case match
     const q2 = query(collection(db, 'users'), where('username', '==', username.trim()));
     const snap2 = await getDocs(q2);
     if (!snap2.empty) {
       return { id: snap2.docs[0].id, data: snap2.docs[0].data() };
     }
 
-    // Query 3: scan all users in collection
     const allSnap = await getDocs(collection(db, 'users'));
     for (const docSnap of allSnap.docs) {
       const d = docSnap.data();
@@ -42,9 +39,6 @@ export function sanitizeFlashUrl(rawUrl?: string): string {
   const clean = rawUrl.trim();
   const lower = clean.toLowerCase();
 
-  // Preset shortcuts requested by user:
-  // "1" -> YouTube
-  // "2" -> Twitter / X
   if (lower === '1' || lower === 'youtube' || lower === 'yt') {
     return 'https://www.youtube.com';
   }

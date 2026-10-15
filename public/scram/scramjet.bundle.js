@@ -10912,7 +10912,6 @@ class ScramjetClient {
     global;
     locationProxy;
     serviceWorker;
-    // epoxy: EpoxyClient;
     bare;
     natives;
     descriptors;
@@ -10951,14 +10950,7 @@ class ScramjetClient {
             this.box = new _singletonbox__rspack_import_9.SingletonBox(this);
         }
         this.box.registerClient(this, global);
-        /*
-		initEpoxy().then(() => {
-			let options = new EpoxyClientOptions();
-			options.user_agent = navigator.userAgent;
-			this.epoxy = new EpoxyClient(config.wisp, options);
-		});
-		*/ if (_entry__rspack_import_8.iswindow) {
-            // this.bare = new EpoxyClient();
+        if (_entry__rspack_import_8.iswindow) {
             this.bare = new _mercuryworkshop_bare_mux__rspack_import_10["default"]();
         } else {
             this.bare = new _mercuryworkshop_bare_mux__rspack_import_10["default"](new Promise((resolve)=>{
@@ -11051,10 +11043,8 @@ class ScramjetClient {
                 if (!_entry__rspack_import_8.iswindow) throw new Error("topFrameName was called from a worker?");
                 let currentWin = client.global;
                 if (currentWin.parent.window == currentWin.window) {
-                    // we're top level & we don't have a frame name
                     return null;
                 }
-                // find the topmost frame that's controlled by scramjet, stopping before the real top frame
                 while(currentWin.parent.window !== currentWin.window){
                     if (!currentWin.parent.window[_symbols__rspack_import_0.SCRAMJETCLIENT]) break;
                     currentWin = currentWin.parent.window;
@@ -11062,11 +11052,9 @@ class ScramjetClient {
                 const curclient = currentWin[_symbols__rspack_import_0.SCRAMJETCLIENT];
                 const frame = curclient.descriptors.get("window.frameElement", currentWin);
                 if (!frame) {
-                    // we're inside an iframe, but the top frame is scramjet-controlled and top level, so we can't get a top frame name
                     return null;
                 }
                 if (!frame.name) {
-                    // the top frame is scramjet-controlled, but it has no name. this is user error
                     console.error("YOU NEED TO USE `new ScramjetFrame()`! DIRECT IFRAMES WILL NOT WORK");
                     return null;
                 }
@@ -11075,30 +11063,23 @@ class ScramjetClient {
             get parentFrameName () {
                 if (!_entry__rspack_import_8.iswindow) throw new Error("parentFrameName was called from a worker?");
                 if (client.global.parent.window == client.global.window) {
-                    // we're top level & we don't have a frame name
                     return null;
                 }
                 const parentWin = client.global.parent.window;
                 if (parentWin[_symbols__rspack_import_0.SCRAMJETCLIENT]) {
-                    // we're inside an iframe, and the parent is scramjet-controlled
                     const parentClient = parentWin[_symbols__rspack_import_0.SCRAMJETCLIENT];
                     const frame = parentClient.descriptors.get("window.frameElement", parentWin);
                     if (!frame) {
-                        // parent is scramjet controlled and top-level. there is no parent frame name
                         return null;
                     }
                     if (!frame.name) {
-                        // the parent frame is scramjet-controlled, but it has no name. this is user error
                         console.error("YOU NEED TO USE `new ScramjetFrame()`! DIRECT IFRAMES WILL NOT WORK");
                         return null;
                     }
                     return frame.name;
                 } else {
-                    // we're inside an iframe, and the parent is not scramjet-controlled
-                    // return our own frame name
                     const frame = client.descriptors.get("window.frameElement", client.global);
                     if (!frame.name) {
-                        // the parent frame is not scramjet-controlled, so we can't get a parent frame name
                         console.error("YOU NEED TO USE `new ScramjetFrame()`! DIRECT IFRAMES WILL NOT WORK");
                         return null;
                     }
@@ -11112,15 +11093,14 @@ class ScramjetClient {
     get frame() {
         if (!_entry__rspack_import_8.iswindow) return null;
         const frame = this.descriptors.get("window.frameElement", this.global);
-        if (!frame) return null; // we're top level
+        if (!frame) return null;
         const sframe = frame[_symbols__rspack_import_0.SCRAMJETFRAME];
         if (!sframe) {
-            // we're in a subframe, recurse upward until we find one
             let currentwin = this.global.window;
             while(currentwin.parent !== currentwin){
                 const currentclient = currentwin[_symbols__rspack_import_0.SCRAMJETCLIENT];
                 const currentFrame = currentclient.descriptors.get("window.frameElement", currentwin);
-                if (!currentFrame) return null; // ??
+                if (!currentFrame) return null;
                 if (currentFrame && currentFrame[_symbols__rspack_import_0.SCRAMJETFRAME]) {
                     return currentFrame[_symbols__rspack_import_0.SCRAMJETFRAME];
                 }
@@ -11132,7 +11112,7 @@ class ScramjetClient {
     get isSubframe() {
         if (!_entry__rspack_import_8.iswindow) return false;
         const frame = this.descriptors.get("window.frameElement", this.global);
-        if (!frame) return false; // we're top level
+        if (!frame) return false;
         const sframe = frame[_symbols__rspack_import_0.SCRAMJETFRAME];
         if (!sframe) return true;
         return false;
@@ -11172,9 +11152,6 @@ class ScramjetClient {
         if (ev.defaultPrevented) return;
         this.global.location.href = (0,_rewriters_url__rspack_import_5.rewriteUrl)(ev.url, this.meta);
     }
-    // below are the utilities for proxying and trapping dom APIs
-    // you don't have to understand this it just makes the rest easier
-    // i'll document it eventually
     Proxy(name, handler) {
         if (Array.isArray(name)) {
             for (const n of name){
@@ -11532,8 +11509,6 @@ __webpack_require__.d(__webpack_exports__, {
     });
     client.Trap("HTMLElement.prototype.style", {
         get (ctx) {
-            // unfortunate and dumb hack. we have to trap every property of this
-            // since the prototype chain is fucked
             const style = ctx.get();
             return new Proxy(style, {
                 get (target, prop) {
@@ -11558,7 +11533,6 @@ __webpack_require__.d(__webpack_exports__, {
             });
         },
         set (ctx, value) {
-            // this will actually run the trap for cssText. don't rewrite it here
             ctx.set(value);
         }
     });
@@ -11716,7 +11690,6 @@ function bytesToBase64(bytes) {
             });
         }
     }
-    // note that href is not here
     const urlprops = [
         "protocol",
         "hash",
@@ -11792,7 +11765,7 @@ function bytesToBase64(bytes) {
                 const r = rule[name.toLowerCase()];
                 if (!r) return false;
                 if (r === "*") return true;
-                if (typeof r === "function") return false; // this can't happen but ts
+                if (typeof r === "function") return false;
                 return r.includes(ctx.this.tagName.toLowerCase());
             });
             if (ruleList) {
@@ -11807,7 +11780,6 @@ function bytesToBase64(bytes) {
             }
         }
     });
-    // i actually need to do something with this
     client.Proxy("Element.prototype.setAttributeNode", {
         apply (_ctx) {}
     });
@@ -11818,7 +11790,7 @@ function bytesToBase64(bytes) {
                 const r = rule[name.toLowerCase()];
                 if (!r) return false;
                 if (r === "*") return true;
-                if (typeof r === "function") return false; // this can't happen but ts
+                if (typeof r === "function") return false;
                 return r.includes(ctx.this.tagName.toLowerCase());
             });
             if (ruleList) {
@@ -11827,7 +11799,6 @@ function bytesToBase64(bytes) {
             }
         }
     });
-    // this is separate from the regular href handlers because it returns an SVGAnimatedString
     client.Trap("SVGAnimatedString.prototype.baseVal", {
         get (ctx) {
             const href = ctx.get();
@@ -11894,7 +11865,6 @@ function bytesToBase64(bytes) {
     });
     client.Trap("Node.prototype.textContent", {
         set (ctx, value) {
-            // TODO: box the instanceofs
             if (ctx.this instanceof self.HTMLScriptElement) {
                 const newval = (0,_rewriters_js__rspack_import_3.rewriteJs)(value, "(anonymous script element)", client.meta);
                 client.natives.call("Element.prototype.setAttribute", ctx.this, "scramjet-attr-script-source-src", bytesToBase64(encoder.encode(newval)));
@@ -11996,7 +11966,6 @@ function bytesToBase64(bytes) {
             const realwin = ctx.get();
             if (!realwin) return realwin;
             if (!(_symbols__rspack_import_5.SCRAMJETCLIENT in realwin)) {
-                // hook the iframe before the client can start to steal globals out of it
                 const newclient = new _client_index__rspack_import_6.ScramjetClient(realwin);
                 newclient.hook();
             }
@@ -12027,7 +11996,6 @@ function bytesToBase64(bytes) {
         apply (ctx) {
             const doc = ctx.call();
             if (doc) {
-                // we trap the contentDocument, this is really the scramjet version
                 return ctx.return(ctx.this.contentDocument);
             }
         }
@@ -12134,7 +12102,6 @@ __webpack_require__.d(__webpack_exports__, {
                 return ctx.return(realwin[_symbols__rspack_import_1.SCRAMJETCLIENT].global);
             } else {
                 const newclient = new _client_index__rspack_import_0.ScramjetClient(realwin);
-                // hook the opened window
                 newclient.hook();
                 return ctx.return(newclient.global);
             }
@@ -12146,10 +12113,8 @@ __webpack_require__.d(__webpack_exports__, {
             if (!f) return f;
             const win = f.ownerDocument.defaultView;
             if (win[_symbols__rspack_import_1.SCRAMJETCLIENT]) {
-                // then this is a subframe in a scramjet context, and it's safe to pass back the real iframe
                 return f;
             } else {
-                // no, the top frame is outside the sandbox
                 return null;
             }
         }
@@ -12166,7 +12131,6 @@ __webpack_require__.d(__webpack_exports__, {
 /* export default */ function __rspack_default_export(client, _self) {
     client.Trap("origin", {
         get () {
-            // this isn't right!!
             return client.url.origin;
         },
         set () {
@@ -12213,7 +12177,6 @@ __webpack_require__.d(__webpack_exports__, {
 /* export default */ function __rspack_default_export(client, _self) {
     client.Trap("PerformanceEntry.prototype.name", {
         get (ctx) {
-            // name is going to be a url typically
             const name = ctx.get();
             if (name && name.startsWith(location.origin + _shared__rspack_import_1.config.prefix)) {
                 return (0,_rewriters_url__rspack_import_0.unrewriteUrl)(name);
@@ -12282,7 +12245,6 @@ __webpack_require__.d(__webpack_exports__, {
 /* import */ var _rewriters_url__rspack_import_1 = __webpack_require__("./src/shared/rewriters/url.ts");
 
 
-// we need a late order because we're mangling with addEventListener at a higher level
 const order = 2;
 const enabled = (client)=>(0,_shared__rspack_import_0.flagEnabled)("serviceworkers", client.url);
 function disabled(_client, _self) {
@@ -12293,7 +12255,6 @@ function disabled(_client, _self) {
     client.Proxy("EventTarget.prototype.addEventListener", {
         apply (ctx) {
             if (registrationmap.get(ctx.this)) {
-                // do nothing
                 ctx.return(undefined);
             }
         }
@@ -12301,7 +12262,6 @@ function disabled(_client, _self) {
     client.Proxy("EventTarget.prototype.removeEventListener", {
         apply (ctx) {
             if (registrationmap.get(ctx.this)) {
-                // do nothing
                 ctx.return(undefined);
             }
         }
@@ -12450,7 +12410,6 @@ __webpack_require__.d(__webpack_exports__, {
 /* import */ var _client_events__rspack_import_3 = __webpack_require__("./src/client/events.ts");
 /* import */ var _client_swruntime__rspack_import_4 = __webpack_require__("./src/client/swruntime.ts");
 /* provided dependency */ var dbg = __webpack_require__("./src/log.ts")["default"];
-// entrypoint for scramjet.client.js
 
 
 
@@ -12468,13 +12427,11 @@ function createFrameId() {
 function loadAndHook(config) {
     (0,_shared_index__rspack_import_0.setConfig)(config);
     dbg.log("initializing scramjet client");
-    // if it already exists, that means the handlers have probably already been setup by the parent document
     if (!(_symbols__rspack_import_1.SCRAMJETCLIENT in globalThis)) {
         (0,_shared_index__rspack_import_0.loadCodecs)();
         const client = new _client_index__rspack_import_2.ScramjetClient(globalThis);
         const frame = globalThis.frameElement;
         if (frame && !frame.name) {
-            // all frames need to be named for our logic to work
             frame.name = createFrameId();
         }
         if (globalThis.COOKIE) client.loadcookies(globalThis.COOKIE);
@@ -12502,36 +12459,28 @@ __webpack_require__.d(__webpack_exports__, {
   ScramjetGlobalDownloadEvent: () => (ScramjetGlobalDownloadEvent),
   UrlChangeEvent: () => (UrlChangeEvent)
 });
-/**
- * Event class for proxified download interception.
- */ class ScramjetGlobalDownloadEvent extends Event {
+class ScramjetGlobalDownloadEvent extends Event {
     download;
     type = "download";
     constructor(download){
         super("download"), this.download = download;
     }
 }
-/**
- * Navigation event class fired when Scramjet frame navigates to a new proxified URL.
- */ class NavigateEvent extends Event {
+class NavigateEvent extends Event {
     url;
     type = "navigate";
     constructor(url){
         super("navigate"), this.url = url;
     }
 }
-/**
- * URL change event class fired when the proxified URL changes in a Scramjet frame.
- */ class UrlChangeEvent extends Event {
+class UrlChangeEvent extends Event {
     url;
     type = "urlchange";
     constructor(url){
         super("urlchange"), this.url = url;
     }
 }
-/**
- * Event class fired when Scramjet initializes in a frame.
- */ class ScramjetContextEvent extends Event {
+class ScramjetContextEvent extends Event {
     window;
     client;
     type = "contextInit";
@@ -12604,11 +12553,9 @@ __webpack_require__.d(__webpack_exports__, {
 
 function createLocationProxy(client, self) {
     const Location = _client_entry__rspack_import_2.iswindow ? self.Location : self.WorkerLocation;
-    // location cannot be Proxy()d
     const fakeLocation = {};
     Object.setPrototypeOf(fakeLocation, Location.prototype);
     fakeLocation.constructor = Location;
-    // for some reason it's on the object for Location and on the prototype for WorkerLocation??
     const descriptorSource = _client_entry__rspack_import_2.iswindow ? self.location : Location.prototype;
     const urlprops = [
         "protocol",
@@ -12639,7 +12586,6 @@ function createLocationProxy(client, self) {
             desc.set = new Proxy(native.set, {
                 apply (target, that, args) {
                     if (prop === "href") {
-                        // special case
                         client.url = args[0];
                         return;
                     }
@@ -12657,7 +12603,6 @@ function createLocationProxy(client, self) {
         }
         Object.defineProperty(fakeLocation, prop, desc);
     }
-    // functions
     fakeLocation.toString = new Proxy(self.location.toString, {
         apply () {
             return client.url.href;
@@ -12702,15 +12647,12 @@ __webpack_require__.d(__webpack_exports__, {
 /* export default */ function __rspack_default_export(client) {
     client.Proxy("console.clear", {
         apply (ctx) {
-            // fuck you
             ctx.return(undefined);
         }
     });
     const log = console.log;
     client.Trap("console.log", {
-        set (_ctx, _v) {
-        // is there a legitimate reason to let sites do this?
-        },
+        set (_ctx, _v) {},
         get (_ctx) {
             return log;
         }
@@ -12727,7 +12669,6 @@ __webpack_require__.d(__webpack_exports__, {
 /* import */ var _rewriters_url__rspack_import_0 = __webpack_require__("./src/shared/rewriters/url.ts");
 
 /* export default */ function __rspack_default_export(client) {
-    // hide the origin from object urls from the page
     client.Proxy("URL.createObjectURL", {
         apply (ctx) {
             const url = ctx.call();
@@ -12838,10 +12779,7 @@ __webpack_require__.d(__webpack_exports__, {
   "default": () => (/* export default binding */ __rspack_default_export)
 });
 /* import */ var _client_entry__rspack_import_0 = __webpack_require__("./src/client/entry.ts");
-// delete all chrome specific apis, or apis that are not supported by any browser other than chrome
-// these are not worth emulating and typically cause issues
 
-// type self as any here, most of these are not defined in the types
 /* export default */ function __rspack_default_export(client, self) {
     const del = (name)=>{
         const split = name.split(".");
@@ -12852,13 +12790,9 @@ __webpack_require__.d(__webpack_exports__, {
             delete target[prop];
         } else {}
     };
-    // obviously
-    // del("chrome");
-    // ShapeDetector https://developer.chrome.com/docs/capabilities/shape-detection
     del("BarcodeDetector");
     del("FaceDetector");
     del("TextDetector");
-    // background synchronization api
     if (_client_entry__rspack_import_0.iswindow) {
         del("ServiceWorkerRegistration.prototype.sync");
     }
@@ -12866,19 +12800,15 @@ __webpack_require__.d(__webpack_exports__, {
         del("SyncManager");
         del("SyncEvent");
     }
-    // trustedtypes
     del("TrustedHTML");
     del("TrustedScript");
     del("TrustedScriptURL");
     del("TrustedTypePolicy");
     del("TrustedTypePolicyFactory");
     self.__defineGetter__("trustedTypes", ()=>undefined);
-    // whatever this is
     del("Navigator.prototype.joinAdInterestGroup");
     if (!_client_entry__rspack_import_0.iswindow) return;
-    // DOM specific ones below here
     del("MediaDevices.prototype.setCaptureHandleConfig");
-    // web bluetooth api
     del("Navigator.prototype.bluetooth");
     del("Bluetooth");
     del("BluetoothDevice");
@@ -12886,13 +12816,10 @@ __webpack_require__.d(__webpack_exports__, {
     del("BluetoothRemoteGATTCharacteristic");
     del("BluetoothRemoteGATTDescriptor");
     del("BluetoothUUID");
-    // contact picker api
     del("Navigator.prototype.contacts");
     del("ContactAddress");
     del("ContactManager");
-    // Idle Detection API
     del("IdleDetector");
-    // Presentation API
     del("Navigator.prototype.presentation");
     del("Presentation");
     del("PresentationConnection");
@@ -12902,17 +12829,14 @@ __webpack_require__.d(__webpack_exports__, {
     del("PresentationConnectionAvailableEvent");
     del("PresentationConnectionCloseEvent");
     del("PresentationConnectionList");
-    // Window Controls Overlay API
     del("WindowControlsOverlay");
     del("WindowControlsOverlayGeometryChangeEvent");
     del("Navigator.prototype.windowControlsOverlay");
-    // WebHID API
     del("Navigator.prototype.hid");
     del("HID");
     del("HIDDevice");
     del("HIDConnectionEvent");
     del("HIDInputReportEvent");
-    // Navigation API (not chrome only but it's really annoying to implement)
     del("navigation");
     del("NavigateEvent");
     del("NavigationActivation");
@@ -12940,7 +12864,6 @@ function argdbg(arg, recurse = []) {
             break;
         case "object":
             if (arg && arg[Symbol.iterator] && typeof arg[Symbol.iterator] === "function") for(const prop in arg){
-                // make sure it's not a getter
                 const desc = Object.getOwnPropertyDescriptor(arg, prop);
                 if (desc && desc.get) continue;
                 const ar = arg[prop];
@@ -12965,7 +12888,6 @@ function argdbg(arg, recurse = []) {
         apply (ctx) {
             if (ctx.args[0]) ctx.args[0] = new Proxy(ctx.args[0], {
                 apply (target, that, args) {
-                    // console.warn("CAUGHT PROMISE REJECTION", args);
                     Reflect.apply(target, that, args);
                 }
             });
@@ -12987,14 +12909,12 @@ __webpack_require__.d(__webpack_exports__, {
 
 const enabled = (client)=>(0,_shared__rspack_import_0.flagEnabled)("cleanErrors", client.url);
 /* export default */ function __rspack_default_export(client, _self) {
-    // v8 only. all we need to do is clean the scramjet urls from stack traces
     const closure = (error, stack)=>{
         let newstack = error.stack;
         for(let i = 0; i < stack.length; i++){
             const url = stack[i].getFileName();
             try {
                 if (url.endsWith(_shared__rspack_import_0.config.files.all)) {
-                    // strip stack frames including scramjet handlers from the trace
                     const lines = newstack.split("\n");
                     const line = lines.find((l)=>l.includes(url));
                     lines.splice(line, 1);
@@ -13010,12 +12930,9 @@ const enabled = (client)=>(0,_shared__rspack_import_0.flagEnabled)("cleanErrors"
     };
     client.Trap("Error.prepareStackTrace", {
         get (_ctx) {
-            // this is a funny js quirk. the getter is ran every time you type something in console
             return closure;
         },
-        set (_value) {
-        // just ignore it if a site tries setting their own. not much we can really do
-        }
+        set (_value) {}
     });
 }
 
@@ -13032,8 +12949,6 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 /* export default */ function __rspack_default_export(client, self) {
-    // used for proxying *direct eval*
-    // eval("...") -> eval($scramjet$rewrite("..."))
     Object.defineProperty(self, _shared__rspack_import_0.config.globals.rewritefn, {
         value: function(js) {
             if (typeof js !== "string") return js;
@@ -13045,7 +12960,6 @@ __webpack_require__.d(__webpack_exports__, {
     });
 }
 function indirectEval(strict, js) {
-    // > If the argument of eval() is not a string, eval() returns the argument unchanged
     if (typeof js !== "string") return js;
     let indirection;
     if (this.url.hostname === "accounts.google.com") {
@@ -13079,19 +12993,15 @@ const realOnEvent = Symbol.for("scramjet original onevent function");
         message: {
             _init () {
                 if (typeof this.data === "object" && "$scramjet$type" in this.data) {
-                    // this is a ctl message
                     return false;
                 }
                 return true;
             },
             ports () {
-                // don't know why i have to do this?
                 return this.ports;
             },
             source () {
                 if (this.source === null) return null;
-                // const scram: ScramjetClient = this.source[SCRAMJETCLIENT];
-                // if (scram) return scram.globalProxy;
                 return this.source;
             },
             origin () {
@@ -13127,7 +13037,6 @@ const realOnEvent = Symbol.for("scramjet original onevent function");
         return new Proxy(listener, {
             apply (target, that, args) {
                 const realEvent = args[0];
-                // we only need to handle events dispatched from the browser
                 if (realEvent.isTrusted) {
                     const type = realEvent.type;
                     if (type in handlers) {
@@ -13211,7 +13120,6 @@ const realOnEvent = Symbol.for("scramjet original onevent function");
             if (typeof key === "string" && key.startsWith("on") && handlers[key.slice(2)]) {
                 const descriptor = client.natives.call("Object.getOwnPropertyDescriptor", null, target, key);
                 if (!descriptor.get || !descriptor.set || !descriptor.configurable) continue;
-                // these are the `onmessage`, `onclick`, etc. properties
                 client.RawTrap(target, key, {
                     get (ctx) {
                         if (this[realOnEvent]) return this[realOnEvent];
@@ -13279,10 +13187,8 @@ __webpack_require__.d(__webpack_exports__, {
         value: function(base, url) {
             const resolved = new URL(url, base).href;
             if (url.includes(":") || url.startsWith("/") || url.startsWith(".") || url.startsWith("..")) {
-                // this is a url
                 return boundimport(`${(0,_rewriters_url__rspack_import_1.rewriteUrl)(resolved, client.meta)}?type=module`);
             } else {
-                // this is a specifier handled by importmaps
                 return boundimport(url);
             }
         },
@@ -13367,36 +13273,25 @@ __webpack_require__.d(__webpack_exports__, {
 /* export default */ function __rspack_default_export(client) {
     if (_client_entry__rspack_import_0.iswindow) client.Proxy("window.postMessage", {
         apply (ctx) {
-            // so we need to send the real origin here, since the recieving window can't possibly know.
-            // except, remember that this code is being ran in a different realm than the invoker, so if we ask our `client` it may give us the wrong origin
-            // if we were given any object that came from the real realm we can use that to get the real origin
-            // and this works in every case EXCEPT for the fact that all three arguments can be strings which are copied instead of cloned
-            // so we have to use `$setrealm` which will pollute this with an object from the real realm
             let pollutant;
             if (typeof ctx.args[0] === "object" && ctx.args[0] !== null) {
-                pollutant = ctx.args[0]; // try to use the first object we can find because it's more reliable
+                pollutant = ctx.args[0];
             } else if (typeof ctx.args[2] === "object" && ctx.args[2] !== null) {
-                pollutant = ctx.args[2]; // next try to use transfer
+                pollutant = ctx.args[2];
             } else if (ctx.this && _client_shared_realm__rspack_import_2.POLLUTANT in ctx.this && typeof ctx.this[_client_shared_realm__rspack_import_2.POLLUTANT] === "object" && ctx.this[_client_shared_realm__rspack_import_2.POLLUTANT] !== null) {
-                pollutant = ctx.this[_client_shared_realm__rspack_import_2.POLLUTANT]; // lastly try to use the object from $setrealm
+                pollutant = ctx.this[_client_shared_realm__rspack_import_2.POLLUTANT];
             } else {
-                pollutant = {}; // give up
+                pollutant = {};
             }
-            // and now we can steal Function from the caller's realm
             const { constructor: { constructor: Function } } = pollutant;
-            // invoking stolen function will give us the caller's globalThis, remember scramjet has already proxied it!!!
             const callerGlobalThisProxied = Function("return globalThis")();
             const callerClient = callerGlobalThisProxied[_symbols__rspack_import_1.SCRAMJETCLIENT];
-            // this WOULD be enough but the source argument of MessageEvent has to return the caller's window
-            // and if we just call it normally it would be coming from here, which WILL NOT BE THE CALLER'S because the accessor is from the parent
-            // so with the stolen function we wrap postmessage so the source will truly be the caller's window (remember that function is scramjet's!!!)
             const wrappedPostMessage = Function("...args", "this(...args)");
             ctx.args[0] = {
                 $scramjet$messagetype: "window",
                 $scramjet$origin: callerClient.url.origin,
                 $scramjet$data: ctx.args[0]
             };
-            // * origin because obviously
             if (typeof ctx.args[1] === "string") ctx.args[1] = "*";
             if (typeof ctx.args[1] === "object") ctx.args[1].targetOrigin = "*";
             ctx.return(wrappedPostMessage.call(ctx.fn, ...ctx.args));
@@ -13406,10 +13301,9 @@ __webpack_require__.d(__webpack_exports__, {
         "MessagePort.prototype.postMessage"
     ];
     if (self.Worker) toproxy.push("Worker.prototype.postMessage");
-    if (!_client_entry__rspack_import_0.iswindow) toproxy.push("self.postMessage"); // only do the generic version if we're in a worker
+    if (!_client_entry__rspack_import_0.iswindow) toproxy.push("self.postMessage");
     client.Proxy(toproxy, {
         apply (ctx) {
-            // origin/source doesn't need to be preserved - it's null in the message event
             ctx.args[0] = {
                 $scramjet$messagetype: "worker",
                 $scramjet$data: ctx.args[0]
@@ -13430,12 +13324,8 @@ __webpack_require__.d(__webpack_exports__, {
 
 const POLLUTANT = Symbol.for("scramjet realm pollutant");
 /* export default */ function __rspack_default_export(client, self) {
-    // object.$setrealm({}).postMessage(...)
-    // the empty object is the "pollutant" which can reconstruct the real realm
-    // i explain more in postmessage.ts
     Object.defineProperty(self.Object.prototype, _shared__rspack_import_0.config.globals.setrealmfn, {
         value (pollution) {
-            // this is bad!! sites could detect this
             Object.defineProperty(this, POLLUTANT, {
                 value: pollution,
                 writable: false,
@@ -13560,10 +13450,7 @@ __webpack_require__.d(__webpack_exports__, {
             });
             barews.addEventListener("message", async (ev)=>{
                 let payload = ev.data;
-                if (typeof payload === "string") {
-                // DO NOTHING
-                } else if ("byteLength" in payload) {
-                    // arraybuffer, convert to blob if needed or set the proper prototype
+                if (typeof payload === "string") {} else if ("byteLength" in payload) {
                     if (state.binaryType === "blob") {
                         payload = new Blob([
                             payload
@@ -13572,7 +13459,6 @@ __webpack_require__.d(__webpack_exports__, {
                         Object.setPrototypeOf(payload, ArrayBuffer.prototype);
                     }
                 } else if ("arrayBuffer" in payload) {
-                    // blob, convert to arraybuffer if neccesary.
                     if (state.binaryType === "arraybuffer") {
                         payload = await payload.arrayBuffer();
                         Object.setPrototypeOf(payload, ArrayBuffer.prototype);
@@ -13717,13 +13603,9 @@ __webpack_require__.d(__webpack_exports__, {
                     start (controller) {
                         barews.addEventListener("message", async (ev)=>{
                             let payload = ev.data;
-                            if (typeof payload === "string") {
-                            // DO NOTHING
-                            } else if ("byteLength" in payload) {
-                                // arraybuffer, set the realms prototype so its recognized
+                            if (typeof payload === "string") {} else if ("byteLength" in payload) {
                                 Object.setPrototypeOf(payload, ArrayBuffer.prototype);
                             } else if ("arrayBuffer" in payload) {
-                                // blob, convert to arraybuffer
                                 payload = await payload.arrayBuffer();
                                 Object.setPrototypeOf(payload, ArrayBuffer.prototype);
                             }
@@ -13828,9 +13710,6 @@ __webpack_require__.d(__webpack_exports__, {
                 console.warn("ignoring request - sync xhr disabled in flags");
                 return ctx.return(undefined);
             }
-            // it's a sync request
-            // sync xhr to service worker is not supported
-            // there's a nice way of polyfilling this though, we can spin on an atomic using sharedarraybuffer. this will maintain the sync behavior
             //@ts-ignore
             const sab = new SharedArrayBuffer(1024, {
                 maxByteLength: 2147483647
@@ -13847,7 +13726,7 @@ __webpack_require__.d(__webpack_exports__, {
                 if (performance.now() - now > 1000) {
                     throw new Error("xhr timeout");
                 }
-            /* spin */ }
+            }
             const status = view.getUint16(1);
             const headersLength = view.getUint32(3);
             const headersab = new Uint8Array(headersLength);
@@ -13857,7 +13736,6 @@ __webpack_require__.d(__webpack_exports__, {
             const bodyab = new Uint8Array(bodyLength);
             bodyab.set(new Uint8Array(sab.slice(11 + headersLength, 11 + headersLength + bodyLength)));
             const body = new TextDecoder().decode(bodyab);
-            // these should be using proxies to not leak scram strings but who cares
             client.RawTrap(ctx.this, "status", {
                 get () {
                     return status;
@@ -13894,7 +13772,6 @@ __webpack_require__.d(__webpack_exports__, {
                     };
                 }
             });
-            // send has no return value right
             ctx.return(undefined);
         }
     });
@@ -13988,11 +13865,7 @@ function registerRewrites(client, buf, tag) {
 }
 const SCRAMTAG = "/*scramtag ";
 function extractTag(fn) {
-    // every function rewritten will have a scramtag comment
-    // it will look like this:
-    // function name()[possible whitespace]/*scramtag [index] [tag]*/[possible whitespace]{ ... }
     const start = fn.indexOf(SCRAMTAG);
-    // no scramtag, probably native function or stolen from scramjet
     if (start === -1) return null;
     const end = fn.indexOf("*/", start);
     if (end === -1) {
@@ -14023,7 +13896,6 @@ function doUnrewrite(client, ctx) {
         return ctx.return(stringified);
     }
     let i = 0;
-    // skip all rewrites in the file before the fn
     while(i < rewrites.length){
         if (rewrites[i].start < fnStart) i++;
         else break;
@@ -14053,7 +13925,6 @@ function doUnrewrite(client, ctx) {
 }
 const enabled = (client)=>(0,_shared__rspack_import_0.flagEnabled)("sourcemaps", client.url);
 /* export default */ function __rspack_default_export(client, self) {
-    // every script will push a sourcemap
     Object.defineProperty(self, _shared__rspack_import_0.config.globals.pushsourcemapfn, {
         value: (buf, tag)=>{
             const before = performance.now();
@@ -14064,13 +13935,10 @@ const enabled = (client)=>(0,_shared__rspack_import_0.flagEnabled)("sourcemaps",
         writable: false,
         configurable: false
     });
-    // when we rewrite javascript it will make function.toString leak internals
-    // this can lead to double rewrites which is bad
     client.Proxy("Function.prototype.toString", {
         apply (ctx) {
             const before = performance.now();
             doUnrewrite(client, ctx);
-        // dbg.time(client.meta, before, `scramtag unrewrite for ${ctx.fn.name}`);
         }
     });
 }
@@ -14106,7 +13974,6 @@ __webpack_require__.d(__webpack_exports__, {
             })();
         }
     });
-    // sharedworkers can only be constructed from window
     client.Proxy("SharedWorker", {
         construct (ctx) {
             ctx.args[0] = (0,_rewriters_url__rspack_import_1.rewriteUrl)(ctx.args[0], client.meta) + "?dest=sharedworker";
@@ -14155,7 +14022,6 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 
-// import { argdbg } from "@client/shared/err";
 
 function createWrapFn(client, self) {
     return function(identifier, strict) {
@@ -14164,21 +14030,16 @@ function createWrapFn(client, self) {
         if (_client_entry__rspack_import_0.iswindow) {
             if (identifier === self.parent) {
                 if (_symbols__rspack_import_1.SCRAMJETCLIENT in self.parent) {
-                    // ... then we're in a subframe, and the parent frame is also in a proxy context, so we should return its proxy
                     return self.parent;
                 } else {
-                    // ... then we should pretend we aren't nested and return the current window
                     return self;
                 }
             } else if (identifier === self.top) {
-                // instead of returning top, we need to return the uppermost parent that's inside a scramjet context
                 let current = self;
                 for(;;){
                     const test = current.parent.self;
-                    if (test === current) break; // there is no parent, actual or emulated.
-                    // ... then `test` represents a window outside of the proxy context, and therefore `current` is the topmost window in the proxy context
+                    if (test === current) break;
                     if (!(_symbols__rspack_import_1.SCRAMJETCLIENT in test)) break;
-                    // test is also insde a proxy, so we should continue up the chain
                     current = test;
                 }
                 return current;
@@ -14205,16 +14066,13 @@ const order = 4;
         enumerable: false
     });
     Object.defineProperty(self, _shared__rspack_import_2.config.globals.cleanrestfn, {
-        value: function(obj) {
-        // TODO
-        },
+        value: function(obj) {},
         writable: false,
         configurable: false,
         enumerable: false
     });
     Object.defineProperty(self.Object.prototype, _shared__rspack_import_2.config.globals.wrappropertybase + "location", {
         get: function() {
-            // if (this.location.constructor.toString().includes("Location")) {
             if (this === self || this === self.document) {
                 return client.locationProxy;
             }
@@ -14235,7 +14093,6 @@ const order = 4;
             return client.wrapfn(this.parent, false);
         },
         set (value) {
-            // i guess??
             this.parent = value;
         },
         configurable: false,
@@ -14264,20 +14121,14 @@ const order = 4;
     self.$scramitize = function(v) {
         if (v === location) debugger;
         if (_client_entry__rspack_import_0.iswindow) {
-            // if (v === self.parent) debugger;
             if (v === self.top) debugger;
         }
         if (typeof v === "string" && v.includes("scramjet")) debugger;
         if (typeof v === "string" && v.includes(location.origin)) debugger;
         return v;
     };
-    // location = "..." can't be rewritten as wrapfn(location) = ..., so instead it will actually be rewritten as
-    // ((t)=>$scramjet$tryset(location,"+=",t)||location+=t)(...);
-    // it has to be a discrete function because there's always the possibility that "location" is a local variable
-    // we have to use an IIFE to avoid duplicating side-effects in the getter
     Object.defineProperty(self, _shared__rspack_import_2.config.globals.trysetfn, {
         value: function(lhs, op, rhs) {
-            // TODO: not cross frame safe
             if (lhs instanceof self.Location) {
                 // @ts-ignore
                 client.locationProxy.href = rhs;
@@ -14353,7 +14204,6 @@ class ScramjetServiceWorkerRuntime {
     hook() {
         // @ts-ignore
         this.client.global.registration = {
-            // TODO IMPLEMENT SCOPES
             scope: this.client.url.href,
             active: {
                 scriptURL: this.client.url.href,
@@ -14399,7 +14249,6 @@ function handleMessage(client, data) {
             Object.defineProperty(fakeRequest, "destination", {
                 value: request.destinitation
             });
-            // TODO: clean up, maybe put into a class
             const fakeFetchEvent = new Event("fetch");
             fakeFetchEvent.request = fakeRequest;
             let responded = false;
@@ -14484,9 +14333,7 @@ class ScramjetController extends EventTarget {
     db;
     constructor(config){
         super();
-        // sane ish defaults
         const defaultConfig = {
-            // wisp: "/wisp/",
             prefix: "/scramjet/",
             globals: {
                 wrapfn: "$scramjet$wrap",
@@ -14626,9 +14473,7 @@ __webpack_require__.d(__webpack_exports__, {
 });
 /* import */ var _symbols__rspack_import_0 = __webpack_require__("./src/symbols.ts");
 /* provided dependency */ var dbg = __webpack_require__("./src/log.ts")["default"];
-/**
- * @fileoverview Contains abstractions for using Scrmajet under an iframe.
- */ 
+
 function createFrameId() {
     return `${Array(8).fill(0).map(()=>Math.floor(Math.random() * 36).toString(36)).join("")}`;
 }
@@ -14650,34 +14495,7 @@ class ScramjetHook {
         }
     }
 }
-/**
- * An abstraction over proxy iframe creation, which lets you manage instances of Scramjet and not have to worry about the proxy internals, since everything you need is already proxified.
- *
- * @example
- * ```typescript
- * const { ScramjetController } = $scramjetLoadController();
- * const scramjet = new ScramjetController({ prefix: "/scramjet/" });
- * await scramjet.init();
- *
- * const frame = scramjet.createFrame();
- * document.body.appendChild(frame.frame);
- *
- * // Navigate to a URL
- * frame.go("https://example.com");
- *
- * // Listen for proxified navigation events
- * frame.addEventListener("urlchange", (e) => {
- *   console.log("URL changed to:", e.url);
- * });
- *
- * // Go back
- * frame.back();
- * // Go forward
- * frame.forward();
- * // Reload page
- * frame.reload();
- * ```
- */ class ScramjetFrame extends EventTarget {
+class ScramjetFrame extends EventTarget {
     controller;
     frame;
     options;
@@ -14689,14 +14507,7 @@ class ScramjetHook {
         fetch: new ScramjetHook(),
         error: new ScramjetHook()
     };
-    /**
-	 * Create a ScramjetFrame instance. You likely won't need to interact the {@link ScramjetFrame.constructor | constructor} directly.
-	 * You can instead use {@link ScramjetController.createFrame} on your existing `ScramjetController`.
-	 *
-	 * @param controller The `ScramjetController` instance that manages this frame with.
-	 * @param frame The frame to be controlled for you under Scramjet.
-	 * @param options Configuration options, such as plugins.
-	 */ constructor(controller, frame, options){
+    constructor(controller, frame, options){
         super(), this.controller = controller, this.frame = frame;
         this.options = options || {};
         frame.name = createFrameId();
@@ -14724,76 +14535,31 @@ class ScramjetHook {
         };
         this.frame.addEventListener("load", triggerInitHooks);
     }
-    /**
-	 * Get an installed plugin by name.
-	 */ getPlugin(name) {
+    getPlugin(name) {
         if (!this.options?.plugins) return undefined;
         return this.options.plugins.find((p)=>p?.name === name);
     }
-    /**
-	 * Returns the {@link ScramjetClient} instance running inside the iframe's contentWindow.
-	 *
-	 * @returns The `ScramjetClient` instance.
-	 */ get client() {
+    get client() {
         return this.frame.contentWindow.window[_symbols__rspack_import_0.SCRAMJETCLIENT];
     }
-    /**
-	 * Returns the proxified URL.
-	 *
-	 * @returns The proxified URL.
-	 */ get url() {
+    get url() {
         return this.client.url;
     }
-    /**
-	 * Navigates the iframe to a new URL under Scramjet.
-	 *
-	 * @example
-	 * ```typescript
-	 * frame.go("https://example.net");
-	 * ```
-	 *
-	 * @param url A real URL to navigate to
-	 */ go(url) {
+    go(url) {
         if (url instanceof URL) url = url.toString();
         dbg.log("navigated to", url);
         this.frame.src = this.controller.encodeUrl(url);
     }
-    /**
-	 * Goes backwards in the browser history.
-	 */ back() {
+    back() {
         this.frame.contentWindow?.history.back();
     }
-    /**
-	 * Goes forward in the browser history.
-	 */ forward() {
+    forward() {
         this.frame.contentWindow?.history.forward();
     }
-    /**
-	 * Reloads the iframe.
-	 */ reload() {
+    reload() {
         this.frame.contentWindow?.location.reload();
     }
-    /**
-	 * Binds event listeners to listen for proxified navigation events in Scramjet.
-	 *
-	 * @example
-	 * ```typescript
-	 * // Listen for URL changes
-	 * frame.addEventListener("urlchange", (event) => {
-	 *   console.log("URL changed:", event.url);
-	 *   document.title = event.url; // Update page title
-	 * });
-	 *
-	 * // Listen for navigation events
-	 * frame.addEventListener("navigate", (event) => {
-	 *   console.log("Navigating to:", event.url);
-	 * });
-	 * ```
-	 *
-	 * @param type Type of event to listen for.
-	 * @param listener Event listener to dispatch.
-	 * @param options Options for the event listener.
-	 */ addEventListener(type, listener, options) {
+    addEventListener(type, listener, options) {
         super.addEventListener(type, listener, options);
     }
 }
@@ -14881,7 +14647,6 @@ __webpack_require__.d(__webpack_exports__, {
 /* import */ var jszip__rspack_import_1 = __webpack_require__("./node_modules/jszip/dist/jszip.min.js");
 /* import */ var jszip__rspack_import_1_default = /*#__PURE__*/__webpack_require__.n(jszip__rspack_import_1);
 /* import */ var _x8r_sapphire__rspack_import_2 = __webpack_require__("./node_modules/@x8r/sapphire/src/index.ts");
-/// <reference types="@rspack/core/module" />
 
 
 
@@ -14958,102 +14723,19 @@ async function normalizeExtensionBuffer(buffer, _filename = "extension.zip") {
  * APIs for the main window context, which includes creating Scramjet Frames and the Controller for managing the Scramjet proxy behavior in the SW.
  * @categoryDescription Service Worker Context
  * APIs designed for the service worker context, where the core logic resides. These are the essentials and include the the `ScramjetServiceWorker`.
- */ /**
- * Factory function that creates the `ScramjetController` class.
- *
- * @returns The `ScramjetController` class.
- *
- * @example
- * ```typescript
- * const { ScramjetController } = $scramjetLoadController();
- *
- * const scramjet = new ScramjetController({
- *   prefix: "/scramjet/"
- * });
- *
- * await scramjet.init();
- *
- * const frame = scramjet.createFrame();
- * document.body.appendChild(frame.frame);
- * frame.navigate("https://example.com");
- * ```
- *
- * @category Window Context
  */ function $scramjetLoadController() {
     return __webpack_require__("./src/controller/index.ts");
 }
-/**
- * Factory function that creates the `ScramjetClient` for controlling sandboxing.
- *
- * @returns The `ScramjetClient` class.
- *
- * @example
- * ```typescript
- * const ScramjetClient = $scramjetLoadClient();
- *
- * const scramjetClient = new ScramjetClient.ScramjetClient();
- * ```
- * @category Window Context
- */ function $scramjetLoadClient() {
+function $scramjetLoadClient() {
     return __webpack_require__("./src/client/entry.ts");
 }
-/**
- * Factory function that creates the `ScramjetServiceWorker` class.
- *
- * @returns The `ScramjetServiceWorker` class.
- *
- * Plain SW example
- * @example
- * ```typescript
- * // In your Service Worker
- * const { ScramjetServiceWorker } = $scramjetLoadWorker();
- *
- * const scramjet = new ScramjetServiceWorker();
- *
- * self.addEventListener("fetch", async (ev) => {
- *   await scramjet.loadConfig();
- *
- *   if (scramjet.route(ev)) {
- *     ev.respondWith(scramjet.fetch(ev));
- *   }
- * });
- * ```
- *
- * Workbox-powered SW routing example
- * @example
- * ```typescript
- * // In your Service Worker (ensure you are using a bundler for Workbox)
- * // This is more useful for a webOS or if you have Offline PWA support on your proxy site
- * import { registerRoute } from 'workbox-routing';
- *
- * const { ScramjetServiceWorker } = $scramjetLoadWorker();
- *
- * const scramjet = new ScramjetServiceWorker();
- *
- * registerRoute(
- *   ({ request }) => {
- *     return scramjet.route({ request });
- *   },
- *   async ({ event }) => {
- *     await scramjet.loadConfig();
- *
- *     return scramjet.fetch(event);
- *   }
- * );
- * ```
- *
- * @category Service Worker Context
- */ function $scramjetLoadWorker() {
+function $scramjetLoadWorker() {
     return __webpack_require__("./src/worker/index.ts");
 }
 globalThis.$scramjetRequire = function(path) {
     return __webpack_require__("./src sync recursive")(path);
 };
-/**
- * Version information for the current Scramjet build.
- *
- * @category Window Context
- */ const $scramjetVersion = {
+const $scramjetVersion = {
     build: "unknown",
     version: "2.0.0-alpha"
 };
@@ -15079,7 +14761,6 @@ if ("document" in globalThis && document?.currentScript) {
 
 },
 "./src/global.d.ts"() {
-/// <reference types="@rspack/core/module" />
 
 
 },
@@ -15088,7 +14769,6 @@ __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   "default": () => (__rspack_default_export)
 });
-// import { flagEnabled } from "@/shared";
 const logfuncs = {
     log: console.log,
     warn: console.warn,
@@ -15100,14 +14780,12 @@ const logfuncs = {
     fmt: function(severity, message, ...args) {
         const old = Error.prepareStackTrace;
         Error.prepareStackTrace = (_, stack)=>{
-            stack.shift(); // stack();
-            stack.shift(); // fmt();
+            stack.shift();
+            stack.shift();
             stack.shift();
             let fmt = "";
             for(let i = 1; i < Math.min(2, stack.length); i++){
                 if (stack[i].getFunctionName()) {
-                    // const f = stack[i].getThis()?.constructor?.name;
-                    // if (f) fmt += `${f}.`
                     fmt += `${stack[i].getFunctionName()} -> ` + fmt;
                 }
             }
@@ -15189,9 +14867,7 @@ __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   installSafePostMessage: () => (installSafePostMessage)
 });
-/**
- * Safe postMessage polyfill/patch to prevent DataCloneError across MessagePort, Worker, and Window
- */ function installSafePostMessage() {
+function installSafePostMessage() {
     if (typeof MessagePort === "undefined" || !MessagePort.prototype || !MessagePort.prototype.postMessage) {
         return;
     }
@@ -15261,9 +14937,7 @@ __webpack_require__.d(__webpack_exports__, {
         for (const key of Object.keys(val)){
             try {
                 out[key] = sanitizeValue(val[key], depth + 1, seen);
-            } catch  {
-            // skip problematic keys
-            }
+            } catch  {}
         }
         return out;
     }
@@ -15336,7 +15010,6 @@ __webpack_require__.d(__webpack_exports__, {
         }
     }
 }
-// Auto-run on import
 installSafePostMessage();
 
 
@@ -15348,7 +15021,6 @@ __webpack_require__.d(__webpack_exports__, {
 });
 /* import */ var set_cookie_parser__rspack_import_0 = __webpack_require__("./node_modules/set-cookie-parser/lib/set-cookie.js");
 /* import */ var set_cookie_parser__rspack_import_0_default = /*#__PURE__*/__webpack_require__.n(set_cookie_parser__rspack_import_0);
-// thnank you node unblocker guy
 
 class CookieStore {
     cookies = {};
@@ -15461,7 +15133,6 @@ const htmlRules = [
         fn: (value, meta)=>{
             return (0,_rewriters_url__rspack_import_2.rewriteUrl)(value, meta);
         },
-        // url rewrites
         src: [
             "embed",
             "script",
@@ -15500,8 +15171,6 @@ const htmlRules = [
     {
         fn: (value, meta)=>{
             const url = (0,_rewriters_url__rspack_import_2.rewriteUrl)(value, meta);
-            // if (meta.topFrameName)
-            // 	url += `?topFrame=${meta.topFrameName}&parentFrame=${meta.parentFrameName}`;
             return url;
         },
         src: [
@@ -15509,7 +15178,6 @@ const htmlRules = [
         ]
     },
     {
-        // is this a good idea?
         fn: (value, meta)=>{
             return null;
         },
@@ -15520,8 +15188,6 @@ const htmlRules = [
     {
         fn: (value, meta)=>{
             if (value.startsWith("blob:")) {
-                // for media elements specifically they must take the original blob
-                // because they can't be fetch'd
                 return (0,_rewriters_url__rspack_import_2.unrewriteBlob)(value);
             }
             return (0,_rewriters_url__rspack_import_2.rewriteUrl)(value, meta);
@@ -15540,7 +15206,6 @@ const htmlRules = [
     },
     {
         fn: ()=>null,
-        // csp stuff that must be deleted
         nonce: "*",
         csp: [
             "iframe"
@@ -15551,7 +15216,6 @@ const htmlRules = [
     },
     {
         fn: (value, meta)=>(0,_rewriters_html__rspack_import_1.rewriteSrcset)(value, meta),
-        // srcset
         srcset: [
             "img",
             "source"
@@ -15562,11 +15226,9 @@ const htmlRules = [
     },
     {
         fn: (value, meta, cookieStore)=>(0,_rewriters_html__rspack_import_1.rewriteHtml)(value, cookieStore, {
-                // for srcdoc origin is the origin of the page that the iframe is on. base and path get dropped
                 origin: new URL(meta.origin.origin),
                 base: new URL(meta.origin.origin)
             }, true),
-        // srcdoc
         srcdoc: [
             "iframe"
         ]
@@ -15726,7 +15388,6 @@ function unrewriteCss(css) {
     return handleCss("unrewrite", css);
 }
 function handleCss(type, css, meta) {
-    // regex from vk6 (https://github.com/ading2210)
     const urlRegex = /url\(['"]?(.+?)['"]?\)/gm;
     const Atruleregex = /@import\s+(url\s*?\(.{0,9999}?\)|['"].{0,9999}?['"]|.{0,9999}?)($|\s|;)/gm;
     css = new String(css).toString();
@@ -15757,9 +15418,7 @@ __webpack_require__.d(__webpack_exports__, {
 /* import */ var _shared_security_siteTests__rspack_import_1 = __webpack_require__("./src/shared/security/siteTests.ts");
 
 
-/**
- * Headers for security policy features that haven't been emulated yet
- */ const SEC_HEADERS = new Set([
+const SEC_HEADERS = new Set([
     "cross-origin-embedder-policy",
     "cross-origin-opener-policy",
     "cross-origin-resource-policy",
@@ -15776,13 +15435,9 @@ __webpack_require__.d(__webpack_exports__, {
     "x-permitted-cross-domain-policies",
     "x-powered-by",
     "x-xss-protection",
-    // This needs to be emulated, but for right now it isn't that important of a feature to be worried about
-    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Clear-Site-Data
     "clear-site-data"
 ]);
-/**
- * Headers that are actually URLs that need to be rewritten
- */ const URL_HEADERS = new Set([
+const URL_HEADERS = new Set([
     "location",
     "content-location",
     "referer"
@@ -15790,13 +15445,7 @@ __webpack_require__.d(__webpack_exports__, {
 function rewriteLinkHeader(link, meta) {
     return link.replace(/<(.*)>/gi, (match)=>(0,_rewriters_url__rspack_import_0.rewriteUrl)(match, meta));
 }
-/**
- * Rewrites response headers
- * @param rawHeaders Headers before they were rewritten
- * @param meta Parsed Proxy URL
- * @param client `BareClient` instance used for fetching
- * @param isNavigationRequest Whether the request is a navigation request
- */ async function rewriteHeaders(rawHeaders, meta, client, storedReferrerPolicies) {
+async function rewriteHeaders(rawHeaders, meta, client, storedReferrerPolicies) {
     const headers = {};
     for(const key in rawHeaders){
         headers[key.toLowerCase()] = rawHeaders[key];
@@ -15812,7 +15461,6 @@ function rewriteLinkHeader(link, meta) {
     } else if (Array.isArray(headers["link"])) {
         headers["link"] = headers["link"].map((link)=>rewriteLinkHeader(link, meta));
     }
-    // Emulate the referrer policy to set it back to what it should've been without Force Referrer in place
     if (typeof headers["referer"] === "string") {
         const referrerUrl = new URL(headers["referer"]);
         const storedPolicyData = await storedReferrerPolicies.get(referrerUrl.href);
@@ -15901,7 +15549,6 @@ function getInjectScripts(cookieStore, script) {
 			document.currentScript.remove();
 		}
 	`;
-    // for compatibility purpose
     const base64Injected = bytesToBase64(encoder.encode(injected));
     return [
         script(_shared__rspack_import_6.config.files.wasm),
@@ -15949,10 +15596,6 @@ function rewriteHtml(html, cookieStore, meta, fromTop = false) {
     dbg.time(meta, before, "html rewrite");
     return ret;
 }
-// type ParseState = {
-// 	base: string;
-// 	origin?: URL;
-// };
 function unrewriteHtml(html) {
     const handler = new domhandler__rspack_import_1.DomHandler((err, dom)=>dom);
     const parser = new htmlparser2__rspack_import_0.Parser(handler);
@@ -15982,7 +15625,6 @@ function unrewriteHtml(html) {
         decodeEntities: false
     });
 }
-// i need to add the attributes in during rewriting
 function traverseParsedHtml(node, cookieStore, meta) {
     if (node.name === "base" && node.attribs.href !== undefined) {
         meta.base = new URL(node.attribs.href, meta.origin);
@@ -16042,7 +15684,6 @@ function traverseParsedHtml(node, cookieStore, meta) {
     }
     if (node.name === "meta" && node.attribs["http-equiv"] !== undefined) {
         if (node.attribs["http-equiv"].toLowerCase() === "content-security-policy") {
-            // just delete it. this needs to be emulated eventually but like
             node = new domhandler__rspack_import_1.Comment(node.attribs.content);
         } else if (node.attribs["http-equiv"] === "refresh" && node.attribs.content.includes("url")) {
             const contentArray = node.attribs.content.split("url=");
@@ -16060,19 +15701,12 @@ function traverseParsedHtml(node, cookieStore, meta) {
 function rewriteSrcset(srcset, meta) {
     const sources = srcset.split(/ .*,/).map((src)=>src.trim());
     const rewrittenSources = sources.map((source)=>{
-        // Split into URLs and descriptors (if any)
-        // e.g. url0, url1 1.5x, url2 2x
         const [url, ...descriptors] = source.split(/\s+/);
-        // Rewrite the URLs and keep the descriptors (if any)
         const rewrittenUrl = (0,_rewriters_url__rspack_import_3.rewriteUrl)(url.trim(), meta);
         return descriptors.length > 0 ? `${rewrittenUrl} ${descriptors.join(" ")}` : rewrittenUrl;
     });
     return rewrittenSources.join(", ");
 }
-// function base64ToBytes(base64) {
-// 	const binString = atob(base64);
-// 	return Uint8Array.from(binString, (m) => m.codePointAt(0));
-// }
 function bytesToBase64(bytes) {
     const binString = Array.from(bytes, (byte)=>String.fromCodePoint(byte)).join("");
     return btoa(binString);
@@ -16237,22 +15871,11 @@ function rewriteJsWasm(input, source, meta, module) {
     try {
         let out;
         const before = performance.now();
-        // try {
         if (typeof input === "string") {
             out = rewriter.rewrite_js(input, meta.base.href, source || "(unknown)", module);
         } else {
             out = rewriter.rewrite_js_bytes(input, meta.base.href, source || "(unknown)", module);
         }
-        // } catch (err) {
-        // 	const err1 = err as Error;
-        // 	console.warn(
-        // 		"failed rewriting js for",
-        // 		source,
-        // 		err1.message,
-        // 		input instanceof Uint8Array ? textDecoder.decode(input) : input
-        // 	);
-        // 	return { js: input, tag: "", map: null };
-        // }
         dbg.time(meta, before, `oxc rewrite for "${source || "(unknown)"}"`);
         const { js, map, scramtag, errors } = out;
         return {
@@ -16281,7 +15904,6 @@ function rewriteJs(js, url, meta, module = false) {
                     newjs = new TextDecoder().decode(newjs);
                 }
                 const sourcemapfn = `${_shared__rspack_import_0.config.globals.pushsourcemapfn}([${res.map.join(",")}], "${res.tag}");`;
-                // don't put the sourcemap call before "use strict"
                 const strictMode = /^\s*(['"])use strict\1;?/;
                 if (strictMode.test(newjs)) {
                     newjs = newjs.replace(strictMode, `$&\n${sourcemapfn}`);
@@ -16348,10 +15970,9 @@ function rewriteUrl(url, meta) {
         return url;
     } else {
         let base = meta.base.href;
-        if (base.startsWith("about:")) base = unrewriteUrl(self.location.href); // jank!!!!! weird jank!!!
+        if (base.startsWith("about:")) base = unrewriteUrl(self.location.href);
         const realUrl = tryCanParseURL(url, base);
         if (!realUrl) return url;
-        // Skip mailto and chrome-extension scheme (which should remain literal)
         if (realUrl.protocol === "chrome-extension:" || realUrl.protocol === "moz-extension:") {
             return realUrl.href;
         }
@@ -16405,7 +16026,6 @@ __webpack_require__.d(__webpack_exports__, {
 /* import */ var _rewriters_css__rspack_import_4 = __webpack_require__("./src/shared/rewriters/css.ts");
 /* import */ var _rewriters_js__rspack_import_5 = __webpack_require__("./src/shared/rewriters/js.ts");
 /* import */ var _rewriters_html__rspack_import_6 = __webpack_require__("./src/shared/rewriters/html.ts");
-// i am a cat. i like to be petted. i like to be fed. i like to be
 
 
 
@@ -16416,7 +16036,6 @@ __webpack_require__.d(__webpack_exports__, {
 let wasm_u8;
 if (false) {}
 else if (self.WASM) wasm_u8 = Uint8Array.from(atob(self.WASM), (c)=>c.charCodeAt(0));
-// only use in sw
 async function asyncSetWasm() {
     try {
         const res = await fetch(_shared__rspack_import_1.config.files.wasm);
@@ -16544,7 +16163,6 @@ __webpack_require__.d(__webpack_exports__, {
 });
 /* import */ var _shared_db__rspack_import_0 = __webpack_require__("./src/shared/db.ts");
 
-// Persist the redirect trackers for an hour
 const TRACKER_EXPIRY = 60 * 60 * 1000;
 const SITE_HIERARCHY = {
     none: 0,
@@ -16552,19 +16170,10 @@ const SITE_HIERARCHY = {
     "same-site": 2,
     "cross-site": 3
 };
-/**
- * Gets a connection to the IndexedDB database
- *
- * @returns Promise that resolves to the database connection
- */ async function getDB() {
+async function getDB() {
     return (0,_shared_db__rspack_import_0.openScramjetDB)();
 }
-/**
- * Retrieves a redirect tracker for a given URL
- *
- * @param url The URL to look up
- * @returns Redirect tracker if found, or `null`
- */ async function getTracker(url) {
+async function getTracker(url) {
     try {
         const db = await getDB();
         if (!db.objectStoreNames.contains("redirectTrackers")) return null;
@@ -16574,12 +16183,7 @@ const SITE_HIERARCHY = {
         return null;
     }
 }
-/**
- * Store or update a redirect tracker for a given URL
- *
- * @param url URL to store the tracker for
- * @param tracker Redirect tracker data to store
- */ async function setTracker(url, tracker) {
+async function setTracker(url, tracker) {
     try {
         const db = await getDB();
         if (!db.objectStoreNames.contains("redirectTrackers")) return;
@@ -16588,11 +16192,7 @@ const SITE_HIERARCHY = {
         console.warn("Failed to setTracker in IDB", e);
     }
 }
-/**
- * Delete a redirect tracker for a given URL
- *
- * @param url URL whose tracker should be deleted
- */ async function deleteTracker(url) {
+async function deleteTracker(url) {
     try {
         const db = await getDB();
         if (!db.objectStoreNames.contains("redirectTrackers")) return;
@@ -16601,13 +16201,7 @@ const SITE_HIERARCHY = {
         console.warn("Failed to deleteTracker from IDB", e);
     }
 }
-/**
- * Initialize tracking for a new request that might redirect
- *
- * @param requestUrl URL of the request being made
- * @param referrer Referrer URL of the request, or `null`
- * @param initialSite Initial Sec-Fetch-Site directive
- */ async function initializeTracker(requestUrl, referrer, initialSite) {
+async function initializeTracker(requestUrl, referrer, initialSite) {
     const existing = await getTracker(requestUrl);
     if (existing) {
         return;
@@ -16619,13 +16213,7 @@ const SITE_HIERARCHY = {
         chainStarted: Date.now()
     });
 }
-/**
- * Update tracker when a redirect is encountered
- *
- * @param originalUrl URL that is redirecting
- * @param redirectUrl URL being redirected to
- * @param newReferrerPolicy Referrer Policy from the redirect response
- */ async function updateTracker(originalUrl, redirectUrl, newReferrerPolicy) {
+async function updateTracker(originalUrl, redirectUrl, newReferrerPolicy) {
     const tracker = await getTracker(originalUrl);
     if (!tracker) return;
     await deleteTracker(originalUrl);
@@ -16634,13 +16222,7 @@ const SITE_HIERARCHY = {
     }
     await setTracker(redirectUrl, tracker);
 }
-/**
- * Get most restrictive site value for a request
- *
- * @param requestUrl The URL of the current request
- * @param currentSite The current `Sec-Fetch-Site` directive for this request
- * @returns Most restrictive `Sec-Fetch-Site` directive from the redirect chain
- */ async function getMostRestrictiveSite(requestUrl, currentSite) {
+async function getMostRestrictiveSite(requestUrl, currentSite) {
     const tracker = await getTracker(requestUrl);
     if (!tracker) return currentSite;
     const trackedValue = SITE_HIERARCHY[tracker.mostRestrictiveSite];
@@ -16652,15 +16234,10 @@ const SITE_HIERARCHY = {
     }
     return tracker.mostRestrictiveSite;
 }
-/**
- * Clean up tracker after request completes
- * @param requestUrl URL of the completed request
- */ async function cleanTracker(requestUrl) {
+async function cleanTracker(requestUrl) {
     await deleteTracker(requestUrl);
 }
-/**
- * Clean up expired trackers
- */ async function cleanExpiredTrackers() {
+async function cleanExpiredTrackers() {
     try {
         const now = Date.now();
         const db = await getDB();
@@ -16677,13 +16254,7 @@ const SITE_HIERARCHY = {
         console.warn("Failed to cleanExpiredTrackers in IDB", e);
     }
 }
-/**
- * Store referrer policy for a URL
- *
- * @param url URL to store the policy for
- * @param policy Referrer policy to store
- * @param referrer The referrer URL that set this policy
- */ async function storeReferrerPolicy(url, policy, referrer) {
+async function storeReferrerPolicy(url, policy, referrer) {
     try {
         const db = await getDB();
         if (!db.objectStoreNames.contains("referrerPolicies")) return;
@@ -16696,12 +16267,7 @@ const SITE_HIERARCHY = {
         console.warn("Failed to storeReferrerPolicy in IDB", e);
     }
 }
-/**
- * Get referrer policy data for a URL
- *
- * @param url URL to get the policy for
- * @returns Referrer policy data if found, or `null`
- */ async function getReferrerPolicy(url) {
+async function getReferrerPolicy(url) {
     try {
         const db = await getDB();
         if (!db.objectStoreNames.contains("referrerPolicies")) return null;
@@ -16744,21 +16310,12 @@ __webpack_require__.d(__webpack_exports__, {
 });
 /* import */ var _shared_db__rspack_import_0 = __webpack_require__("./src/shared/db.ts");
 
-// Cache every hour
 const CACHE_DURATION_MINUTES = 60;
 const CACHE_KEY = "publicSuffixList";
-/**
- * Gets a connection to the IndexedDB database
- *
- * @returns Resolves to the database connection
- */ async function getDB() {
+async function getDB() {
     return (0,_shared_db__rspack_import_0.openScramjetDB)();
 }
-/**
- * Gets cached Public Suffix List
- *
- * @returns Cached Public Suffix List data if not expired, or `null`
- */ async function getCachedSuffixList() {
+async function getCachedSuffixList() {
     try {
         const db = await getDB();
         if (!db.objectStoreNames.contains("publicSuffixList")) return null;
@@ -16768,11 +16325,7 @@ const CACHE_KEY = "publicSuffixList";
         return null;
     }
 }
-/**
- * Stores public suffix list
- *
- * @param data Public Suffix list data to cache
- */ async function setCachedSuffixList(data) {
+async function setCachedSuffixList(data) {
     try {
         const db = await getDB();
         if (!db.objectStoreNames.contains("publicSuffixList")) return;
@@ -16784,9 +16337,7 @@ const CACHE_KEY = "publicSuffixList";
         console.warn("Failed to setCachedSuffixList in IDB", e);
     }
 }
-/**
- * Emulate `Sec-Fetch-Site` header using the referrer (another reason why Force Referrer is now a needed SJ feature)
- */ async function getSiteDirective(meta, referrerURL, client) {
+async function getSiteDirective(meta, referrerURL, client) {
     if (!referrerURL) {
         return "none";
     }
@@ -16799,30 +16350,12 @@ const CACHE_KEY = "publicSuffixList";
     }
     return "cross-site";
 }
-/**
- * Tests if the two URLs are from the same site.
- * This will be used in the response header rewriter.
- *
- * @see https://developer.mozilla.org/en-US/docs/Glossary/Site
- * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Sec-Fetch-Site#directives
- *
- * @param url1 First URL to compare
- * @param url2 Second URL to compare
- * @param client `BareClient` instance used for fetching
- * @returns Whether the two URLs are from the same site
- *
- * @throws {Error} If an error occurs while getting the Public Suffix List
- */ async function isSameSite(url1, url2, client) {
+async function isSameSite(url1, url2, client) {
     const registrableDomain1 = await getRegistrableDomain(url1, client);
     const registrableDomain2 = await getRegistrableDomain(url2, client);
     return registrableDomain1 === registrableDomain2;
 }
-/**
- * Gets the registrable domain (eTLD+1) for a URL
- * @param url URL to get registrable domain for
- * @param client `BareClient` instance for fetching public suffix list
- * @returns Registrable domain
- */ async function getRegistrableDomain(url, client) {
+async function getRegistrableDomain(url, client) {
     const publicSuffixes = await getPublicSuffixList(client);
     const hostname = url.hostname.toLowerCase();
     const labels = hostname.split(".");
@@ -16849,12 +16382,7 @@ const CACHE_KEY = "publicSuffixList";
     const domainLabelCount = isException ? suffixLabelCount : suffixLabelCount + 1;
     return labels.slice(-domainLabelCount).join(".");
 }
-/**
- * Checks if hostname labels match a suffix pattern
- * @param hostnameLabels Labels of the hostname (split by `.`)
- * @param suffixLabels Labels of the suffix pattern (split by `.`)
- * @returns Whether the hostname matches the suffix
- */ function matchesSuffix(hostnameLabels, suffixLabels) {
+function matchesSuffix(hostnameLabels, suffixLabels) {
     if (hostnameLabels.length < suffixLabels.length) {
         return false;
     }
@@ -16871,17 +16399,7 @@ const CACHE_KEY = "publicSuffixList";
     }
     return true;
 }
-/**
- * Gets parsed Public Suffix list from the API.
- *
- * Complies with the standard format.
- * @see https://github.com/publicsuffix/list/wiki/Format#format
- *
- * @param {BareClient} client `BareClient` instance used for fetching
- * @returns {Promise<string[]>} Parsed Public Suffix list
- *
- * @throws {Error} If an error occurs while fetching from the Public Suffix List
- */ async function getPublicSuffixList(client) {
+async function getPublicSuffixList(client) {
     const cached = await getCachedSuffixList();
     if (cached && Date.now() < cached.expiry) {
         return cached.data;
@@ -16911,10 +16429,7 @@ __webpack_require__.d(__webpack_exports__, {
   SCRAMJETCLIENTNAME: () => (SCRAMJETCLIENTNAME),
   SCRAMJETFRAME: () => (SCRAMJETFRAME)
 });
-/**
- * @fileoverview
- * See `types.ts` for context on these symbols.
- */ const SCRAMJETCLIENTNAME = "scramjet client global";
+const SCRAMJETCLIENTNAME = "scramjet client global";
 const SCRAMJETCLIENT = Symbol.for(SCRAMJETCLIENTNAME);
 const SCRAMJETFRAME = Symbol.for("scramjet frame handle");
 
@@ -16933,7 +16448,6 @@ __webpack_require__.d(__webpack_exports__, {
   renderError: () => (renderError)
 });
 function errorTemplate(trace, fetchedURL) {
-    // turn script into a data URI so we don"t have to escape any HTML values
     const script = `
                 errorTrace.value = ${JSON.stringify(trace)};
                 fetchedURL.textContent = ${JSON.stringify(fetchedURL)};
@@ -17074,7 +16588,6 @@ function errorTemplate(trace, fetchedURL) {
                     <div id="inner">
                         <h1 id="errorTitle">Uh oh!</h1>
                         <p>There was an error loading <b id="fetchedURL"></b></p>
-                        <!-- <p id="errorMessage">Internal Server Error</p> -->
 
                         <div id="info">
                             <div id="errorTrace-wrapper">
@@ -17329,14 +16842,12 @@ function isDownload(responseHeaders, destination) {
         const header = responseHeaders["content-disposition"];
         if (header) {
             if (header === "inline") {
-                return false; // force it to show in browser
+                return false;
             } else {
                 return true;
             }
         } else {
-            // check mime type as fallback
             const displayableMimes = [
-                // Text types
                 "text/html",
                 "text/plain",
                 "text/css",
@@ -17415,7 +16926,6 @@ async function handleFetch(request, client) {
         } catch  {
             url = new URL(requestUrl);
         }
-        // now that we're past unrewriting it's safe to add back the params
         for (const [param, value] of Object.entries(extraParams)){
             url.searchParams.set(param, value);
         }
@@ -17433,9 +16943,7 @@ async function handleFetch(request, client) {
             if (extId) {
                 try {
                     path = decodeURIComponent(path);
-                } catch  {
-                // keep
-                }
+                } catch  {}
                 const res = await getExtensionFileFromIDB(extId, path);
                 if (res) {
                     let bodyBytes = res.bytes;
@@ -17505,7 +17013,6 @@ async function handleFetch(request, client) {
         }
         const activeWorker = this.serviceWorkers.find((w)=>w.origin === url.origin);
         if (activeWorker?.connected && requestUrl.searchParams.get("from") !== "swruntime") {
-            // TODO: check scope
             const r = await activeWorker.fetch(request);
             if (r) return r;
         }
@@ -17517,12 +17024,8 @@ async function handleFetch(request, client) {
             headers.set(key, value);
         }
         if (client && new URL(client.url).pathname.startsWith(_shared__rspack_import_6.config.prefix)) {
-            // TODO: i was against cors emulation but we might actually break stuff if we send full origin/referrer always
             const clientURL = new URL((0,_rewriters_url__rspack_import_3.unrewriteUrl)(client.url));
-            if (clientURL.toString().includes("youtube.com")) {
-            // console.log(headers);
-            } else {
-                // Force referrer to unsafe-url for all requests
+            if (clientURL.toString().includes("youtube.com")) {} else {
                 headers.set("Referer", clientURL.href);
                 headers.set("Origin", clientURL.origin);
             }
@@ -17531,35 +17034,27 @@ async function handleFetch(request, client) {
         if (cookies.length) {
             headers.set("Cookie", cookies);
         }
-        // Check if we should emulate a top-level navigation
         let isTopLevelProxyNavigation = false;
         if (request.destination === "iframe" && request.mode === "navigate" && request.referrer && request.referrer !== "no-referrer" && request.referrer !== location.origin + _shared__rspack_import_6.config.prefix + "no-referrer") {
-            // Trace back through the referrer chain, checking if each was an iframe navigation using the clients, until we find a non-iframe parent on a non-proxy page
             let currentReferrer = request.referrer;
             const allClients = await self.clients.matchAll({
                 type: "window"
             });
-            // Trace backwards
             while(currentReferrer){
                 if (!currentReferrer.includes(_shared__rspack_import_6.config.prefix)) {
                     isTopLevelProxyNavigation = true;
                     break;
                 }
-                // Find the parent for this iteration
                 const parentChainClient = allClients.find((c)=>c.url === currentReferrer);
-                // Get the next referrer policy that applies to this parent
                 // eslint-disable-next-line no-await-in-loop
                 const parentPolicyData = await (0,_shared_security_forceReferrer__rspack_import_2.getReferrerPolicy)(currentReferrer);
                 if (!parentPolicyData || !parentPolicyData.referrer) {
-                    // Check if this ends at the proxy origin
                     if (parentChainClient && currentReferrer.startsWith(location.origin)) {
                         isTopLevelProxyNavigation = true;
                     }
                     break;
                 }
-                // Check if this was an iframe navigation by looking at the client
                 if (parentChainClient && parentChainClient.frameType === "nested") {
-                    // Continue checking the chain
                     currentReferrer = parentPolicyData.referrer;
                 } else {
                     break;
@@ -17570,7 +17065,6 @@ async function handleFetch(request, client) {
             headers.set("Sec-Fetch-Dest", "document");
             headers.set("Sec-Fetch-Mode", "navigate");
         } else {
-            // Convert empty destination to "empty" string per spec
             headers.set("Sec-Fetch-Dest", request.destination || "empty");
             headers.set("Sec-Fetch-Mode", request.mode);
         }
@@ -17624,18 +17118,6 @@ async function handleFetch(request, client) {
 }
 async function handleResponse(url, meta, scriptType, destination, mode, response, cookieStore, client, bareClient, swtarget, referrer) {
     let responseBody;
-    // response.rawHeaders = {};
-    // for (let h of response.raw_headers) {
-    // 	const key = h[0];
-    // 	const value = h[1];
-    // 	if (response.rawHeaders[key] === undefined) {
-    // 		response.rawHeaders[key] = value;
-    // 	} else if (Array.isArray(response.rawHeaders[key])) {
-    // 		(response.rawHeaders[key] as string[]).push(value);
-    // 	} else {
-    // 		response.rawHeaders[key] = [response.rawHeaders[key] as string, value];
-    // 	}
-    // }
     const isNavigationRequest = mode === "navigate" && [
         "document",
         "iframe"
@@ -17644,7 +17126,6 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
         get: _shared_security_forceReferrer__rspack_import_2.getReferrerPolicy,
         set: _shared_security_forceReferrer__rspack_import_2.storeReferrerPolicy
     });
-    // Store referrer policy from navigation responses for Force Referrer
     if (isNavigationRequest && responseHeaders["referrer-policy"] && referrer) {
         await (0,_shared_security_forceReferrer__rspack_import_2.storeReferrerPolicy)(url.href, responseHeaders["referrer-policy"], referrer);
     }
@@ -17657,7 +17138,6 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
         };
         const newSiteDirective = await (0,_shared_security_siteTests__rspack_import_1.getSiteDirective)(redirectMeta, url, bareClient);
         await (0,_shared_security_forceReferrer__rspack_import_2.getMostRestrictiveSite)(redirectUrl.toString(), newSiteDirective);
-        // ensure that ?type=module is not lost in a redirect
         if (scriptType) {
             const url = new URL(responseHeaders["location"]);
             url.searchParams.set("type", scriptType);
@@ -17681,7 +17161,6 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
         maybeHeaders
     ], url);
     for(const header in responseHeaders){
-        // flatten everything past here
         if (Array.isArray(responseHeaders[header])) responseHeaders[header] = responseHeaders[header][0];
     }
     if (isDownload(responseHeaders, destination) && !isRedirect(response)) {
@@ -17698,10 +17177,7 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
                 }
             }
             const length = responseHeaders["content-length"];
-            // there's no reliable way of finding the top level client that made the request
-            // just take the first one and hope
             let clis = await clients.matchAll({});
-            // only want controller windows
             clis = clis.filter((e)=>!e.url.includes(_shared__rspack_import_6.config.prefix));
             if (clis.length < 1) {
                 throw Error("couldn't find a controller client to dispatch download to");
@@ -17719,17 +17195,11 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
             }, [
                 response.body
             ]);
-            // endless vortex reference
             await new Promise(()=>{});
         } else {
-            // manually rewrite for regular browser download
             const header = responseHeaders["content-disposition"];
-            // validate header and test for filename
             if (!/\s*?((inline|attachment);\s*?)filename=/i.test(header)) {
-                // if filename= wasn"t specified then maybe the remote specified to download this as an attachment?
-                // if it"s invalid then we can still possibly test for the attachment/inline type
                 const type = /^\s*?attachment/i.test(header) ? "attachment" : "inline";
-                // set the filename
                 const [filename] = new URL(response.finalURL).pathname.split("/").slice(-1);
                 responseHeaders["content-disposition"] = `${type}; filename=${JSON.stringify(filename)}`;
             }
@@ -17741,7 +17211,6 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
     if (responseHeaders["accept"] === "text/event-stream") {
         responseHeaders["content-type"] = "text/event-stream";
     }
-    // scramjet runtime can use features that permissions-policy blocks
     delete responseHeaders["permissions-policy"];
     if (crossOriginIsolated && [
         "document",
@@ -17756,7 +17225,6 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
     }
     const ev = new ScramjetHandleResponseEvent(responseBody, responseHeaders, response.status, response.statusText, destination, url, response, client);
     swtarget.dispatchEvent(ev);
-    // Clean up tracker if not a redirect
     if (!isRedirect(response)) {
         await (0,_shared_security_forceReferrer__rspack_import_2.cleanTracker)(url.toString());
     }
@@ -17771,20 +17239,7 @@ async function rewriteBody(response, meta, destination, workertype, cookieStore)
         case "iframe":
         case "document":
             if (response.headers.get("content-type")?.startsWith("text/html")) {
-                // note from percs: i think this has the potential to be slow asf, but for right now its fine (we should probably look for a better solution)
-                // another note from percs: regex seems to be broken, gonna comment this out
-                /*
-        const buf = await response.arrayBuffer();
-        const decode = new TextDecoder("utf-8").decode(buf);
-        const charsetHeader = response.headers.get("content-type");
-        const charset =
-          charsetHeader?.split("charset=")[1] ||
-          decode.match(/charset=([^"]+)/)?.[1] ||
-          "utf-8";
-        const htmlContent = charset
-          ? new TextDecoder(charset).decode(buf)
-          : decode;
-        */ return (0,_rewriters_html__rspack_import_8.rewriteHtml)(await response.text(), cookieStore, meta, true);
+                return (0,_rewriters_html__rspack_import_8.rewriteHtml)(await response.text(), cookieStore, meta, true);
             } else {
                 return response.body;
             }
@@ -17849,9 +17304,6 @@ __webpack_require__.d(__webpack_exports__, {
 /* import */ var _shared__rspack_import_6 = __webpack_require__("./src/shared/index.ts");
 /* import */ var _error__rspack_import_7 = __webpack_require__("./src/worker/error.ts");
 /* provided dependency */ var dbg = __webpack_require__("./src/log.ts")["default"];
-/**
- * @fileoverview Contains the core Service Worker logic for Scramjet, which handles the initial request interception and handles client management for the Scramjet service.
- */ 
 
 
 
@@ -17861,31 +17313,15 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 
-/**
- * Main `ScramjetServiceWorker` class created by the `$scramjetLoadWorker` factory, which handles routing the proxy and contains the core logic for request interception.
- */ class ScramjetServiceWorker extends EventTarget {
-    /**
-	 * `BareClient` instance to fetch requests under a chosen proxy transport.
-	 */ client;
-    /**
-	 * Current ScramjetConfig saved in memory.
-	 */ config;
-    /**
-	 * Recorded sync messages in the message queue.
-	 */ syncPool = {};
-    /**
-	 * Current sync token for collected messages in the queue.
-	 */ synctoken = 0;
-    /**
-	 * Scramjet's cookie jar for cookie emulation through other storage means, connected to a client.
-	 */ cookieStore = new _shared_cookie__rspack_import_4.CookieStore();
-    /**
-	 * Fake service worker registrations, so that some sites don't complain.
-	 * This will eventually be replaced with a NestedSW feature under a flag in the future, but this will remain for stability even then.
-	 */ serviceWorkers = [];
-    /**
-	 * Initializes the `BareClient` Scramjet uses to fetch requests under a chosen proxy transport, the cookie jar store for proxifying cookies, and inits the listeners for emulation features and dynamic configs set through the Scramjet Controller.
-	 */ constructor(){
+
+class ScramjetServiceWorker extends EventTarget {
+    client;
+    config;
+    syncPool = {};
+    synctoken = 0;
+    cookieStore = new _shared_cookie__rspack_import_4.CookieStore();
+    serviceWorkers = [];
+    constructor(){
         super();
         this.client = new _mercuryworkshop_bare_mux__rspack_import_2["default"]();
         this.config = _shared__rspack_import_6.config;
@@ -17904,7 +17340,6 @@ __webpack_require__.d(__webpack_exports__, {
         addEventListener("message", async ({ data })=>{
             if (!("scramjet$type" in data)) return;
             if ("scramjet$token" in data) {
-                // (ack message)
                 const cb = this.syncPool[data.scramjet$token];
                 delete this.syncPool[data.scramjet$token];
                 cb(data);
@@ -17934,9 +17369,7 @@ __webpack_require__.d(__webpack_exports__, {
             }
         });
     }
-    /**
-	 * Dispatches a message in the message queues.
-	 */ async dispatch(client, data) {
+    async dispatch(client, data) {
         const token = this.synctoken++;
         let cb;
         const promise = new Promise((r)=>cb = r);
@@ -17945,17 +17378,7 @@ __webpack_require__.d(__webpack_exports__, {
         client.postMessage(data);
         return await promise;
     }
-    /**
-	 * Persists the current Scramjet config into an IndexedDB store.
-	 * Remember, this is because the Scramjet config can be dynamically updated via the Scramjet Controller APIs.
-	 *
-	 * @example
-	 * self.addEventListener("fetch", async (ev) => {
-	 *   await scramjet.loadConfig();
-	 *
-	 *   ...
-	 * });
-	 */ async loadConfig() {
+    async loadConfig() {
         try {
             const db = await (0,_shared_db__rspack_import_5.openScramjetDB)();
             const stored = await db.get("config", "config");
@@ -17973,19 +17396,7 @@ __webpack_require__.d(__webpack_exports__, {
             await (0,_rewriters_wasm__rspack_import_3.asyncSetWasm)();
         }
     }
-    /**
-	 * Whether to route a request from a `FetchEvent` in Scramjet.
-	 *
-	 * @example
-	 * self.addEventListener("fetch", async (ev) => {
-	 *   ...
-	 *
-	 *   if (scramjet.route(ev)) {
-	 *     ...
-	 *   }
-	 * });
-	 * ```
-	 */ route({ request }) {
+    route({ request }) {
         const cfg = this.config || _shared__rspack_import_6.config;
         if (!cfg) return false;
         const url = new URL(request.url);
@@ -17998,19 +17409,7 @@ __webpack_require__.d(__webpack_exports__, {
         }
         return false;
     }
-    /**
-	 * Handles a `FetchEvent` to be routed in Scramjet.
-	 * This is the heart of adding Scramjet support to your web proxy.
-	 *
-	 * @example
-	 * self.addEventListener("fetch", async (ev) => {
-	 *   ...
-	 *
-	 *   if (scramjet.route(ev)) {
-	 *     ev.respondWith(scramjet.fetch(ev));
-	 *   }
-	 * });
-	 */ async fetch({ request, clientId }) {
+    async fetch({ request, clientId }) {
         if (!this.config) await this.loadConfig();
         const client = await self.clients.get(clientId);
         return _worker_fetch__rspack_import_1.handleFetch.call(this, request, client);

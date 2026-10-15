@@ -17,7 +17,6 @@ async function safeApiFetch(urlPath, options) {
 	return fetch(urlPath, options);
 }
 
-// Google tag (gtag.js)
 const script1 = document.createElement('script');
 script1.async = true;
 script1.src = 'https://www.googletagmanager.com/gtag/js?id=G-0LH2MR13BF';
@@ -28,7 +27,6 @@ function gtag(){window.dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', 'G-0LH2MR13BF');
 
-// Ensure store is always defined in ui.js
 var store = (typeof window !== "undefined" && window.store) ||
 	(typeof self !== "undefined" && self.store) ||
 	(typeof store !== "undefined" ? store : null);
@@ -154,7 +152,7 @@ const applyTransport = async (transport, wispurl, bareurl) => {
 };
 
 function Config() {
-	this.cfgTab = "search"; // "search" | "cloak" | "proxy"
+	this.cfgTab = "search";
 
 	this.css = `
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -628,6 +626,9 @@ window.addEventListener("load", async () => {
 		},
 	});
 
+	window.__scramjetController = scramjet;
+	if (window.sapphire) window.sapphire.attachController(scramjet);
+
 	await scramjet.init();
 	window.$scramjet = scramjet;
 	window.scramjet = scramjet;
@@ -669,7 +670,6 @@ window.addEventListener("load", async () => {
 		}
 	}
 
-	// Robust Sapphire Chrome Extensions Engine Initialization
 	window.ensureSapphire = async function () {
 		if (window.sapphire) return window.sapphire;
 		let SapphireClass = window.Sapphire || globalThis.Sapphire;
@@ -873,14 +873,17 @@ window.addEventListener("load", async () => {
 								targetWin.customState.url = pageUrl;
 							}
 						},
+						ensureController: () => {
+							if (window.__scramjetController && window.sapphire) window.sapphire.attachController(window.__scramjetController);
+						},
 						showNotification: (title, message) => {
 							console.log(`[Extension Notification] ${title}: ${message}`);
 						},
 					},
 				});
 
-				// Assign immediately so it is available synchronously
 				window.sapphire = sInstance;
+				if (window.__scramjetController) sInstance.attachController(window.__scramjetController);
 
 				if (typeof sInstance.getPopupUrl !== "function") {
 					sInstance.getPopupUrl = async function (extId) {
@@ -925,13 +928,11 @@ window.addEventListener("load", async () => {
 		return await window.__sapphireInitPromise;
 	};
 
-	// Start Sapphire initialization right away
 	window.ensureSapphire().catch((e) => console.warn("[Sapphire Auto-Init Error]", e));
 
 	connection = new BareMux.BareMuxConnection("/baremux/worker.js");
 	await applyTransport(store.transport || "/baremod/index.mjs", store.wispurl, store.bareurl);
 
-	// Lock Screen Community Quotes
 	const LOCKSCREEN_QUOTES = [
 		{
 			author: "Yuki",
@@ -1019,7 +1020,6 @@ window.addEventListener("load", async () => {
 		}
 	];
 
-	// Definition of Apps in VeilOS - All app icons matched directly from the Credits app
 	const APPS = [
 		{ 
 			id: "browser", 
@@ -1192,7 +1192,6 @@ window.addEventListener("load", async () => {
 		}
 	];
 
-	// Main VeilOS Desktop Component
 	function VeilOS() {
 		window.osGlobalInstance = this;
 		this.appsList = APPS;
@@ -1202,7 +1201,7 @@ window.addEventListener("load", async () => {
 		this.startMenuOpen = false;
 		this.dockOpen = true;
 		this.controlCenterOpen = false;
-		this.isLocked = true; // Login screen on launch
+		this.isLocked = true;
 		this.spotlightOpen = false;
 		this.spotlightQuery = "";
 		this.spotlightSelectedIdx = 0;
@@ -1231,7 +1230,6 @@ window.addEventListener("load", async () => {
 			this.windows = [...this.windows];
 		};
 
-		// Auto-rotate lockscreen quotes slider every 3.5 seconds with pause on hover
 		setInterval(() => {
 			if (this.isLocked && !this.quotePaused) {
 				this.quoteIndex = (this.quoteIndex + 1) % LOCKSCREEN_QUOTES.length;
@@ -1320,7 +1318,6 @@ window.addEventListener("load", async () => {
 			return null;
 		};
 
-		// Real-time battery status detector
 		if (typeof navigator !== "undefined" && navigator.getBattery) {
 			navigator.getBattery().then(batt => {
 				const syncBatt = () => {
@@ -1334,7 +1331,6 @@ window.addEventListener("load", async () => {
 			}).catch(() => {});
 		}
 
-		// Ping latency monitor
 		const checkPing = async () => {
 			const start = performance.now();
 			try {
@@ -1367,14 +1363,13 @@ window.addEventListener("load", async () => {
 			}
 		};
 
-		// Stable persistent DOM container for all OS windows to prevent iframe unmounting/reloading
 		this.windowsContainer = document.createElement("div");
 		this.windowsContainer.id = "os-windows-layer";
 		this.windowsContainer.className = "absolute inset-0 pointer-events-none";
 
 		this.animationsEnabled = true;
 		this.notificationsEnabled = true;
-		this.viewMode = "auto"; // "auto" | "desktop" | "mobile"
+		this.viewMode = "auto";
 		this.searchQuery = "";
 
 		this.daySpacedStr = "W E D N E S D A Y";
@@ -1382,7 +1377,6 @@ window.addEventListener("load", async () => {
 		this.dockDateStr = "Wed, Sep 2";
 		this.topZIndex = 100;
 
-		// Clock & Day Updater
 		const updateClock = () => {
 			const now = new Date();
 			const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
@@ -1435,7 +1429,6 @@ window.addEventListener("load", async () => {
 			}
 		});
 
-		// Window Manager Methods
 		this.openApp = (appId, customTitle, customState = {}) => {
 			const appDef = APPS.find(a => a.id === appId);
 			if (!appDef) return;
@@ -1587,7 +1580,6 @@ window.addEventListener("load", async () => {
 			this.windows = [...this.windows];
 		};
 
-		// Dragging Window Handler with Edge Snapping
 		let draggingWin = null;
 		let dragOffsetX = 0;
 		let dragOffsetY = 0;
@@ -1643,7 +1635,6 @@ window.addEventListener("load", async () => {
 			window.addEventListener("mouseup", onMouseUp);
 		};
 
-		// Draggable Resize Grip Handler
 		let resizingWin = null;
 		let resizeStartX = 0;
 		let resizeStartY = 0;
@@ -1689,7 +1680,6 @@ window.addEventListener("load", async () => {
 		return html`
 			<div class="relative w-screen h-screen overflow-hidden select-none font-sans text-white bg-black">
 				
-				<!-- DESKTOP BACKGROUND -->
 				<div class="absolute inset-0 z-0 overflow-hidden"
 					on:contextmenu=${(e) => {
 						e.preventDefault();
@@ -1720,7 +1710,6 @@ window.addEventListener("load", async () => {
 								onerror="this.src='assets/halloween.jpg'"
 								class="w-full h-full object-cover pointer-events-none select-none" />
 							${isHalloween ? html`
-								<!-- Atmospheric Halloween Floating Particles & Embers Layer -->
 								<div class="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
 									<div class="absolute inset-0 bg-gradient-to-t from-orange-950/25 via-purple-950/15 to-transparent mix-blend-screen pointer-events-none"></div>
 									<div class="absolute w-2.5 h-2.5 rounded-full bg-amber-400/80 blur-[1px] animate-pulse" style="bottom: 22%; left: 18%; box-shadow: 0 0 14px #f97316;"></div>
@@ -1735,17 +1724,14 @@ window.addEventListener("load", async () => {
 					<div class="absolute inset-0 bg-black/25 pointer-events-none"></div>
 				</div>
 
-				<!-- Subtle Screen Ambient Vignette -->
 				<div class="absolute inset-0 bg-radial from-transparent via-black/20 to-black/60 pointer-events-none"></div>
 
-				<!-- TOP CENTER: BIG DAY DISPLAY (e.g., W E D N E S D A Y) -->
 				<div class="absolute top-10 sm:top-12 left-1/2 -translate-x-1/2 z-10 text-center select-none w-full px-4 pointer-events-none">
 					<h1 class="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extralight tracking-[0.35em] text-white/90 drop-shadow-[0_12px_24px_rgba(0,0,0,0.85)] font-sans uppercase">
 						${use(this.daySpacedStr)}
 					</h1>
 				</div>
 
-				<!-- TOP RIGHT DESKTOP SYSTEM WIDGET -->
 				${use(this.desktopWidgetsOpen, (isOpen) => {
 					if (!isOpen) return null;
 					return html`
@@ -1784,7 +1770,6 @@ window.addEventListener("load", async () => {
 					`;
 				})}
 
-				<!-- NOTIFICATION TOAST CONTAINER -->
 				<div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full">
 					${use(this.windows, () => {
 						return this.notifications.map(notif => html`
@@ -1808,10 +1793,8 @@ window.addEventListener("load", async () => {
 					})}
 				</div>
 
-				<!-- WINDOWS LAYER (STABLE PERSISTENT DOM CONTAINER) -->
 				${this.windowsContainer}
 
-				<!-- BACKDROP FOR POPUPS / MENUS (click outside to close) -->
 				<div class="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px]"
 					style=${use(this.windows, () => (this.appsMenuOpen || this.startMenuOpen || this.controlCenterOpen) ? "display: block;" : "display: none;")}
 					on:click=${(e) => {
@@ -1822,7 +1805,6 @@ window.addEventListener("load", async () => {
 						this.windows = [...this.windows];
 					}}></div>
 
-				<!-- BOTTOM LEFT FLOATING HAMBURGER BUTTON ( ☰ ) -->
 				<button class="fixed bottom-4 left-4 z-50 w-11 h-11 rounded-full bg-black/75 hover:bg-black/90 border border-white/20 backdrop-blur-2xl text-white flex items-center justify-center text-lg shadow-2xl cursor-pointer hover:scale-105 active:scale-95 transition-all"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
@@ -1840,7 +1822,6 @@ window.addEventListener("load", async () => {
 					<i class="fa-solid fa-bars text-base"></i>
 				</button>
 
-				<!-- LEFT FLYOUT SIDEBAR MENU / HAMBURGER MENU -->
 				<div class="fixed bottom-16 left-4 z-50 w-72 max-h-[80vh] bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu overflow-hidden"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
@@ -1849,7 +1830,6 @@ window.addEventListener("load", async () => {
 						return `${disp} font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;`;
 					})}>
 
-					<!-- Header: Branding & Title -->
 					<div class="flex items-center justify-between px-1 pb-1 border-b border-white/10">
 						<div class="flex items-center gap-2">
 							<div class="w-6 h-6 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs text-indigo-300">
@@ -1863,7 +1843,6 @@ window.addEventListener("load", async () => {
 						</button>
 					</div>
 
-					<!-- Quick System Toggles: App Dock with Arrow & Realtime Feedback -->
 					${use(this.windows, () => html`
 						<div class="flex items-center justify-between px-2 py-1.5 rounded-xl bg-white/5 border border-white/10">
 							<div class="flex items-center gap-2 text-xs font-medium text-neutral-300">
@@ -1882,7 +1861,6 @@ window.addEventListener("load", async () => {
 						</div>
 					`)}
 
-					<!-- Action Menu Items -->
 					<div class="grid grid-cols-2 gap-2 pt-1">
 						<button class="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
 							on:click=${() => {
@@ -1905,7 +1883,6 @@ window.addEventListener("load", async () => {
 						</button>
 					</div>
 
-					<!-- Changelog & Credits Quick Button -->
 					<button class="w-full flex items-center justify-between p-2.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-teal-950/40 to-indigo-950/40 hover:from-emerald-900/60 hover:to-teal-900/60 border border-emerald-500/25 text-xs text-emerald-200 hover:text-white cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] shadow-sm"
 						on:click=${() => {
 							this.startMenuOpen = false;
@@ -1958,7 +1935,6 @@ window.addEventListener("load", async () => {
 					</div>
 				</div>
 
-				<!-- FLOATING DOCK (Centered Glass Pill at Bottom) -->
 				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-2 ${store.theme === 'halloween' ? 'bg-black/85 border border-orange-500/40 shadow-[0_0_25px_rgba(249,115,22,0.25)]' : 'bg-black/75 border border-white/15 shadow-2xl'} rounded-3xl backdrop-blur-2xl text-white max-w-[96vw] overflow-visible transition-all"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
@@ -1966,7 +1942,6 @@ window.addEventListener("load", async () => {
 						return this.dockOpen ? "display: flex;" : "display: none;";
 					})}>
 
-					<!-- Spotlight Search Button -->
 					<button class="w-9 h-9 rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/30 active:scale-95 transition-all flex items-center justify-center text-indigo-300 hover:text-white cursor-pointer shrink-0 dock-icon-anim"
 						on:click=${(e) => {
 							e.stopPropagation();
@@ -1977,7 +1952,6 @@ window.addEventListener("load", async () => {
 
 					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
 
-					<!-- Dock Application Badges with Logos and Custom Hover Name Modals -->
 					<div class="flex items-center gap-2 shrink-0">
 						${APPS.filter(app => app.inDock).map(app => {
 							const iconCls = `${app.iconClass || 'fa-solid fa-shapes'} text-lg ${app.iconColor || 'text-white'} drop-shadow-md`;
@@ -1985,7 +1959,6 @@ window.addEventListener("load", async () => {
 								<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20 transition-all hover:scale-105"
 									on:click=${() => this.openApp(app.id)}>
 									
-									<!-- Custom Hover Name Modal (Floating tooltip pill above app) -->
 									<div class="absolute -top-11 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center pointer-events-none z-50 animate-fade">
 										<div class="px-2.5 py-1 rounded-xl bg-neutral-900/98 border border-white/20 backdrop-blur-2xl shadow-2xl text-white text-xs font-semibold whitespace-nowrap flex items-center gap-1.5">
 											<span>${app.name}</span>
@@ -1993,14 +1966,12 @@ window.addEventListener("load", async () => {
 										<div class="w-2 h-2 bg-neutral-900 border-b border-r border-white/20 rotate-45 -mt-1"></div>
 									</div>
 
-									<!-- App Logo -->
 									${app.logoUrl ? html`
 										<img src="${app.logoUrl}" alt="${app.name}" class="w-7 h-7 rounded-xl object-contain drop-shadow-md pointer-events-none select-none" />
 									` : html`
 										<i class="${iconCls}"></i>
 									`}
 
-									<!-- Active Running App Indicator Dot -->
 									${use(this.windows, (winList) => {
 										const isOpen = winList.some(w => w.appId === app.id);
 										const isActive = winList.some(w => w.appId === app.id && w.id === this.activeWinId);
@@ -2012,7 +1983,6 @@ window.addEventListener("load", async () => {
 						})}
 					</div>
 
-					<!-- Halloween Theme Quick Toggle in Dock -->
 					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
 					<button class="w-10 h-10 rounded-2xl ${store.theme === 'halloween' ? 'bg-orange-500/25 text-orange-300 border border-orange-400/50 shadow-[0_0_14px_rgba(249,115,22,0.35)]' : 'bg-white/10 hover:bg-white/20 border border-white/20 text-neutral-300'} active:scale-95 transition-all flex items-center justify-center text-lg cursor-pointer shrink-0 dock-icon-anim"
 						on:click=${(e) => {
@@ -2031,7 +2001,6 @@ window.addEventListener("load", async () => {
 
 					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
 
-					<!-- Right end: Full Taskbar Time & Control Center Widget -->
 					<div class="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-white font-sans select-none cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group/time shrink-0"
 						on:click=${() => {
 							this.controlCenterOpen = !this.controlCenterOpen;
@@ -2050,7 +2019,6 @@ window.addEventListener("load", async () => {
 					</div>
 				</div>
 
-				<!-- CONTROL CENTER FLYOUT POPUP -->
 				<div class="fixed bottom-16 right-6 z-50 w-80 bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu"
 					style=${use(this.controlCenterOpen, (open) => open ? "display: flex;" : "display: none;")}>
 					<div class="flex items-center justify-between">
@@ -2064,7 +2032,6 @@ window.addEventListener("load", async () => {
 						</button>
 					</div>
 
-					<!-- Toggles: Sound Effects & Desktop Widget with clear ON/OFF visual indicators -->
 					<div class="flex flex-col gap-2">
 						${use(this.soundEffects, (on) => {
 							return html`
@@ -2173,7 +2140,6 @@ window.addEventListener("load", async () => {
 					</button>
 				</div>
 
-				<!-- SPOTLIGHT COMMAND PALETTE MODAL (⌘K / Ctrl+K) -->
 				${use(this.windows, () => {
 					if (!this.spotlightOpen) return null;
 					const q = (this.spotlightQuery || "").trim().toLowerCase();
@@ -2186,7 +2152,6 @@ window.addEventListener("load", async () => {
 								if (e.target === e.currentTarget) this.closeSpotlight();
 							}}>
 							<div class="w-full max-w-xl bg-neutral-900/95 border border-white/20 rounded-3xl shadow-2xl backdrop-blur-3xl overflow-hidden flex flex-col animate-spotlight m-auto self-center">
-								<!-- Search Input Row -->
 								<div class="flex items-center px-4 py-3.5 border-b border-white/10 gap-3">
 									<i class="fa-solid fa-magnifying-glass text-indigo-400 text-base"></i>
 									<input id="spotlight-input"
@@ -2214,7 +2179,6 @@ window.addEventListener("load", async () => {
 									<span class="text-[10px] text-neutral-400 font-mono bg-white/10 px-2 py-1 rounded-md">ESC to close</span>
 								</div>
 
-								<!-- Live Math Evaluation Card -->
 								${mathRes !== null ? html`
 									<div class="m-3 p-3 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-between">
 										<div class="flex items-center gap-2.5">
@@ -2232,7 +2196,6 @@ window.addEventListener("load", async () => {
 									</div>
 								` : null}
 
-								<!-- Results List -->
 								<div class="max-h-72 overflow-y-auto custom-scrollbar p-2 flex flex-col gap-1">
 									<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-3 py-1">Applications (${filteredApps.length})</div>
 									${filteredApps.map((app, idx) => {
@@ -2261,7 +2224,6 @@ window.addEventListener("load", async () => {
 									`;
 									})}
 
-									<!-- Web search option if typed query -->
 									${this.spotlightQuery ? html`
 										<div class="flex items-center justify-between px-3 py-2.5 mt-1 rounded-2xl bg-white/5 hover:bg-white/10 cursor-pointer border border-white/5"
 											on:click=${() => {
@@ -2281,7 +2243,6 @@ window.addEventListener("load", async () => {
 					`;
 				})}
 
-				<!-- DESKTOP RIGHT-CLICK CONTEXT MENU -->
 				${use(this.windows, () => {
 					if (!this.contextMenu.open) return null;
 					return html`
@@ -2353,19 +2314,15 @@ window.addEventListener("load", async () => {
 					`;
 				})}
 
-				<!-- LOGIN / LOCK SCREEN (Shown on launch & when system locked) -->
 				<div id="veil-lock-screen" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-between p-6 sm:p-8 text-white font-sans animate-fade select-none overflow-y-auto custom-scrollbar"
 					style=${use(this.isLocked, (locked) => locked ? "display: flex;" : "display: none;")}>
 
-					<!-- Ambient Animated Background Lights -->
 					<div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none animate-orb-1"></div>
 					<div class="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-purple-600/20 blur-3xl pointer-events-none animate-orb-2"></div>
 					<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-pink-600/10 blur-[120px] pointer-events-none"></div>
 
 					<div class="w-full flex-1 flex flex-col items-center justify-center relative z-10 py-2">
-						<!-- Center Section: Clock, Date, Avatar & Sign In Card -->
 						<div class="flex flex-col items-center gap-3 sm:gap-4 max-w-sm w-full animate-card-entrance mb-4 sm:mb-6">
-							<!-- Lock Screen Clock & Date -->
 							<div class="text-center">
 								<div class="text-5xl sm:text-6xl font-extralight tracking-[0.15em] text-white/95 uppercase font-sans drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]">
 									${use(this.dockTimeStr)}
@@ -2375,10 +2332,8 @@ window.addEventListener("load", async () => {
 								</div>
 							</div>
 
-							<!-- User Profile & Sign-In Card -->
 							<div class="w-full bg-white/[0.05] border border-white/15 p-5 sm:p-6 rounded-3xl backdrop-blur-2xl shadow-2xl flex flex-col items-center gap-3.5 transition-all duration-300 hover:border-indigo-500/40 hover:shadow-indigo-500/10">
 								<div class="relative group">
-									<!-- Pulsing halo behind avatar -->
 									<div class="absolute -inset-1.5 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-75 blur-md animate-veil-glow"></div>
 									<div class="relative w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center shadow-xl border-2 border-white/40 overflow-hidden animate-veil-float p-1 shrink-0">
 										<img src="https://raw.githubusercontent.com/1sunW/ICONS-FOR-LINKS/refs/heads/main/the-veil-icon-1024.png" alt="Veil OS" class="w-full h-full object-contain rounded-full transition-transform duration-500 group-hover:scale-110 drop-shadow-md" />
@@ -2393,7 +2348,6 @@ window.addEventListener("load", async () => {
 									<span class="text-xs text-neutral-400 font-medium">VeilOS Web Operating System</span>
 								</div>
 
-								<!-- Sign In Button (no PIN requirement) -->
 								<div class="w-full mt-0.5">
 									<button type="button"
 										class="group relative w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs tracking-wide transition-all duration-300 shadow-xl hover:shadow-indigo-500/35 active:scale-95 cursor-pointer flex items-center justify-center gap-2.5 overflow-hidden shimmer-btn"
@@ -2405,13 +2359,11 @@ window.addEventListener("load", async () => {
 							</div>
 						</div>
 
-						<!-- Community Testimonial Cards Wraparound Slider (Below Sign In Button, Matching Screenshot Exactly) -->
 						<div class="w-full max-w-[100vw] overflow-hidden relative lock-quotes-container py-1"
 							style="mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);">
 							<div class="lock-quotes-track px-4 py-1">
 								${[...LOCKSCREEN_QUOTES, ...LOCKSCREEN_QUOTES].map(q => html`
 									<div class="bg-[#120e17]/85 hover:bg-[#191321]/95 border border-white/[0.08] hover:border-white/20 transition-all duration-200 rounded-2xl p-4 shadow-2xl flex flex-col justify-start w-[290px] sm:w-[310px] shrink-0 text-left backdrop-blur-md cursor-default select-none group/card">
-										<!-- Card Top: Avatar, Name, Dot, Role -->
 										<div class="flex items-center gap-2.5 mb-2">
 											<div class="w-8 h-8 rounded-xl ${q.avatarBg} flex items-center justify-center text-white shrink-0 shadow-inner group-hover/card:scale-105 transition-transform">
 												<i class="${q.icon} text-xs"></i>
@@ -2422,7 +2374,6 @@ window.addEventListener("load", async () => {
 												<span class="text-[#aa9cb3] font-normal truncate">${q.role}</span>
 											</div>
 										</div>
-										<!-- Card Body: Quote text matching screenshot -->
 										<p class="text-xs sm:text-[13px] text-neutral-200 font-normal leading-relaxed line-clamp-3 select-text">
 											${q.quote}
 										</p>
@@ -2432,7 +2383,6 @@ window.addEventListener("load", async () => {
 						</div>
 					</div>
 
-					<!-- Bottom Status / Restart Controls -->
 					<div class="w-full flex items-center justify-center gap-6 pb-2 text-xs text-neutral-400 max-w-4xl shrink-0 relative z-10">
 						<button class="flex items-center gap-2 hover:text-white transition-colors cursor-pointer text-xs group"
 							on:click=${() => location.reload()}>
@@ -2442,14 +2392,12 @@ window.addEventListener("load", async () => {
 					</div>
 				</div>
 
-				<!-- SYSTEM CONFIG & CLOAKING SETTINGS DIALOG -->
 				<${Config}/>
 
 			</div>
 		`;
 	}
 
-	// Helper function to update window element styles without re-creating DOM or reloading iframes
 	function updateWindowStyle(win, isFocused) {
 		if (!win || !win.domEl) return;
 		if (win.isMinimized) {
@@ -2494,7 +2442,6 @@ window.addEventListener("load", async () => {
 		}
 	}
 
-	// Helper function to render or retrieve persistent Window DOM Node
 	function renderWindowDOM(win, scramjet, osInstance) {
 		if (win.domEl) {
 			updateWindowStyle(win, win.id === osInstance.activeWinId);
@@ -2524,12 +2471,10 @@ window.addEventListener("load", async () => {
 					}
 				}}>
 				
-				<!-- Window Titlebar -->
 				<div class="h-10 bg-black/60 border-b border-white/10 flex items-center justify-between px-3 cursor-move shrink-0 select-none"
 					on:mousedown=${(e) => osInstance.startDrag(win.id, e)}
 					on:dblclick=${(e) => osInstance.toggleMaximize(win.id, e)}>
 					
-					<!-- Traffic Light Controls with Snap Assist Popover -->
 					<div class="flex items-center gap-2">
 						<button class="w-3.5 h-3.5 rounded-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 transition-colors flex items-center justify-center text-[8px] text-rose-950 font-bold cursor-pointer"
 							on:mousedown=${(e) => e.stopPropagation()}
@@ -2547,7 +2492,6 @@ window.addEventListener("load", async () => {
 								on:click=${(e) => osInstance.toggleMaximize(win.id, e)} title="Maximize (or hover for snap layouts)">
 								<i class="fa-solid fa-up-right-and-down-left-from-center text-[7px]"></i>
 							</button>
-							<!-- Continuous hover bridge: starts directly at top-full with invisible hover padding -->
 							<div class="absolute left-0 top-full pt-1.5 hidden group-hover:flex flex-col z-50 min-w-[200px] pointer-events-auto before:content-[''] before:absolute before:-top-3 before:left-0 before:right-0 before:h-4">
 								<div class="p-2 bg-neutral-900/98 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-2xl flex flex-col gap-1.5">
 									<div class="flex items-center justify-between px-1">
@@ -2585,7 +2529,6 @@ window.addEventListener("load", async () => {
 						</div>
 					</div>
 
-					<!-- Window Title -->
 					<div class="flex items-center gap-2 text-xs font-semibold text-neutral-300 truncate max-w-[280px]">
 						${win.logoUrl ? html`<img src="${win.logoUrl}" class="w-3.5 h-3.5 object-contain rounded shrink-0 pointer-events-none" />` : html`<i class="${win.iconClass || 'fa-solid fa-window-maximize'} ${win.iconColor || 'text-neutral-400'} text-xs"></i>`}
 						<span>${win.title}</span>
@@ -2594,12 +2537,10 @@ window.addEventListener("load", async () => {
 					<div class="w-12"></div>
 				</div>
 
-				<!-- Window Body -->
 				<div class="flex-1 w-full h-full relative overflow-hidden bg-neutral-950">
 					${contentEl}
 				</div>
 
-				<!-- Draggable Bottom-Right Resize Grip -->
 				<div class="resize-grip"
 					on:mousedown=${(e) => osInstance.startResize(win.id, e)}
 					title="Drag to resize window"></div>
@@ -2613,7 +2554,6 @@ window.addEventListener("load", async () => {
 		return winEl;
 	}
 
-	// Helper function to render specific App content inside an OS Window
 	function renderAppContent(win, scramjet, osInstance) {
 		if (win.contentEl) {
 			return win.contentEl;
@@ -2653,7 +2593,6 @@ window.addEventListener("load", async () => {
 		return el;
 	}
 
-	// 4. Sonora Music App Renderer (Direct unproxied full-window Sonora web application at https://musicv-production.up.railway.app/)
 	function renderMusicApp(win, scramjet, osInstance) {
 		if (!win.customState) {
 			win.customState = {};
@@ -2671,7 +2610,6 @@ window.addEventListener("load", async () => {
 
 		return html`
 			<div class="w-full h-full relative bg-[#09090b] overflow-hidden select-text flex flex-col">
-				<!-- Sonora mini navigation bar (back, forward, reload, open in browser) -->
 				<div class="h-8 bg-neutral-900/90 border-b border-white/10 px-3 flex items-center justify-between text-xs text-neutral-300 shrink-0">
 					<div class="flex items-center gap-2">
 						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
@@ -2708,7 +2646,6 @@ window.addEventListener("load", async () => {
 		`;
 	}
 
-	// 5. Ampler Launcher App Renderer (Direct unproxied full-window launcher at https://amplerlauncher-main.vercel.app/)
 	function renderAmplerLauncherApp(win, scramjet, osInstance) {
 		if (!win.customState) {
 			win.customState = {};
@@ -2726,7 +2663,6 @@ window.addEventListener("load", async () => {
 
 		return html`
 			<div class="w-full h-full relative bg-[#0a0a0c] overflow-hidden select-text flex flex-col">
-				<!-- Ampler Launcher mini navigation bar (back, forward, reload, open in browser) -->
 				<div class="h-8 bg-neutral-900/90 border-b border-white/10 px-3 flex items-center justify-between text-xs text-neutral-300 shrink-0">
 					<div class="flex items-center gap-2">
 						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
@@ -2763,7 +2699,6 @@ window.addEventListener("load", async () => {
 		`;
 	}
 
-	// 2. Scenario App Renderer (Direct unproxied full-window Scenario web application at https://onyxai-fornow-ochre.vercel.app/)
 	function renderOnyxAIApp(win, scramjet, osInstance) {
 		if (!win.customState) {
 			win.customState = {};
@@ -2781,7 +2716,6 @@ window.addEventListener("load", async () => {
 
 		return html`
 			<div class="w-full h-full relative bg-[#09090d] overflow-hidden select-text flex flex-col">
-				<!-- Scenario mini navigation bar (back, forward, reload, open in browser) -->
 				<div class="h-8 bg-neutral-900/90 border-b border-white/10 px-3 flex items-center justify-between text-xs text-neutral-300 shrink-0">
 					<div class="flex items-center gap-2">
 						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
@@ -2818,7 +2752,6 @@ window.addEventListener("load", async () => {
 		`;
 	}
 
-	// 3. Cloud Gaming App Renderer (Pure full-window nowgg.fun webpage)
 	function renderCloudGamingApp(win, scramjet, osInstance) {
 		if (!win.customState) {
 			win.customState = {};
@@ -2840,7 +2773,6 @@ window.addEventListener("load", async () => {
 		`;
 	}
 
-	// 1. Onyx Browser App Renderer (with Tab System, History & Bookmarks)
 	function renderBrowserApp(win, scramjet, osInstance) {
 		if (!win.customState) {
 			win.customState = {};
@@ -2854,7 +2786,6 @@ window.addEventListener("load", async () => {
 			let clean = ("" + targetUrl).trim();
 			const lower = clean.toLowerCase();
 
-			// Normalization for onyx/veil internal URLs and chrome/about aliases
 			if (lower === "onyx://chat" || lower === "veil://chat" || lower === "chrome://chat" || lower === "about:chat" || lower === "onyx:chat" || lower === "veil:chat" || lower === "chrome:chat") {
 				return "onyx://chat";
 			}
@@ -2953,11 +2884,9 @@ window.addEventListener("load", async () => {
 			store.history = [entry, ...list].slice(0, 100);
 		};
 
-		// Root container for Browser
 		const browserRoot = document.createElement("div");
 		browserRoot.className = "flex flex-col w-full h-full bg-neutral-950 text-white font-sans overflow-hidden select-text";
 
-		// Viewport Container (holds all tab iframes persistently)
 		if (!win.customState.viewportEl) {
 			const vp = document.createElement("div");
 			vp.className = "flex-1 w-full h-full relative bg-white overflow-hidden";
@@ -2969,13 +2898,12 @@ window.addEventListener("load", async () => {
 		}
 
 		if (win.customState.activePanel === undefined) {
-			win.customState.activePanel = "none"; // "none" | "bookmarks" | "history"
+			win.customState.activePanel = "none";
 		}
 		if (win.customState.showQuickBookmarks === undefined) {
 			win.customState.showQuickBookmarks = (store.showBookmarksBar !== undefined) ? store.showBookmarksBar : true;
 		}
 
-		// TAB STRIP BAR
 		const tabStrip = document.createElement("div");
 		tabStrip.className = "flex items-center justify-between bg-neutral-900 border-b border-white/10 px-2 pt-1.5 gap-2 shrink-0 overflow-x-auto custom-scrollbar";
 
@@ -3000,7 +2928,6 @@ window.addEventListener("load", async () => {
 		tabStrip.appendChild(tabsListContainer);
 		tabStrip.appendChild(panelToggles);
 
-		// URL NAVIGATION BAR
 		const urlBar = document.createElement("div");
 		urlBar.className = "flex items-center p-2 gap-2 bg-neutral-900 border-b border-white/10 shrink-0 relative";
 
@@ -3048,11 +2975,9 @@ window.addEventListener("load", async () => {
 		goBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i>';
 		goBtn.title = "Go to URL";
 
-		// EXTENSIONS TOOLBAR CONTAINER (Holds Chrome Extension Action buttons)
 		const toolbarExtensions = document.createElement("div");
 		toolbarExtensions.className = "flex items-center gap-1.5 shrink-0";
 
-		// FLOATING EXTENSION POPOVER
 		const floatingPopover = document.createElement("div");
 		floatingPopover.className = "absolute right-2 top-[calc(100%+6px)] z-50 w-[360px] rounded-2xl border border-white/20 bg-[#191a24] shadow-2xl shadow-black/90 overflow-hidden flex flex-col hidden animate-fade";
 
@@ -3099,17 +3024,44 @@ window.addEventListener("load", async () => {
 			const activeTab = win.customState?.tabs?.find(t => t.id === win.customState.activeTabId) || win.customState?.tabs?.[0];
 			const activeTabId = activeTab ? activeTab.numericId : 1;
 
+			const extIdForLog = targetId;
+			const iframeExists = !!iframe;
+			const controllerSet = !!(window.sapphire && window.sapphire.controller);
+
+			console.log("[ExtensionPopup Open]", {
+				extId: extIdForLog,
+				iframeExists,
+				controllerSet,
+				sapphireExists: !!window.sapphire,
+				hasMountExtensionPopup: typeof window.sapphire?.mountExtensionPopup === "function",
+			});
+
 			if (window.sapphire && typeof window.sapphire.mountExtensionPopup === "function") {
 				window.sapphire.mountExtensionPopup(iframe, targetId, activeTabId).then((mounted) => {
+					console.log("[ExtensionPopup mountExtensionPopup returned]", {
+						extId: targetId,
+						returnedValue: mounted,
+					});
 					if (!mounted) {
 						console.warn("[renderExtensionPopup] mountExtensionPopup returned false, setting iframe.src");
 						iframe.src = popupUrl || `/~/sx/${targetId}/popup.html`;
 					}
 				}).catch((err) => {
+					console.log("[ExtensionPopup mountExtensionPopup error]", {
+						extId: targetId,
+						error: err?.message || err,
+					});
 					console.warn("[renderExtensionPopup] mountExtensionPopup failed, fallback to src:", err);
 					iframe.src = popupUrl || `/~/sx/${targetId}/popup.html`;
 				});
 			} else {
+				const reason = !window.sapphire
+					? "window.sapphire is not defined"
+					: "window.sapphire.mountExtensionPopup is not a function";
+				console.log("[ExtensionPopup mountExtensionPopup not called]", {
+					extId: targetId,
+					reason,
+				});
 				iframe.src = popupUrl || `/~/sx/${targetId}/popup.html`;
 			}
 		}
@@ -3160,7 +3112,6 @@ window.addEventListener("load", async () => {
 		};
 		win.customState.renderToolbarExtensions = renderToolbarExtensions;
 
-		// Dismiss popover on outside click
 		const onDocumentClick = (e) => {
 			if (!floatingPopover.classList.contains("hidden")) {
 				if (!floatingPopover.contains(e.target) && !toolbarExtensions.contains(e.target)) {
@@ -3182,11 +3133,9 @@ window.addEventListener("load", async () => {
 		urlBar.appendChild(toolbarExtensions);
 		urlBar.appendChild(floatingPopover);
 
-		// QUICK BOOKMARKS BAR
 		const quickBmBar = document.createElement("div");
 		quickBmBar.className = "flex items-center gap-1.5 px-3 py-1.5 bg-neutral-950 border-b border-white/10 overflow-x-auto text-xs shrink-0 custom-scrollbar";
 
-		// MAIN CONTENT (Viewport + Side Drawer)
 		const mainContent = document.createElement("div");
 		mainContent.className = "flex-1 w-full h-full relative flex overflow-hidden";
 
@@ -3201,7 +3150,6 @@ window.addEventListener("load", async () => {
 		browserRoot.appendChild(quickBmBar);
 		browserRoot.appendChild(mainContent);
 
-		// Tab and Navigation Helpers
 		const getActiveTab = () => {
 			return win.customState.tabs.find(t => t.id === win.customState.activeTabId) || win.customState.tabs[0];
 		};
@@ -3217,7 +3165,6 @@ window.addEventListener("load", async () => {
 
 		let nextTabNumericId = 1;
 
-		// Dedicated Internal Page View Renderer for onyx:// URLs
 		const renderInternalPageView = (tabObj, targetUrl) => {
 			const container = tabObj.internalEl;
 			if (!container) return;
@@ -3238,7 +3185,6 @@ window.addEventListener("load", async () => {
 				currentSection = "settings";
 			}
 
-			// Onyx Chat Full Tab Page
 			if (currentSection === "chat") {
 				const chatFrame = document.createElement("iframe");
 				chatFrame.className = "w-full h-full border-0 outline-none bg-black";
@@ -3247,7 +3193,6 @@ window.addEventListener("load", async () => {
 				return;
 			}
 
-			// 0. HOME / NEW TAB PAGE (Matching Image 2 exactly)
 			if (currentSection === "newtab") {
 				const homeContainer = document.createElement("div");
 				homeContainer.className = "w-full h-full flex flex-col items-center justify-center bg-[#070709] select-none p-6 text-white min-h-[65vh]";
@@ -3264,7 +3209,6 @@ window.addEventListener("load", async () => {
 					homeWrap.appendChild(spookBadge);
 				}
 
-				// Title: onyx (lowercase bold centered)
 				const titleEl = document.createElement("h1");
 				titleEl.className = isHalloween 
 					? "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none drop-shadow-[0_0_25px_rgba(249,115,22,0.35)]" 
@@ -3272,7 +3216,6 @@ window.addEventListener("load", async () => {
 				titleEl.textContent = "onyx";
 				homeWrap.appendChild(titleEl);
 
-				// Search card: rounded-full pill with "search here...", engine switcher chip & arrow button
 				const searchCard = document.createElement("div");
 				searchCard.className = isHalloween
 					? "w-full flex items-center bg-[#150a22]/90 border border-orange-500/40 hover:border-orange-500/60 focus-within:border-orange-400 rounded-full px-4 py-2.5 gap-3 shadow-[0_4px_25px_rgba(249,115,22,0.2)] transition-all"
@@ -3294,7 +3237,6 @@ window.addEventListener("load", async () => {
 				};
 				searchCard.appendChild(searchInp);
 
-				// Engine chip button: e.g. 🦆 DuckDuckGo
 				const engineChip = document.createElement("button");
 				const getEngineInfo = (eng) => {
 					const e = (eng || store.searchEngine || "duckduckgo").toLowerCase();
@@ -3323,7 +3265,6 @@ window.addEventListener("load", async () => {
 				};
 				searchCard.appendChild(engineChip);
 
-				// Arrow submit button: circle with ->
 				const submitBtn = document.createElement("button");
 				submitBtn.className = "w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-neutral-300 hover:text-white flex items-center justify-center text-xs cursor-pointer transition-all shrink-0";
 				submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right text-[11px]"></i>';
@@ -3336,7 +3277,6 @@ window.addEventListener("load", async () => {
 
 				homeWrap.appendChild(searchCard);
 
-				// Quick shortcuts below search card
 				const quickNav = document.createElement("div");
 				quickNav.className = "flex flex-wrap items-center justify-center gap-2 pt-1";
 				const quickItems = [
@@ -3360,7 +3300,6 @@ window.addEventListener("load", async () => {
 				return;
 			}
 
-			// Common Top Header for other onyx:// pages (Bookmarks, History, Extensions, Settings)
 			const headerWrap = document.createElement("div");
 			headerWrap.className = "w-full border-b border-white/10 bg-neutral-900/90 backdrop-blur sticky top-0 z-20 px-6 py-4";
 
@@ -3429,7 +3368,6 @@ window.addEventListener("load", async () => {
 			const contentArea = document.createElement("div");
 			contentArea.className = "max-w-5xl mx-auto p-6 flex flex-col gap-6";
 
-			// 1. BOOKMARKS PAGE
 			if (currentSection === "bookmarks") {
 				const bms = Array.isArray(store.bookmarks) ? store.bookmarks : [];
 				let searchVal = (win.customState.bookmarkPageSearch || "").toLowerCase();
@@ -3477,7 +3415,6 @@ window.addEventListener("load", async () => {
 				toolbarCard.appendChild(actionsBox);
 				contentArea.appendChild(toolbarCard);
 
-				// Inline Add Bookmark Form (collapsible)
 				const addForm = document.createElement("div");
 				addForm.className = "p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 flex flex-col gap-3 hidden animate-fade";
 				addForm.innerHTML = `
@@ -3526,7 +3463,6 @@ window.addEventListener("load", async () => {
 				}
 				contentArea.appendChild(addForm);
 
-				// Filtered List
 				const filtered = bms.filter(b => !searchVal || (b.name && b.name.toLowerCase().includes(searchVal)) || (b.url && b.url.toLowerCase().includes(searchVal)));
 
 				const grid = document.createElement("div");
@@ -3599,7 +3535,6 @@ window.addEventListener("load", async () => {
 				contentArea.appendChild(grid);
 			}
 
-			// 2. HISTORY PAGE
 			else if (currentSection === "history") {
 				const hists = Array.isArray(store.history) ? store.history : [];
 				let searchVal = (win.customState.historyPageSearch || "").toLowerCase();
@@ -3630,7 +3565,6 @@ window.addEventListener("load", async () => {
 				toolbarCard.appendChild(clearAllBtn);
 				contentArea.appendChild(toolbarCard);
 
-				// Filtered List
 				const filtered = hists.filter(h => !searchVal || (h.name && h.name.toLowerCase().includes(searchVal)) || (h.url && h.url.toLowerCase().includes(searchVal)));
 
 				const listContainer = document.createElement("div");
@@ -3705,12 +3639,10 @@ window.addEventListener("load", async () => {
 				contentArea.appendChild(listContainer);
 			}
 
-			// 3. EXTENSIONS PAGE
 			else if (currentSection === "extensions") {
 				const exts = window.sapphire ? window.sapphire.getInstalledExtensions() : [];
 				const activeTab = win.customState.extensionPageTab || "store";
 
-				// Top Navigation Tabs
 				const tabsContainer = document.createElement("div");
 				tabsContainer.className = "flex items-center gap-2 border-b border-white/10 pb-3 flex-wrap";
 
@@ -3739,7 +3671,6 @@ window.addEventListener("load", async () => {
 				tabsContainer.appendChild(createTabBtn("upload", "Upload Archive", "📦"));
 				contentArea.appendChild(tabsContainer);
 
-				// Notification banner if any
 				if (win.customState.extensionBanner) {
 					const banner = document.createElement("div");
 					banner.className = "p-3 rounded-xl bg-emerald-950/70 border border-emerald-500/40 text-xs text-emerald-200 flex items-center justify-between gap-3 shadow-md animate-fade-in";
@@ -3760,12 +3691,10 @@ window.addEventListener("load", async () => {
 					contentArea.appendChild(banner);
 				}
 
-				// TAB 1: CHROME WEB STORE
 				if (activeTab === "store") {
 					const storeWrap = document.createElement("div");
 					storeWrap.className = "flex flex-col gap-5";
 
-					// Search Box & Quick Chips
 					const searchHero = document.createElement("div");
 					searchHero.className = "p-6 rounded-2xl bg-gradient-to-br from-neutral-900 via-neutral-900/90 to-emerald-950/30 border border-white/10 shadow-xl flex flex-col gap-4";
 
@@ -3780,7 +3709,6 @@ window.addEventListener("load", async () => {
 					`;
 					searchHero.appendChild(heroHeader);
 
-					// Search Input Bar
 					const searchBarWrap = document.createElement("div");
 					searchBarWrap.className = "flex items-center gap-2";
 
@@ -3804,7 +3732,6 @@ window.addEventListener("load", async () => {
 					searchBarWrap.appendChild(searchBtn);
 					searchHero.appendChild(searchBarWrap);
 
-					// Quick Category / Filter Pills
 					const pillsRow = document.createElement("div");
 					pillsRow.className = "flex items-center gap-1.5 flex-wrap text-xs";
 
@@ -3831,7 +3758,6 @@ window.addEventListener("load", async () => {
 					searchHero.appendChild(pillsRow);
 					storeWrap.appendChild(searchHero);
 
-					// Results Container
 					const resultsWrap = document.createElement("div");
 					resultsWrap.className = "flex flex-col gap-3";
 
@@ -3916,7 +3842,6 @@ window.addEventListener("load", async () => {
 							const titleBlock = document.createElement("div");
 							titleBlock.className = "flex flex-col min-w-0 flex-1";
 
-							// Star string helper
 							const starStr = item.rating
 								? `★ ${item.rating}${item.ratingCount ? ` (${item.ratingCount > 999 ? (item.ratingCount / 1000).toFixed(1) + 'k' : item.ratingCount})` : ''}`
 								: "Chrome Extension";
@@ -3940,7 +3865,6 @@ window.addEventListener("load", async () => {
 							headerRow.appendChild(titleBlock);
 							topSection.appendChild(headerRow);
 
-							// Description
 							if (item.description) {
 								const descEl = document.createElement("p");
 								descEl.className = "text-xs text-neutral-300 line-clamp-2 leading-relaxed";
@@ -3950,7 +3874,6 @@ window.addEventListener("load", async () => {
 
 							card.appendChild(topSection);
 
-							// Action Row
 							const actionRow = document.createElement("div");
 							actionRow.className = "flex items-center justify-between pt-2.5 border-t border-white/10 gap-2";
 
@@ -4030,7 +3953,6 @@ window.addEventListener("load", async () => {
 						});
 					};
 
-					// Event listeners for search
 					searchBtn.onclick = () => triggerSearch();
 					searchInput.onkeydown = (e) => {
 						if (e.key === "Enter") triggerSearch();
@@ -4050,16 +3972,13 @@ window.addEventListener("load", async () => {
 
 					contentArea.appendChild(storeWrap);
 
-					// Initial load: trigger search for current query or popular
 					triggerSearch(win.customState.webStoreQuery || "popular");
 				}
 
-				// TAB 2: INSTALLED EXTENSIONS
 				else if (activeTab === "installed") {
 					const installedWrap = document.createElement("div");
 					installedWrap.className = "flex flex-col gap-4";
 
-					// Filter Row
 					const filterRow = document.createElement("div");
 					filterRow.className = "flex items-center justify-between gap-3 flex-wrap bg-neutral-900/60 border border-white/10 p-3 rounded-2xl";
 
@@ -4219,7 +4138,6 @@ window.addEventListener("load", async () => {
 					contentArea.appendChild(installedWrap);
 				}
 
-				// TAB 3: UPLOAD ARCHIVE (.CRX or .ZIP)
 				else if (activeTab === "upload") {
 					const uploadCard = document.createElement("div");
 					uploadCard.className = "p-6 rounded-2xl bg-gradient-to-br from-emerald-950/40 to-neutral-900 border border-emerald-500/30 flex flex-col gap-4 shadow-lg";
@@ -4309,12 +4227,10 @@ window.addEventListener("load", async () => {
 				}
 			}
 
-			// 4. SETTINGS PAGE
 			else if (currentSection === "settings") {
 				const settingsWrap = document.createElement("div");
 				settingsWrap.className = "flex flex-col gap-6 max-w-3xl";
 
-				// Section 0: Theme & Aesthetics
 				const themeSec = document.createElement("div");
 				themeSec.className = "p-5 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-4";
 				const curTheme = (store.theme || "halloween").toLowerCase();
@@ -4372,7 +4288,6 @@ window.addEventListener("load", async () => {
 				themeSec.appendChild(themesGrid);
 				settingsWrap.appendChild(themeSec);
 
-				// Section 1: Search Engine
 				const searchSec = document.createElement("div");
 				searchSec.className = "p-5 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-4";
 				searchSec.innerHTML = `
@@ -4409,7 +4324,6 @@ window.addEventListener("load", async () => {
 				searchSec.appendChild(enginesGrid);
 				settingsWrap.appendChild(searchSec);
 
-				// Section 2: Tab Cloaking
 				const cloakSec = document.createElement("div");
 				cloakSec.className = "p-5 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-4";
 				cloakSec.innerHTML = `
@@ -4512,7 +4426,6 @@ window.addEventListener("load", async () => {
 				return;
 			}
 
-			// Web / Extension URL
 			if (tabObj.internalEl) {
 				tabObj.internalEl.style.display = "none";
 			}
@@ -4721,7 +4634,6 @@ window.addEventListener("load", async () => {
 			}
 		};
 
-		// Tab Strip Renderer
 		const renderTabStrip = () => {
 			tabsListContainer.innerHTML = "";
 			const activeTab = getActiveTab();
@@ -4780,7 +4692,6 @@ window.addEventListener("load", async () => {
 			updateTopRightButtonsState();
 		};
 
-		// Quick Bookmarks Bar Renderer
 		const renderQuickBookmarks = () => {
 			const bms = Array.isArray(store.bookmarks) ? store.bookmarks : [];
 			if (win.customState.showQuickBookmarks && bms.length > 0) {
@@ -4829,7 +4740,6 @@ window.addEventListener("load", async () => {
 			}`;
 		};
 
-		// Drawer Renderer (Bookmarks, History, and Extensions side drawer)
 		const renderDrawer = () => {
 			drawerContainer.innerHTML = "";
 			const activePanel = win.customState.activePanel;
@@ -4847,7 +4757,6 @@ window.addEventListener("load", async () => {
 				const drawerEl = document.createElement("div");
 				drawerEl.className = "w-80 sm:w-96 bg-neutral-900 border-l border-white/15 p-4 flex flex-col gap-3 shrink-0 shadow-2xl z-10 animate-fade overflow-hidden";
 
-				// Top Bar
 				const header = document.createElement("div");
 				header.className = "flex items-center justify-between pb-2 border-b border-white/10";
 				header.innerHTML = `
@@ -4881,7 +4790,6 @@ window.addEventListener("load", async () => {
 				header.appendChild(headerRight);
 				drawerEl.appendChild(header);
 
-				// Bookmark Current Page Button
 				const addCurrBtn = document.createElement("button");
 				addCurrBtn.className = "w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer";
 				addCurrBtn.innerHTML = `<span>${isCurrBm ? '★ Bookmarked' : '☆ Bookmark Current Page'}</span>`;
@@ -4892,7 +4800,6 @@ window.addEventListener("load", async () => {
 				};
 				drawerEl.appendChild(addCurrBtn);
 
-				// Search input
 				const searchInput = document.createElement("input");
 				searchInput.className = "w-full bg-black/50 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-neutral-400 outline-none focus:border-amber-400";
 				searchInput.placeholder = "Search bookmarks...";
@@ -4903,7 +4810,6 @@ window.addEventListener("load", async () => {
 				};
 				drawerEl.appendChild(searchInput);
 
-				// Bookmarks list container
 				const listEl = document.createElement("div");
 				listEl.className = "flex flex-col gap-2 flex-1 overflow-y-auto custom-scrollbar";
 
@@ -4922,7 +4828,6 @@ window.addEventListener("load", async () => {
 						</div>
 						<span class="text-[10px] font-mono text-neutral-400 truncate mt-0.5">${bm.url}</span>
 					`;
-					// Clicking bookmark navigates the active tab directly to this URL
 					infoDiv.onclick = () => {
 						handleNav(bm.url);
 						win.customState.activePanel = "none";
@@ -4977,7 +4882,6 @@ window.addEventListener("load", async () => {
 				const drawerEl = document.createElement("div");
 				drawerEl.className = "w-80 sm:w-96 bg-neutral-900 border-l border-white/15 p-4 flex flex-col gap-3 shrink-0 shadow-2xl z-10 animate-fade overflow-hidden";
 
-				// Top Bar
 				const header = document.createElement("div");
 				header.className = "flex items-center justify-between pb-2 border-b border-white/10";
 				header.innerHTML = `
@@ -5011,7 +4915,6 @@ window.addEventListener("load", async () => {
 				header.appendChild(headerRight);
 				drawerEl.appendChild(header);
 
-				// Clear All History Button
 				const clearBtn = document.createElement("button");
 				clearBtn.className = "w-full py-1.5 px-3 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/50 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer";
 				clearBtn.innerHTML = `<span>🗑️</span><span>Clear All History</span>`;
@@ -5021,7 +4924,6 @@ window.addEventListener("load", async () => {
 				};
 				drawerEl.appendChild(clearBtn);
 
-				// Search input
 				const searchInput = document.createElement("input");
 				searchInput.className = "w-full bg-black/50 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-neutral-400 outline-none focus:border-purple-400";
 				searchInput.placeholder = "Search history...";
@@ -5032,7 +4934,6 @@ window.addEventListener("load", async () => {
 				};
 				drawerEl.appendChild(searchInput);
 
-				// History list container
 				const listEl = document.createElement("div");
 				listEl.className = "flex flex-col gap-2 flex-1 overflow-y-auto custom-scrollbar";
 
@@ -5053,7 +4954,6 @@ window.addEventListener("load", async () => {
 						</div>
 						<span class="text-[10px] font-mono text-neutral-400 truncate mt-0.5">${item.url}</span>
 					`;
-					// Clicking history navigates the active tab directly to this URL
 					infoDiv.onclick = () => {
 						handleNav(item.url);
 						win.customState.activePanel = "none";
@@ -5106,7 +5006,6 @@ window.addEventListener("load", async () => {
 				const drawerEl = document.createElement("div");
 				drawerEl.className = "w-80 sm:w-96 bg-neutral-900 border-l border-white/15 p-4 flex flex-col gap-3 shrink-0 shadow-2xl z-10 animate-fade overflow-hidden";
 
-				// Top Bar
 				const header = document.createElement("div");
 				header.className = "flex items-center justify-between pb-2 border-b border-white/10";
 				header.innerHTML = `
@@ -5141,7 +5040,6 @@ window.addEventListener("load", async () => {
 				header.appendChild(headerRight);
 				drawerEl.appendChild(header);
 
-				// Tab Navigation inside Drawer
 				const drawerTab = win.customState.drawerExtensionTab || (exts.length ? "installed" : "store");
 				const tabsRow = document.createElement("div");
 				tabsRow.className = "flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10";
@@ -5171,12 +5069,10 @@ window.addEventListener("load", async () => {
 				tabsRow.appendChild(makeDrawerTabBtn("upload", "Upload", "📦"));
 				drawerEl.appendChild(tabsRow);
 
-				// TAB 1: CHROME WEB STORE DRAWER TAB
 				if (drawerTab === "store") {
 					const storeBox = document.createElement("div");
 					storeBox.className = "flex flex-col gap-3 flex-1 overflow-hidden";
 
-					// Search Bar
 					const searchWrap = document.createElement("div");
 					searchWrap.className = "flex items-center gap-1.5";
 
@@ -5193,7 +5089,6 @@ window.addEventListener("load", async () => {
 					searchWrap.appendChild(storeSearchBtn);
 					storeBox.appendChild(searchWrap);
 
-					// Results container
 					const storeResultsList = document.createElement("div");
 					storeResultsList.className = "flex flex-col gap-2.5 flex-1 overflow-y-auto custom-scrollbar";
 					storeBox.appendChild(storeResultsList);
@@ -5314,7 +5209,6 @@ window.addEventListener("load", async () => {
 						if (e.key === "Enter") queryStore();
 					};
 
-					// Link to open full page
 					const fullStoreLink = document.createElement("button");
 					fullStoreLink.className = "w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-emerald-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-white/10 mt-auto";
 					fullStoreLink.innerHTML = `<span>🛒</span><span>Open Full Chrome Web Store ↗</span>`;
@@ -5330,9 +5224,7 @@ window.addEventListener("load", async () => {
 					queryStore(win.customState.drawerStoreQuery || "popular");
 				}
 
-				// TAB 2: INSTALLED EXTENSIONS DRAWER TAB
 				else if (drawerTab === "installed") {
-					// Search input
 					const searchInput = document.createElement("input");
 					searchInput.className = "w-full bg-black/50 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-neutral-400 outline-none focus:border-emerald-400";
 					searchInput.placeholder = "Search installed extensions...";
@@ -5343,7 +5235,6 @@ window.addEventListener("load", async () => {
 					};
 					drawerEl.appendChild(searchInput);
 
-					// Extensions list container
 					const listEl = document.createElement("div");
 					listEl.className = "flex flex-col gap-2.5 flex-1 overflow-y-auto custom-scrollbar";
 
@@ -5400,7 +5291,6 @@ window.addEventListener("load", async () => {
 						topRow.appendChild(toggleLabel);
 						itemDiv.appendChild(topRow);
 
-						// Manifest description if available
 						if (ext.manifest?.description) {
 							const descEl = document.createElement("div");
 							descEl.className = "text-[11px] text-neutral-300 line-clamp-2";
@@ -5408,7 +5298,6 @@ window.addEventListener("load", async () => {
 							itemDiv.appendChild(descEl);
 						}
 
-						// Bottom Actions row
 						const bottomRow = document.createElement("div");
 						bottomRow.className = "flex items-center justify-between pt-1 border-t border-white/5 text-[10px]";
 
@@ -5486,7 +5375,6 @@ window.addEventListener("load", async () => {
 					drawerEl.appendChild(listEl);
 				}
 
-				// TAB 3: UPLOAD ARCHIVE DRAWER TAB
 				else if (drawerTab === "upload") {
 					const installBox = document.createElement("div");
 					installBox.className = "p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30 flex flex-col gap-2";
@@ -5573,7 +5461,6 @@ window.addEventListener("load", async () => {
 			}
 		};
 
-		// Event Listeners for Nav Bar
 		urlInput.onkeydown = (e) => {
 			if (e.key === "Enter") {
 				handleNav(urlInput.value);
@@ -5641,7 +5528,6 @@ window.addEventListener("load", async () => {
 			handleNav("onyx://extensions");
 		};
 
-		// Safety URL Polling Timer for pushState or internal navigations
 		if (!win.customState.urlPollTimer) {
 			win.customState.urlPollTimer = setInterval(() => {
 				const active = win.customState.tabs ? win.customState.tabs.find(t => t.id === win.customState.activeTabId) : null;
@@ -5658,7 +5544,6 @@ window.addEventListener("load", async () => {
 			}, 600);
 		}
 
-		// Handle external URL passed to window
 		if (win.customState.url && win.customState.url !== win.customState.lastOpenedUrl) {
 			win.customState.lastOpenedUrl = win.customState.url;
 			const newTab = createTab(win.customState.url, win.title);
@@ -5666,14 +5551,12 @@ window.addEventListener("load", async () => {
 			win.customState.activeTabId = newTab.id;
 		}
 
-		// Initial tab if empty
 		if (win.customState.tabs.length === 0) {
 			const defaultTab = createTab(store.url || "onyx://newtab");
 			win.customState.tabs.push(defaultTab);
 			win.customState.activeTabId = defaultTab.id;
 		}
 
-		// Initial display sync
 		switchTab(win.customState.activeTabId);
 		renderQuickBookmarks();
 		renderDrawer();

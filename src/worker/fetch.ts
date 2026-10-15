@@ -135,14 +135,12 @@ function isDownload(responseHeaders: object, destination: string): boolean {
 		const header = responseHeaders["content-disposition"];
 		if (header) {
 			if (header === "inline") {
-				return false; // force it to show in browser
+				return false;
 			} else {
 				return true;
 			}
 		} else {
-			// check mime type as fallback
 			const displayableMimes = [
-				// Text types
 				"text/html",
 				"text/plain",
 				"text/css",
@@ -248,7 +246,6 @@ export async function handleFetch(
 		} catch {
 			url = new URL(requestUrl);
 		}
-		// now that we're past unrewriting it's safe to add back the params
 		for (const [param, value] of Object.entries(extraParams)) {
 			url.searchParams.set(param, value);
 		}
@@ -274,7 +271,6 @@ export async function handleFetch(
 				try {
 					path = decodeURIComponent(path);
 				} catch {
-					// keep
 				}
 				const res = await getExtensionFileFromIDB(extId, path);
 				if (res) {
@@ -382,7 +378,6 @@ export async function handleFetch(
 			activeWorker?.connected &&
 			requestUrl.searchParams.get("from") !== "swruntime"
 		) {
-			// TODO: check scope
 			const r = await activeWorker.fetch(request);
 			if (r) return r;
 		}
@@ -398,12 +393,9 @@ export async function handleFetch(
 		}
 
 		if (client && new URL(client.url).pathname.startsWith(config.prefix)) {
-			// TODO: i was against cors emulation but we might actually break stuff if we send full origin/referrer always
 			const clientURL = new URL(unrewriteUrl(client.url));
 			if (clientURL.toString().includes("youtube.com")) {
-				// console.log(headers);
 			} else {
-				// Force referrer to unsafe-url for all requests
 				headers.set("Referer", clientURL.href);
 				headers.set("Origin", clientURL.origin);
 			}
@@ -415,7 +407,6 @@ export async function handleFetch(
 			headers.set("Cookie", cookies);
 		}
 
-		// Check if we should emulate a top-level navigation
 		let isTopLevelProxyNavigation = false;
 		if (
 			request.destination === "iframe" &&
@@ -424,44 +415,35 @@ export async function handleFetch(
 			request.referrer !== "no-referrer" &&
 			request.referrer !== location.origin + config.prefix + "no-referrer"
 		) {
-			// Trace back through the referrer chain, checking if each was an iframe navigation using the clients, until we find a non-iframe parent on a non-proxy page
 			let currentReferrer = request.referrer;
 			const allClients = await self.clients.matchAll({ type: "window" });
 
-			// Trace backwards
 			while (currentReferrer) {
 				if (!currentReferrer.includes(config.prefix)) {
 					isTopLevelProxyNavigation = true;
 					break;
 				}
 
-				// Find the parent for this iteration
 				const parentChainClient = allClients.find(
 					(c) => c.url === currentReferrer
 				);
 
-				// Get the next referrer policy that applies to this parent
 				// eslint-disable-next-line no-await-in-loop
 				const parentPolicyData = await getReferrerPolicy(currentReferrer);
 
 				if (!parentPolicyData || !parentPolicyData.referrer) {
-					// Check if this ends at the proxy origin
 					if (
 						parentChainClient &&
 						currentReferrer.startsWith(location.origin)
 					) {
 						isTopLevelProxyNavigation = true;
 					}
-					// Results are inclusive
 					break;
 				}
 
-				// Check if this was an iframe navigation by looking at the client
 				if (parentChainClient && parentChainClient.frameType === "nested") {
-					// Continue checking the chain
 					currentReferrer = parentPolicyData.referrer;
 				} else {
-					// Results are inclusive
 					break;
 				}
 			}
@@ -471,7 +453,6 @@ export async function handleFetch(
 			headers.set("Sec-Fetch-Dest", "document");
 			headers.set("Sec-Fetch-Mode", "navigate");
 		} else {
-			// Convert empty destination to "empty" string per spec
 			headers.set("Sec-Fetch-Dest", request.destination || "empty");
 			headers.set("Sec-Fetch-Mode", request.mode);
 		}
@@ -586,18 +567,6 @@ async function handleResponse(
 	referrer: string
 ): Promise<Response> {
 	let responseBody: BodyType;
-	// response.rawHeaders = {};
-	// for (let h of response.raw_headers) {
-	// 	const key = h[0];
-	// 	const value = h[1];
-	// 	if (response.rawHeaders[key] === undefined) {
-	// 		response.rawHeaders[key] = value;
-	// 	} else if (Array.isArray(response.rawHeaders[key])) {
-	// 		(response.rawHeaders[key] as string[]).push(value);
-	// 	} else {
-	// 		response.rawHeaders[key] = [response.rawHeaders[key] as string, value];
-	// 	}
-	// }
 	const isNavigationRequest =
 		mode === "navigate" && ["document", "iframe"].includes(destination);
 	const responseHeaders = await rewriteHeaders(
@@ -607,7 +576,6 @@ async function handleResponse(
 		{ get: getReferrerPolicy, set: storeReferrerPolicy }
 	);
 
-	// Store referrer policy from navigation responses for Force Referrer
 	if (isNavigationRequest && responseHeaders["referrer-policy"] && referrer) {
 		await storeReferrerPolicy(
 			url.href,
@@ -636,7 +604,6 @@ async function handleResponse(
 		);
 		await getMostRestrictiveSite(redirectUrl.toString(), newSiteDirective);
 
-		// ensure that ?type=module is not lost in a redirect
 		if (scriptType) {
 			const url = new URL(responseHeaders["location"]);
 			url.searchParams.set("type", scriptType);
@@ -664,7 +631,6 @@ async function handleResponse(
 	);
 
 	for (const header in responseHeaders) {
-		// flatten everything past here
 		if (Array.isArray(responseHeaders[header]))
 			responseHeaders[header] = responseHeaders[header][0];
 	}
@@ -684,10 +650,7 @@ async function handleResponse(
 			}
 			const length = responseHeaders["content-length"];
 
-			// there's no reliable way of finding the top level client that made the request
-			// just take the first one and hope
 			let clis = await clients.matchAll({});
-			// only want controller windows
 			clis = clis.filter((e) => !e.url.includes(config.prefix));
 			if (clis.length < 1) {
 				throw Error(
@@ -710,19 +673,13 @@ async function handleResponse(
 				[response.body]
 			);
 
-			// endless vortex reference
 			await new Promise(() => {});
 		} else {
-			// manually rewrite for regular browser download
 			const header = responseHeaders["content-disposition"];
 
-			// validate header and test for filename
 			if (!/\s*?((inline|attachment);\s*?)filename=/i.test(header)) {
-				// if filename= wasn"t specified then maybe the remote specified to download this as an attachment?
-				// if it"s invalid then we can still possibly test for the attachment/inline type
 				const type = /^\s*?attachment/i.test(header) ? "attachment" : "inline";
 
-				// set the filename
 				const [filename] = new URL(response.finalURL).pathname
 					.split("/")
 					.slice(-1);
@@ -747,7 +704,6 @@ async function handleResponse(
 		responseHeaders["content-type"] = "text/event-stream";
 	}
 
-	// scramjet runtime can use features that permissions-policy blocks
 	delete responseHeaders["permissions-policy"];
 
 	if (
@@ -777,7 +733,6 @@ async function handleResponse(
 	);
 	swtarget.dispatchEvent(ev);
 
-	// Clean up tracker if not a redirect
 	if (!isRedirect(response)) {
 		await cleanTracker(url.toString());
 	}
@@ -800,20 +755,6 @@ async function rewriteBody(
 		case "iframe":
 		case "document":
 			if (response.headers.get("content-type")?.startsWith("text/html")) {
-				// note from percs: i think this has the potential to be slow asf, but for right now its fine (we should probably look for a better solution)
-				// another note from percs: regex seems to be broken, gonna comment this out
-				/*
-        const buf = await response.arrayBuffer();
-        const decode = new TextDecoder("utf-8").decode(buf);
-        const charsetHeader = response.headers.get("content-type");
-        const charset =
-          charsetHeader?.split("charset=")[1] ||
-          decode.match(/charset=([^"]+)/)?.[1] ||
-          "utf-8";
-        const htmlContent = charset
-          ? new TextDecoder(charset).decode(buf)
-          : decode;
-        */
 				return rewriteHtml(await response.text(), cookieStore, meta, true);
 			} else {
 				return response.body;

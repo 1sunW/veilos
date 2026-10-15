@@ -1,6 +1,4 @@
-// VeilOS System Audio, Assets, and Built-in Applications (Task Manager, Terminal, Files)
 (function () {
-	// Synthesized Web Audio API sound effects
 	window.VeilAudio = {
 		ctx: null,
 		init() {
@@ -95,7 +93,6 @@
 		}
 	};
 
-	// Desktop wallpaper presets
 	window.VEIL_WALLPAPERS = [
 		{ id: "halloween", name: "Halloween Spooky", url: "assets/halloween.jpg" },
 		{ id: "default", name: "Default (Floral)", url: "assets/background.jpg" }
@@ -105,9 +102,6 @@
 		return ("" + (str || "")).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 	}
 
-	// ==========================================
-	// 1. Task Manager / Activity Monitor App
-	// ==========================================
 	window.renderActivityApp = function (win, scramjet, osInstance) {
 		if (!win.customState) win.customState = {};
 		if (win.customState.rootEl) return win.customState.rootEl;
@@ -130,7 +124,6 @@
 			const otherWins = windows.filter(w => w.id !== win.id);
 
 			root.innerHTML = `
-				<!-- Top Bar: Telemetry Gauges -->
 				<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 bg-neutral-900/60 border-b border-white/10 shrink-0">
 					<div class="p-2.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-1">
 						<div class="flex items-center justify-between text-neutral-400 text-[10px] font-semibold uppercase tracking-wider">
@@ -173,7 +166,6 @@
 					</div>
 				</div>
 
-				<!-- Process Table Header -->
 				<div class="flex items-center justify-between px-4 py-2 bg-neutral-950/80 border-b border-white/10 text-neutral-400 text-[11px] font-semibold">
 					<div class="w-2/5">Process Name</div>
 					<div class="w-1/6 text-center">PID</div>
@@ -182,7 +174,6 @@
 					<div class="w-1/6 text-right">Action</div>
 				</div>
 
-				<!-- Process Rows -->
 				<div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
 					${windows.map((w, idx) => {
 						const isThis = w.id === win.id;
@@ -212,7 +203,6 @@
 					}).join("")}
 				</div>
 
-				<!-- Footer Controls -->
 				<div class="p-2.5 px-4 bg-neutral-950 border-t border-white/10 flex items-center justify-between text-[11px] text-neutral-400">
 					<span>VeilOS Process Supervisor v2.5</span>
 					<button id="refresh-task-mgr" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium flex items-center gap-1.5 cursor-pointer">
@@ -250,9 +240,6 @@
 		return root;
 	};
 
-	// ==========================================
-	// 2. Veil Terminal App
-	// ==========================================
 	window.renderTerminalApp = function (win, scramjet, osInstance) {
 		if (!win.customState) win.customState = {};
 		if (win.customState.rootEl) return win.customState.rootEl;
@@ -440,9 +427,6 @@
 		return root;
 	};
 
-	// ==========================================
-	// 3. Veil Files App
-	// ==========================================
 	window.renderFilesApp = function (win, scramjet, osInstance) {
 		if (!win.customState) win.customState = {};
 		if (win.customState.rootEl) return win.customState.rootEl;
@@ -475,7 +459,6 @@
 			});
 
 			root.innerHTML = `
-				<!-- Top Bar -->
 				<div class="h-11 bg-neutral-900/60 border-b border-white/10 flex items-center justify-between px-4 shrink-0">
 					<div class="flex items-center gap-2 text-neutral-300 text-xs font-semibold">
 						<i class="fa-solid fa-hard-drive text-indigo-400"></i>
@@ -490,9 +473,7 @@
 					</div>
 				</div>
 
-				<!-- Main 2-Pane Body -->
 				<div class="flex-1 flex overflow-hidden">
-					<!-- Left Sidebar -->
 					<div class="w-48 bg-neutral-950/60 border-r border-white/10 p-3 flex flex-col gap-1 shrink-0">
 						<div class="text-[10px] uppercase font-bold text-neutral-500 px-2 py-1 tracking-wider">Navigation</div>
 						<button data-cat="all" class="cat-btn flex items-center gap-2.5 px-3 py-2 rounded-xl bg-indigo-600/25 text-white border border-indigo-500/30 font-medium cursor-pointer transition-colors text-left">
@@ -508,7 +489,6 @@
 						</div>
 					</div>
 
-					<!-- Right Grid -->
 					<div class="flex-1 overflow-y-auto custom-scrollbar p-4">
 						<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
 							${filtered.map(f => `
@@ -562,7 +542,6 @@
 		return root;
 	};
 
-	// 4. VeilOS Changelog & Credits Application
 	const CHANGELOG_DATA = [
 		{
 			era: "V0.7.x",
@@ -1201,7 +1180,7 @@
 		const root = document.createElement("div");
 		root.className = "w-full h-full flex flex-col bg-[#07080d] text-white select-text font-sans overflow-hidden";
 
-		let currentTab = "changelog"; // "changelog" | "credits" | "about"
+		let currentTab = "changelog";
 		let selectedEra = "all";
 		let searchQuery = "";
 
@@ -1242,7 +1221,6 @@
 			const filteredEras = getFilteredEras();
 
 			root.innerHTML = `
-				<!-- Top Header Toolbar -->
 				<div class="h-14 bg-neutral-900/90 border-b border-white/10 px-4 flex items-center justify-between shrink-0 backdrop-blur-xl">
 					<div class="flex items-center gap-3">
 						<div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white shadow-md">
@@ -1260,7 +1238,6 @@
 						</div>
 					</div>
 
-					<!-- Navigation Tabs -->
 					<div class="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
 						<button class="cl-nav-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${currentTab === 'changelog' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-white'}" data-tab="changelog">
 							<i class="fa-solid fa-clock-rotate-left text-xs"></i>
@@ -1277,19 +1254,15 @@
 					</div>
 				</div>
 
-				<!-- Main Content Body -->
 				<div class="flex-1 overflow-y-auto custom-scrollbar p-5">
 					${currentTab === "changelog" ? `
-						<!-- Era Filter & Search Controls -->
 						<div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6 bg-white/[0.03] border border-white/10 p-3 rounded-2xl backdrop-blur-md">
-							<!-- Search Input -->
 							<div class="relative flex-1">
 								<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-xs"></i>
 								<input id="cl-search" type="text" value="${escapeHtml(searchQuery)}" placeholder="Search versions, features, fixes..."
 									class="w-full pl-8 pr-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-400/50 transition-colors" />
 							</div>
 
-							<!-- Era Filter Pills -->
 							<div class="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar shrink-0">
 								<button class="cl-era-btn px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-all ${selectedEra === 'all' ? 'bg-white/20 text-white border border-white/30' : 'bg-white/5 text-neutral-400 hover:text-white border border-transparent'}" data-era="all">All</button>
 								${CHANGELOG_DATA.map(era => `
@@ -1298,7 +1271,6 @@
 							</div>
 						</div>
 
-						<!-- Timeline of Versions -->
 						<div class="space-y-6 max-w-4xl mx-auto">
 							${filteredEras.length === 0 ? `
 								<div class="py-12 text-center text-neutral-400">
@@ -1307,7 +1279,6 @@
 								</div>
 							` : filteredEras.map(era => `
 								<div class="bg-neutral-900/40 border border-white/10 rounded-3xl p-5 backdrop-blur-xl shadow-xl">
-									<!-- Era Header -->
 									<div class="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
 										<div class="flex items-center gap-2.5">
 											<div class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center font-bold text-white text-xs">
@@ -1321,7 +1292,6 @@
 										<span class="px-2.5 py-1 rounded-xl text-[10px] font-semibold border ${era.badgeClass}">${era.badge}</span>
 									</div>
 
-									<!-- Version Cards in Era -->
 									<div class="space-y-3">
 										${era.versions.map(v => `
 											<div class="p-3.5 rounded-2xl bg-black/40 border border-white/5 hover:border-white/20 transition-all hover:bg-black/60 group">
@@ -1340,7 +1310,6 @@
 							`).join("")}
 						</div>
 					` : currentTab === "credits" ? `
-						<!-- Credits View -->
 						<div class="max-w-4xl mx-auto space-y-6">
 							<div class="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-teal-950/30 to-indigo-950/40 border border-emerald-500/25 shadow-xl text-center flex flex-col items-center gap-2">
 								<div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-2xl text-emerald-300 shadow-md">
@@ -1379,7 +1348,6 @@
 							`).join("")}
 						</div>
 					` : `
-						<!-- About System View -->
 						<div class="max-w-2xl mx-auto space-y-4">
 							<div class="p-6 rounded-3xl bg-neutral-900/60 border border-white/10 shadow-2xl flex flex-col items-center text-center gap-3">
 								<div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-3xl text-white shadow-xl">
@@ -1434,7 +1402,6 @@
 				</div>
 			`;
 
-			// Event listeners for tabs
 			root.querySelectorAll(".cl-nav-btn").forEach(btn => {
 				btn.addEventListener("click", () => {
 					currentTab = btn.getAttribute("data-tab");
@@ -1442,7 +1409,6 @@
 				});
 			});
 
-			// Event listeners for era buttons
 			root.querySelectorAll(".cl-era-btn").forEach(btn => {
 				btn.addEventListener("click", () => {
 					selectedEra = btn.getAttribute("data-era");
@@ -1450,13 +1416,11 @@
 				});
 			});
 
-			// Search input
 			const searchInput = root.querySelector("#cl-search");
 			if (searchInput) {
 				searchInput.addEventListener("input", (e) => {
 					searchQuery = e.target.value;
 					render();
-					// Maintain focus
 					const nextInp = root.querySelector("#cl-search");
 					if (nextInp) {
 						nextInp.focus();

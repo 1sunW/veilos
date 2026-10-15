@@ -1,6 +1,4 @@
-/// <reference path="../lib/index.d.ts" />
 
-// dumb hack to allow firefox to work (please dont do this in prod)
 if (navigator.userAgent.includes("Firefox")) {
 	Object.defineProperty(globalThis, "crossOriginIsolated", {
 		value: true,
@@ -160,7 +158,6 @@ async function findExtensionFile(filePath, preferredExtId) {
 		if (!db || !db.objectStoreNames.contains("extension_files")) return null;
 		const clean = filePath.replace(/^\//, "");
 
-		// 1. If preferredExtId is provided, try that first
 		if (preferredExtId) {
 			const bytes = await new Promise((resolve) => {
 				try {
@@ -176,7 +173,6 @@ async function findExtensionFile(filePath, preferredExtId) {
 			if (bytes) return { extId: preferredExtId, bytes };
 		}
 
-		// 2. Search all keys in extension_files store
 		const allKeys = await new Promise((resolve) => {
 			try {
 				const tx = db.transaction("extension_files", "readonly");
@@ -249,7 +245,6 @@ async function handleRequest(event) {
 		const url = new URL(event.request.url);
 		const pathname = url.pathname || "";
 
-		// Handle chrome-extension:// scheme if requested directly
 		if (url.protocol === "chrome-extension:") {
 			const extId = url.hostname;
 			const filePath = decodeURIComponent(url.pathname.replace(/^\//, ""));
@@ -262,7 +257,6 @@ async function handleRequest(event) {
 			}
 		}
 
-		// Extract extId if we can from the path
 		let extIdFromPath = null;
 		if (pathname.startsWith(SAPPHIRE_PREFIX)) {
 			const rest = pathname.slice(SAPPHIRE_PREFIX.length);
@@ -270,7 +264,6 @@ async function handleRequest(event) {
 			extIdFromPath = slash === -1 ? rest : rest.slice(0, slash);
 		}
 
-		// Save mapping of clientId/resultingClientId to extId
 		const cid = event.clientId;
 		const rcid = event.resultingClientId;
 
@@ -279,20 +272,17 @@ async function handleRequest(event) {
 			if (cid) clientToExtId.set(cid, extIdFromPath);
 		}
 
-		// Also check referrer as a fallback to map client
 		const refExtId = getExtIdFromReferrer(event.request.referrer);
 		if (refExtId) {
 			if (cid) clientToExtId.set(cid, refExtId);
 			if (rcid) clientToExtId.set(rcid, refExtId);
 		}
 
-		// Resolve from sapphire extension path directly (/~/sx/<extId>/...)
 		if (pathname.startsWith(SAPPHIRE_PREFIX)) {
 			const sResp = await handleSapphireRequest(url);
 			if (sResp) return sResp;
 		}
 
-		// Check if this request is for an extension-local bundled file (e.g. /rulesets/*.json or /manifest.json)
 		const mappedExtId = (cid ? clientToExtId.get(cid) : null) || refExtId;
 		const cleanPath = pathname.replace(/^\//, "");
 

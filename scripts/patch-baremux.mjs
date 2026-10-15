@@ -113,7 +113,6 @@ export function patchAll() {
 		],
 	];
 
-	// 1. Prepend safe-postmessage to worker.js files
 	const workerFiles = [
 		join(root, "node_modules", "@mercuryworkshop", "bare-mux", "dist", "worker.js"),
 		join(root, "public", "baremux", "worker.js"),
@@ -131,7 +130,6 @@ export function patchAll() {
 		patchFile(f, workerTransforms);
 	}
 
-	// 2. Patch index.js and index.mjs files
 	const indexFiles = [
 		join(root, "node_modules", "@mercuryworkshop", "bare-mux", "dist", "index.js"),
 		join(root, "node_modules", "@mercuryworkshop", "bare-mux", "dist", "index.mjs"),
@@ -155,7 +153,6 @@ export function patchAll() {
 		patchFile(f, indexTransforms);
 	}
 
-	// 3. Patch epoxy-transport files
 	const epoxyFiles = [
 		join(root, "node_modules", "@mercuryworkshop", "epoxy-transport", "dist", "index.mjs"),
 		join(root, "public", "epoxy", "index.mjs"),

@@ -48,7 +48,6 @@ const defaultNotes = [
 	{ id: "note_1", title: "Welcome to VeilOS", content: "# VeilOS Web Operating System\n\nWelcome to your new Web OS!\n\nFeatures:\n- Multi-window desktop manager\n- Veil Web Browser with proxy engine & Chrome extensions\n- Tab Cloaking & presets (Classroom, Drive, Canvas, Desmos, etc.)\n- Blob & About:blank Cloaking\n- Search engine choice (DuckDuckGo, Google, Bing, Brave)\n- Games, Movies, Vault & Chat", updatedAt: Date.now() }
 ];
 
-// Sanitize localStorage settings to protect Dreamland's $store parser
 try {
 	if (typeof localStorage !== "undefined") {
 		const rawSettings = localStorage.getItem("settings");
@@ -78,7 +77,7 @@ const initialSettings = {
 	bareurl: defaultBare,
 	proxy: "",
 	transport: "/epoxy/index.mjs",
-	searchEngine: "duckduckgo", // "duckduckgo" | "google" | "bing" | "brave"
+	searchEngine: "duckduckgo",
 	tabCloak: "default",
 	customCloakTitle: "",
 	customCloakIcon: "",
@@ -129,7 +128,6 @@ try {
 	}
 }
 
-// On page refresh / load, set automatically to default wisp and bare
 store.wispurl = defaultWisp;
 store.bareurl = defaultBare;
 
@@ -261,7 +259,6 @@ function openBlobCloak(targetUrl) {
 		const blobUrl = URL.createObjectURL(blob);
 		const win = window.open(blobUrl, "_blank");
 		if (!win) {
-			// Fallback: navigate current window to blob
 			window.location.href = blobUrl;
 		}
 		return true;
@@ -271,7 +268,6 @@ function openBlobCloak(targetUrl) {
 	}
 }
 
-// Initial cloak application on page load
 if (typeof window !== "undefined") {
 	window.applyTabCloak = applyTabCloak;
 	window.openAboutBlankCloak = openAboutBlankCloak;
@@ -280,7 +276,6 @@ if (typeof window !== "undefined") {
 	setTimeout(() => {
 		applyTabCloak(store.tabCloak, store.customCloakTitle, store.customCloakIcon);
 
-		// Auto About:blank cloak check
 		const isAuto = Boolean(store.autoAboutBlank) || (typeof localStorage !== "undefined" && localStorage.getItem("veil_auto_about_blank") === "true");
 		if (isAuto) {
 			const currentHref = window.location.href;

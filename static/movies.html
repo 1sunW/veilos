@@ -9,7 +9,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet">
-    <!-- Lucide Icons (lucide.dev) -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="/safe-postmessage.js"></script>
     <script src="/baremux/index.js"></script>
@@ -219,7 +218,6 @@
             font: inherit;
         }
 
-        /* Top Bar in App */
         .app-topbar {
             position: absolute;
             top: 0;
@@ -329,7 +327,6 @@
             transform: translateY(0) scale(0.97);
         }
 
-        /* Home Shell */
         .dac {
             position: absolute;
             top: 50%;
@@ -413,7 +410,6 @@
             transform: translateY(-2px) scale(1.02);
         }
 
-        /* Popup & Modal Windows */
         .popup-backdrop {
             position: fixed;
             inset: 0;
@@ -516,7 +512,6 @@
             position: relative;
         }
 
-        /* Movie & Content Browser Styles */
         .movie-toolbar {
             display: flex;
             flex-direction: column;
@@ -727,7 +722,6 @@
             gap: 8px;
         }
 
-        /* Watch Player View */
         .watch-container {
             display: flex;
             flex-direction: column;
@@ -922,7 +916,6 @@
             line-height: 1.6;
         }
 
-        /* Settings View */
         .settings-view {
             display: flex;
             flex-direction: column;
@@ -1029,7 +1022,6 @@
 </head>
 
 <body>
-    <!-- Top Bar with Scramjet Proxy Indicator & Controls -->
     <div class="app-topbar">
         <div class="app-logo" onclick="openHome()">
             <span class="accent">🎬 SSV</span>
@@ -1052,7 +1044,6 @@
         </div>
     </div>
 
-    <!-- Home Landing Screen -->
     <div class="dac home-shell" id="homeShell">
         <h1 class="hometitle">SSV</h1>
         <p id="splash">loading...</p>
@@ -1068,7 +1059,6 @@
         </div>
     </div>
 
-    <!-- Popup Backdrop & Window -->
     <div class="popup-backdrop" id="popupBackdrop" onclick="closePopup()"></div>
     <div class="popup-window" id="popupWindow" role="dialog" aria-modal="true" aria-hidden="true">
         <div class="popup-chrome">
@@ -1093,7 +1083,6 @@
             </div>
         </div>
 
-        <!-- Popup Body: Dynamically filled with Movies or Settings or Watch -->
         <div class="popup-body" id="popupBody"></div>
     </div>
 
@@ -1123,7 +1112,6 @@
             return TMDB_API_KEYS[currentApiKeyIndex] || TMDB_API_KEYS[0];
         }
 
-        // Streaming Mirrors - Stream links loaded into iframe via Scramjet proxy
         const watchSources = [
             {
                 id: "videasy",
@@ -1278,7 +1266,6 @@
             seasonData: null
         };
 
-        // Initialize Scramjet controller & worker in current window
         let localScramjet = null;
         async function initLocalScramjet() {
             try {
@@ -1318,7 +1305,6 @@
         }
         initLocalScramjet();
 
-        // THE CORE PROXY ROUTER: Converts any raw streaming URL into a Scramjet proxied URL
         function getProxiedUrl(targetUrl, forcedMode) {
             if (!targetUrl) return "";
             const mode = forcedMode || popupState.proxyMode || "scramjet";
@@ -1327,7 +1313,6 @@
                 return targetUrl;
             }
 
-            // Primary: Scramjet Proxy path (/scramjet/<encoded>)
             try {
                 if (window.parent && typeof window.parent.encodeProxyUrl === "function") {
                     return window.parent.encodeProxyUrl(targetUrl);
@@ -1345,7 +1330,6 @@
                 console.warn("Parent proxy access note:", e);
             }
 
-            // Fallback Scramjet encoding
             try {
                 const u = new URL(targetUrl, window.location.href);
                 const hash = u.hash ? "#" + encodeURIComponent(u.hash.slice(1)) : "";
@@ -1356,7 +1340,6 @@
             }
         }
 
-        // Set random splash
         $("#splash").textContent = splashes[Math.floor(Math.random() * splashes.length)];
 
         function setPopupOpen(isOpen) {
@@ -1424,9 +1407,6 @@
             applyTabSettings(cleanTitle, cleanFavicon);
         }
 
-        // ==========================================
-        // MOVIES BROWSE SECTION
-        // ==========================================
         function renderMoviesView() {
             popupState.activeSection = "movies";
             $("#popupTitle").innerHTML = '<i data-lucide="film" style="color: var(--accent);"></i> <span>movies & shows</span>';
@@ -1475,7 +1455,6 @@
             `;
             if (window.lucide) lucide.createIcons();
 
-            // Bind Event Listeners
             const searchInput = $("#movieSearch");
             const tabMovies = $("#tabMoviesBtn");
             const tabShows = $("#tabShowsBtn");
@@ -1565,7 +1544,6 @@
                     endpoint = "search/movie";
                     extraParams = `&query=${query}`;
                 } else {
-                    // Both TV shows and Anime search TV
                     endpoint = "search/tv";
                     extraParams = `&query=${query}`;
                 }
@@ -1585,7 +1563,6 @@
             try {
                 let res = await fetch(url, { headers: { Accept: "application/json" } });
                 if (!res.ok) {
-                    // Try next key if rate limited
                     currentApiKeyIndex = (currentApiKeyIndex + 1) % TMDB_API_KEYS.length;
                     const fallbackUrl = `https://api.themoviedb.org/3/${endpoint}?api_key=${getTmdbApiKey()}&page=${popupState.currentPage}${qParam}`;
                     res = await fetch(fallbackUrl);
@@ -1640,9 +1617,6 @@
             }
         }
 
-        // ==========================================
-        // PROXIED WATCH PLAYER SECTION
-        // ==========================================
         async function launchWatch(contentId, contentType, fallbackTitle, fallbackYear) {
             popupState.activeSection = "watch";
             popupState.activeContentId = contentId;
@@ -1679,7 +1653,6 @@
                         </div>
                     </div>
 
-                    <!-- Video Box with Proxied Iframe -->
                     <div class="watch-player-box" id="playerContainer">
                         <div class="watch-player-loader" id="playerLoader">
                             <div class="spinner"></div>
@@ -1688,7 +1661,6 @@
                         <iframe id="watchFrame" class="watch-player-frame" allow="fullscreen; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
                     </div>
 
-                    <!-- Source Selector Bar & Proxy Configuration -->
                     <div class="watch-controls-bar" style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center;">
                         <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
                             <div class="source-selector-wrap">
@@ -1717,7 +1689,6 @@
                         </div>
                     </div>
 
-                    <!-- TV Seasons and Episodes Controls -->
                     <div id="tvControlsBox" style="display: none; flex-direction: column; gap: 10px;">
                         <div style="font-size: 13px; font-weight: 600; color: var(--bright-text);">Seasons</div>
                         <div class="tv-seasons-bar" id="seasonRow"></div>
@@ -1725,7 +1696,6 @@
                         <div class="tv-episodes-grid" id="episodeGrid"></div>
                     </div>
 
-                    <!-- Overview Synopsis Box -->
                     <div class="watch-overview-box">
                         <h3>Overview</h3>
                         <p id="watchOverview">Loading synopsis...</p>
@@ -1734,7 +1704,6 @@
             `;
             if (window.lucide) lucide.createIcons();
 
-            // Populate source dropdown
             const sourceSelect = $("#sourceSelect");
             watchSources.forEach((src) => {
                 const opt = document.createElement("option");
@@ -1758,7 +1727,6 @@
                 });
             }
 
-            // Fetch details from TMDB
             try {
                 const detUrl = `https://api.themoviedb.org/3/${contentType}/${contentId}?api_key=${getTmdbApiKey()}`;
                 const detRes = await fetch(detUrl);
@@ -1866,7 +1834,6 @@
             }
         }
 
-        // BUILDS THE PROXIED EMBED URL AND LOADS IT INTO THE VIDEO FRAME
         function updateVideoEmbed() {
             const frame = $("#watchFrame");
             const loader = $("#playerLoader");
@@ -1886,11 +1853,9 @@
                 rawUrl = rawUrl.replace("{id}", popupState.activeContentId);
             }
 
-            // Load stream URL (proxied through Scramjet or direct)
             const proxiedUrl = getProxiedUrl(rawUrl, popupState.proxyMode);
             console.log(`[Proxy] Loading stream via ${popupState.proxyMode}:`, proxiedUrl);
 
-            // Update live UI indicators
             const liveLabel = $("#proxyLiveLabel");
             if (liveLabel) {
                 liveLabel.textContent = popupState.proxyMode === "direct"
@@ -1904,7 +1869,6 @@
                 if (loader) loader.classList.add("hidden");
             };
 
-            // Auto-hide loader after 4 seconds even if frame onload doesn't fire
             setTimeout(() => {
                 if (loader) loader.classList.add("hidden");
             }, 4000);
@@ -1946,9 +1910,6 @@
             renderMoviesView();
         }
 
-        // ==========================================
-        // SETTINGS & THEMES SECTION
-        // ==========================================
         function renderSettingsView() {
             popupState.activeSection = "settings";
             $("#popupTitle").innerHTML = '<i data-lucide="palette" style="color: var(--accent);"></i> <span>settings</span>';
@@ -2042,7 +2003,6 @@
             saveTabSettings("", "");
         }
 
-        // Launch into a section
         function launch(key) {
             setPopupOpen(true);
             if (key === "movies") {
@@ -2060,7 +2020,6 @@
             }
         });
 
-        // Initialize saved preferences
         const savedTheme = localStorage.getItem("SSV-theme") || localStorage.getItem("KAMAT-theme");
         if (savedTheme && availableThemes.includes(savedTheme)) {
             applyTheme(savedTheme);
@@ -2071,12 +2030,10 @@
             localStorage.getItem("SSV-tab-favicon") || localStorage.getItem("KAMAT-tab-favicon") || ""
         );
 
-        // Check query params: if opened with ?app=movies or direct load, open movies view
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get("app") === "movies" || urlParams.get("view") === "movies") {
             launch("movies");
         } else {
-            // Auto open movies view immediately for maximum user delight
             launch("movies");
         }
         if (window.lucide) lucide.createIcons();

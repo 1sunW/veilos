@@ -6,9 +6,7 @@ export async function setupPage(
 	page: Page,
 	url: string
 ): Promise<FrameLocator> {
-	// Hack to disable HTTP cache.
 	await page.route("**", (route) => route.continue());
-	// Goto base url defined in config.
 	await page.goto("/");
 	await page.waitForSelector(".version > b");
 	const bar = page.locator(".bar");

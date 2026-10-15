@@ -1,4 +1,3 @@
-// Google tag (gtag.js)
 const script1 = document.createElement('script');
 script1.async = true;
 script1.src = 'https://www.googletagmanager.com/gtag/js?id=G-0LH2MR13BF';
@@ -114,11 +113,9 @@ function PlaygroundApp() {
 			value: dedent`
 			<html>
 				<head>
-					<!-- all resources are intercepted by the service worker -->
 					<link rel="stylesheet" href="/style.css"></link>
 					<script src="/script.js"></script>
 
-					<!-- external resources go through WISP (check network tab) -->
 					<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 				</head>
 				<body>

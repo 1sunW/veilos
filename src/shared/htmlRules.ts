@@ -12,7 +12,6 @@ export const htmlRules: {
 			return rewriteUrl(value, meta);
 		},
 
-		// url rewrites
 		src: ["embed", "script", "img", "frame", "source", "input", "track"],
 		href: ["a", "link", "area", "use", "image"],
 		data: ["object"],
@@ -24,15 +23,12 @@ export const htmlRules: {
 	{
 		fn: (value: string, meta: URLMeta) => {
 			const url = rewriteUrl(value, meta);
-			// if (meta.topFrameName)
-			// 	url += `?topFrame=${meta.topFrameName}&parentFrame=${meta.parentFrameName}`;
 
 			return url;
 		},
 		src: ["iframe"],
 	},
 	{
-		// is this a good idea?
 		fn: (value: string, meta: URLMeta) => {
 			return null;
 		},
@@ -41,8 +37,6 @@ export const htmlRules: {
 	{
 		fn: (value: string, meta: URLMeta) => {
 			if (value.startsWith("blob:")) {
-				// for media elements specifically they must take the original blob
-				// because they can't be fetch'd
 				return unrewriteBlob(value);
 			}
 
@@ -58,7 +52,6 @@ export const htmlRules: {
 	{
 		fn: () => null,
 
-		// csp stuff that must be deleted
 		nonce: "*",
 		csp: ["iframe"],
 		credentialless: ["iframe"],
@@ -66,7 +59,6 @@ export const htmlRules: {
 	{
 		fn: (value: string, meta: URLMeta) => rewriteSrcset(value, meta),
 
-		// srcset
 		srcset: ["img", "source"],
 		imagesrcset: ["link"],
 	},
@@ -76,14 +68,12 @@ export const htmlRules: {
 				value,
 				cookieStore,
 				{
-					// for srcdoc origin is the origin of the page that the iframe is on. base and path get dropped
 					origin: new URL(meta.origin.origin),
 					base: new URL(meta.origin.origin),
 				},
 				true
 			),
 
-		// srcdoc
 		srcdoc: ["iframe"],
 	},
 	{

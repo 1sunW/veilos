@@ -18,7 +18,6 @@ export function patchSapphire() {
 		execSync("node scripts/patch-sapphire-init.mjs", { cwd: root, stdio: "inherit" });
 	} catch (e) {}
 
-	// 1. extensions.ts: line 136 Set typing and 32-letter extension ID preservation
 	const extensionsPath = join(sapphireDir, "extensions.ts");
 	if (existsSync(extensionsPath)) {
 		let code = readFileSync(extensionsPath, "utf8");
@@ -53,7 +52,6 @@ export function patchSapphire() {
 		}
 	}
 
-	// 2. frames.ts: ExtendableEvent win.Event
 	const framesPath = join(sapphireDir, "frames.ts");
 	if (existsSync(framesPath)) {
 		let code = readFileSync(framesPath, "utf8");
@@ -67,7 +65,6 @@ export function patchSapphire() {
 		}
 	}
 
-	// 3. SapphirePlugin.ts: tabId type & this.tap
 	const pluginPath = join(sapphireDir, "SapphirePlugin.ts");
 	if (existsSync(pluginPath)) {
 		let code = readFileSync(pluginPath, "utf8");
@@ -92,7 +89,6 @@ export function patchSapphire() {
 		}
 	}
 
-	// 4. urlScheme.ts: web-fetchable extension URL
 	const urlSchemePath = join(sapphireDir, "urlScheme.ts");
 	if (existsSync(urlSchemePath)) {
 		let code = readFileSync(urlSchemePath, "utf8");
@@ -106,7 +102,6 @@ export function patchSapphire() {
 		}
 	}
 
-	// 5. chromeApi.ts: XHR & Fetch redirects for chrome-extension://
 	const chromeApiPath = join(sapphireDir, "chromeApi.ts");
 	if (existsSync(chromeApiPath)) {
 		let code = readFileSync(chromeApiPath, "utf8");
@@ -156,7 +151,6 @@ export function patchSapphire() {
 		}
 	}
 
-	// 6. db.ts: files.ts imports dbGetAllKeysPrefix but db.ts never defines it
 	const dbPath = join(sapphireDir, "db.ts");
 	if (existsSync(dbPath)) {
 		let code = readFileSync(dbPath, "utf8");

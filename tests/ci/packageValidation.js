@@ -1,18 +1,8 @@
-/**
- * @fileoverview
- * Validates the packages structure with the expected bundles and some core type definition files.
- * This is meant to be run in CI, but you can run it locally too after executing `pnpm prepack` if you want to test before committing.
- */
 
 import test from "ava";
 import { glob } from "glob";
 import { existsSync } from "node:fs";
 
-/**
- * Expected distribution files for Scramjet's bundles.
- * All JS files listed must have corresponding source maps.
- * These aren't globs.
- */
 const EXPECTED_DIST_FILES = [
 	"dist/scramjet.all.js",
 	"dist/scramjet.bundle.js",
@@ -20,20 +10,12 @@ const EXPECTED_DIST_FILES = [
 	"dist/scramjet.wasm.wasm",
 ];
 
-/**
- * Required type definition files and directories.
- * These aren't going to be all, because the modules update quite often, but the entry points and basic structure will be validatedl
- */
 const EXPECTED_TYPE_FILES = [
 	"dist/types/**/*.d.ts",
 	"dist/types/index.d.ts",
 	"lib/index.d.ts",
 ];
 
-/**
- * Validates that all required distribution files exist in the package.
- * @param {import("ava").ExecutionContext} t - AVA unit test context.
- */
 test("Package contains all required distribution files", async (t) => {
 	const missingFiles = [];
 
@@ -50,10 +32,6 @@ test("Package contains all required distribution files", async (t) => {
 	);
 });
 
-/**
- * Validates that all required JS files have their corresponding source maps.
- * @param {import("ava").ExecutionContext} t - AVA unit test context.
- */
 test("All required JS bundles have corresponding source maps", async (t) => {
 	const jsFiles = EXPECTED_DIST_FILES.filter((file) => file.endsWith(".js"));
 	const missingMaps = [];
@@ -72,10 +50,6 @@ test("All required JS bundles have corresponding source maps", async (t) => {
 	);
 });
 
-/**
- * Validates that core type definition are included in the package.
- * @param {import("ava").ExecutionContext} t - AVA unit test context.
- */
 test("Package contains required type definitions", async (t) => {
 	const missingTypeGlobs = [];
 
@@ -93,11 +67,6 @@ test("Package contains required type definitions", async (t) => {
 	);
 });
 
-/**
- * Validates the expected distribution format with globs for the package structure.
- * This serves as a last check for the basic structure of the package.
- * @param {import("ava").ExecutionContext} t - AVA unit test context.
- */
 test("Package structure is valid for distribution", async (t) => {
 	const distFiles = await glob("dist/**/*");
 	const libFiles = await glob("lib/**/*");

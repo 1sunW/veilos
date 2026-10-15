@@ -3,7 +3,6 @@ import { type MessageC2W } from "@/worker";
 import { flagEnabled } from "@/shared";
 import { rewriteUrl } from "@rewriters/url";
 
-// we need a late order because we're mangling with addEventListener at a higher level
 export const order = 2;
 
 export const enabled = (client: ScramjetClient) =>
@@ -26,7 +25,6 @@ export default function (client: ScramjetClient, _self: Self) {
 	client.Proxy("EventTarget.prototype.addEventListener", {
 		apply(ctx) {
 			if (registrationmap.get(ctx.this)) {
-				// do nothing
 				ctx.return(undefined);
 			}
 		},
@@ -35,7 +33,6 @@ export default function (client: ScramjetClient, _self: Self) {
 	client.Proxy("EventTarget.prototype.removeEventListener", {
 		apply(ctx) {
 			if (registrationmap.get(ctx.this)) {
-				// do nothing
 				ctx.return(undefined);
 			}
 		},

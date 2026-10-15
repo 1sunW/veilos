@@ -21,7 +21,6 @@ export function getInjectScripts<T>(
 		}
 	`;
 
-	// for compatibility purpose
 	const base64Injected = bytesToBase64(encoder.encode(injected));
 
 	return [
@@ -88,11 +87,6 @@ export function rewriteHtml(
 	return ret;
 }
 
-// type ParseState = {
-// 	base: string;
-// 	origin?: URL;
-// };
-
 export function unrewriteHtml(html: string) {
 	const handler = new DomHandler((err, dom) => dom);
 	const parser = new Parser(handler);
@@ -129,8 +123,6 @@ export function unrewriteHtml(html: string) {
 		decodeEntities: false,
 	});
 }
-
-// i need to add the attributes in during rewriting
 
 function traverseParsedHtml(
 	node: any,
@@ -230,7 +222,6 @@ function traverseParsedHtml(
 		if (
 			node.attribs["http-equiv"].toLowerCase() === "content-security-policy"
 		) {
-			// just delete it. this needs to be emulated eventually but like
 			node = new Comment(node.attribs.content);
 		} else if (
 			node.attribs["http-equiv"] === "refresh" &&
@@ -259,11 +250,8 @@ function traverseParsedHtml(
 export function rewriteSrcset(srcset: string, meta: URLMeta) {
 	const sources = srcset.split(/ .*,/).map((src) => src.trim());
 	const rewrittenSources = sources.map((source) => {
-		// Split into URLs and descriptors (if any)
-		// e.g. url0, url1 1.5x, url2 2x
 		const [url, ...descriptors] = source.split(/\s+/);
 
-		// Rewrite the URLs and keep the descriptors (if any)
 		const rewrittenUrl = rewriteUrl(url.trim(), meta);
 
 		return descriptors.length > 0
@@ -273,12 +261,6 @@ export function rewriteSrcset(srcset: string, meta: URLMeta) {
 
 	return rewrittenSources.join(", ");
 }
-
-// function base64ToBytes(base64) {
-// 	const binString = atob(base64);
-
-// 	return Uint8Array.from(binString, (m) => m.codePointAt(0));
-// }
 
 function bytesToBase64(bytes: Uint8Array) {
 	const binString = Array.from(bytes, (byte) =>

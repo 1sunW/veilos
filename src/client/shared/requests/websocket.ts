@@ -80,16 +80,13 @@ export default function (client: ScramjetClient, self: typeof globalThis) {
 			barews.addEventListener("message", async (ev) => {
 				let payload = ev.data;
 				if (typeof payload === "string") {
-					// DO NOTHING
 				} else if ("byteLength" in payload) {
-					// arraybuffer, convert to blob if needed or set the proper prototype
 					if (state.binaryType === "blob") {
 						payload = new Blob([payload]);
 					} else {
 						Object.setPrototypeOf(payload, ArrayBuffer.prototype);
 					}
 				} else if ("arrayBuffer" in payload) {
-					// blob, convert to arraybuffer if neccesary.
 					if (state.binaryType === "arraybuffer") {
 						payload = await payload.arrayBuffer();
 						Object.setPrototypeOf(payload, ArrayBuffer.prototype);
@@ -267,12 +264,9 @@ export default function (client: ScramjetClient, self: typeof globalThis) {
 						barews.addEventListener("message", async (ev: MessageEvent) => {
 							let payload = ev.data;
 							if (typeof payload === "string") {
-								// DO NOTHING
 							} else if ("byteLength" in payload) {
-								// arraybuffer, set the realms prototype so its recognized
 								Object.setPrototypeOf(payload, ArrayBuffer.prototype);
 							} else if ("arrayBuffer" in payload) {
-								// blob, convert to arraybuffer
 								payload = await payload.arrayBuffer();
 								Object.setPrototypeOf(payload, ArrayBuffer.prototype);
 							}

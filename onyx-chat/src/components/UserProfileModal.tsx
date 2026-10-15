@@ -181,7 +181,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       }
     }
 
-    // Increment profile views
     targetData.views = (targetData.views || 0) + 1;
     if (targetData.uid) {
       try {
@@ -189,7 +188,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       } catch (e) {}
     }
 
-    // Dynamic self-healing of joinNumber for older accounts
     if (targetData && targetData.uid && !targetData.uid.startsWith('id_') && targetData.uid !== 'fallback_uid' && targetData.joinNumber === undefined) {
       try {
         const { getDocs, collection } = await import('firebase/firestore');
@@ -204,7 +202,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           };
         });
 
-        // Sort by createdAt. If equal, fallback to username
         usersList.sort((a, b) => {
           const diff = a.createdAt.getTime() - b.createdAt.getTime();
           if (diff !== 0) return diff;
@@ -307,14 +304,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     const targetNameLower = targetName.toLowerCase();
     const myNameLower = currentUser.username.toLowerCase();
 
-    // 1. Refresh my latest user doc from Firestore
     const myRef = doc(db, 'users', currentUser.uid);
     const mySnap = await getDoc(myRef);
     const myData = mySnap.exists() ? mySnap.data() : {};
     const myFriends: string[] = myData.friends || currentUser.friends || [];
     const myIncoming: string[] = myData.friendRequestsIncoming || currentUser.friendRequestsIncoming || [];
 
-    // 2. Resolve target user's real doc in Firestore
     let targetDocId = userProfile.uid;
     let targetData: any = {};
 
@@ -346,7 +341,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
     try {
       if (isFriend) {
-        // Remove friend for both users
         const newMyFriends = myFriends.filter((f) => f.toLowerCase() !== targetNameLower);
         const newTargetFriends = targetFriends.filter((f) => f.toLowerCase() !== myNameLower);
 
@@ -359,7 +353,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         setUserProfile({ ...userProfile, friends: newTargetFriends });
         onAlert(`Removed @${targetName} from friends.`, 'friend removed');
       } else if (isPendingIn) {
-        // Accept incoming request
         const newMyIncoming = myIncoming.filter((r) => r.toLowerCase() !== targetNameLower);
         const newMyFriends = Array.from(new Set([...myFriends.filter((f) => f.toLowerCase() !== targetNameLower), targetName]));
         const newTargetFriends = Array.from(new Set([...targetFriends.filter((f) => f.toLowerCase() !== myNameLower), currentUser.username]));
@@ -374,7 +367,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         setUserProfile({ ...userProfile, friends: newTargetFriends });
         onAlert(`Accepted friend request from @${targetName}!`, 'friend request accepted');
       } else if (isPendingOut) {
-        // Cancel pending request
         const newTargetIncoming = targetIncoming.filter((r) => r.toLowerCase() !== myNameLower);
         if (targetDocId) {
           await setDoc(doc(db, 'users', targetDocId), { friendRequestsIncoming: newTargetIncoming }, { merge: true });
@@ -383,7 +375,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         setUserProfile({ ...userProfile, friendRequestsIncoming: newTargetIncoming });
         onAlert(`Cancelled friend request to @${targetName}.`, 'request cancelled');
       } else {
-        // Send new friend request
         const newTargetIncoming = Array.from(new Set([...targetIncoming.filter((r) => r.toLowerCase() !== myNameLower), currentUser.username]));
         
         if (!targetDocId || targetDocId.startsWith('id_')) {
@@ -659,7 +650,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   return (
     <div className="fixed inset-0 z-[1500] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
       <div className={`relative flex flex-col md:flex-row bg-[#000000] rounded-[20px] overflow-hidden ${hasFlashPermission ? 'max-w-[780px]' : 'max-w-[420px]'} w-full max-h-[90vh] shadow-2xl border border-white/10 text-left`}>
-        {/* Close button */}
         <button
           type="button"
           onClick={onClose}
@@ -675,7 +665,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
         ) : (
           <>
-            {/* Left Panel: User Profile Card */}
             <div className={`flex-1 bg-[#0f0f13] p-6 flex flex-col gap-4 ${hasFlashPermission ? 'border-r border-[#1c1c24]' : ''} overflow-y-auto`}>
               <div className="flex flex-col items-start">
                 <div className="relative group/pfp mb-3">
@@ -800,10 +789,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             </div>
 
-            {/* Right Panel: Moderation Panel (Admins or Flashers Only) */}
             {hasFlashPermission && (
               <div className="flex-[0.85] bg-[#0d0d12] border-l border-[#1f131a] p-6 flex flex-col gap-4 overflow-y-auto">
-                {/* Moderation section */}
                 <div className="flex flex-col gap-2.5">
                   <div className="text-[0.68rem] font-bold text-[#f43f5e] uppercase tracking-wider flex items-center gap-1.5">
                     <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
@@ -913,7 +900,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
                 {currentUser?.isAdmin && (
                   <>
-                    {/* Tags section */}
                     <div className="flex flex-col gap-2">
                       <div className="text-[0.68rem] font-bold text-[#71717a] uppercase tracking-wider">
                         TAGS
@@ -943,7 +929,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       </button>
                     </div>
 
-                    {/* Owner actions section */}
                     <div className="flex flex-col gap-2">
                       <div className="text-[0.68rem] font-bold text-[#f43f5e] uppercase tracking-wider flex items-center gap-1.5">
                         <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v2h2v-2h2v-2h-8.35zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
@@ -988,7 +973,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         )}
       </div>
 
-      {/* In-App Prompt / Confirm Modal Dialog */}
       {promptState.isOpen && (
         <div className="fixed inset-0 z-[2500] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#141418] border border-[#27272a] rounded-[20px] p-6 w-full max-w-[360px] text-center shadow-2xl animate-in fade-in zoom-in-95 duration-200">

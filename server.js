@@ -1,4 +1,3 @@
-// Dev server imports
 import "dotenv/config";
 import { createBareServer } from "@nebula-services/bare-server-node";
 import { createServer } from "http";
@@ -11,7 +10,6 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 
-//transports
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
@@ -40,7 +38,6 @@ function getAiClient() {
 	return aiClient;
 }
 
-// Always ensure static assets are synced to public and patch script is executed
 try {
 	execSync("node scripts/copy-assets.mjs", { stdio: "inherit" });
 	execSync("node scripts/patch-sapphire-init.mjs", { stdio: "inherit" });
@@ -112,7 +109,6 @@ fastify.register(fastifyStatic, {
 	decorateReply: false,
 });
 
-// Onyx Chat application route handlers
 fastify.get("/onyx-chat", async (request, reply) => {
 	const chatDist = existsSync("./public/onyx-chat/index.html")
 		? "./public/onyx-chat/index.html"
@@ -143,7 +139,6 @@ fastify.get("/chat", async (request, reply) => {
 	return reply.redirect("/chat.html");
 });
 
-// Helper to locate data.tsx / data.ts
 function getDataTsPath() {
 	if (existsSync("./data.tsx")) return "./data.tsx";
 	if (existsSync("./src/data.tsx")) return "./src/data.tsx";
@@ -165,7 +160,6 @@ function transpileDataFile(source) {
 	});
 }
 
-// Helium Vault dynamic data endpoint - transpiles data.tsx / data.ts on the fly for live updates
 fastify.get("/data.tsx", async (request, reply) => {
 	try {
 		const filePath = getDataTsPath();
@@ -214,7 +208,6 @@ fastify.get("/data.ts", async (request, reply) => {
 	}
 });
 
-// Alias for /data.js
 fastify.get("/data.js", async (request, reply) => {
 	try {
 		const filePath = getDataTsPath();
@@ -239,7 +232,6 @@ fastify.get("/data.js", async (request, reply) => {
 	}
 });
 
-// Sonora Music streaming & search proxy endpoint
 fastify.all("/api/music/*", async (request, reply) => {
 	const upstreamUrl = "https://musicv-production.up.railway.app" + request.raw.url;
 	try {
@@ -275,7 +267,6 @@ fastify.all("/api/music/*", async (request, reply) => {
 
 
 
-// Emis LLM OpenAI-Compatible API Configuration
 const EMIS_BASE_URL = (process.env.EMIS_BASE_URL || "https://emis.zxs-is-very.cool/v1").replace(/\/$/, "");
 const EMIS_API_KEY = process.env.EMIS_API_KEY;
 const DEFAULT_LLM_MODEL = "glm-5.3";
@@ -286,7 +277,6 @@ if (!EMIS_API_KEY) {
 	);
 }
 
-// Complete catalog of all supported models with capabilities and providers
 const ALL_EMIS_MODELS = [
 	{"id":"gpt-5.6-luna","object":"model","owned_by":"openai","label":"GPT-5.6 Luna","reasoning":true,"tools":true,"vision":true},
 	{"id":"claude-sonnet-5","object":"model","owned_by":"anthropic","label":"Claude Sonnet 5","reasoning":true,"tools":true,"vision":true},
@@ -425,7 +415,6 @@ async function fetchEmisModels() {
 		if (res.ok) {
 			const json = await res.json();
 			if (json && Array.isArray(json.data) && json.data.length > 0) {
-				// Merge live data with rich metadata attributes (label, owned_by, reasoning, vision, tools)
 				const modelMap = new Map();
 				ALL_EMIS_MODELS.forEach(m => modelMap.set(m.id, { ...m }));
 				json.data.forEach(m => {
@@ -445,7 +434,6 @@ function parseEmisPayload(rawText) {
 	const trimmed = (rawText || "").trim();
 	if (!trimmed) return { text: "", raw: null };
 
-	// 1. Try standard JSON parsing
 	if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
 		try {
 			const json = JSON.parse(trimmed);
@@ -458,11 +446,9 @@ function parseEmisPayload(rawText) {
 				return { text: json.text, raw: json, id: json.id, usage: json.usage };
 			}
 		} catch (e) {
-			// fallback to SSE parser below
 		}
 	}
 
-	// 2. Parse Server-Sent Events (SSE) data: chunks
 	let accumulated = "";
 	let lastId = null;
 	let parsedModel = null;
@@ -491,7 +477,6 @@ function parseEmisPayload(rawText) {
 				}
 			}
 		} catch (e) {
-			// ignore non-json line
 		}
 	}
 
@@ -563,7 +548,6 @@ async function callEmisChatCompletions({ model, messages, temperature = 0.7, max
 	};
 }
 
-// AI API Endpoints: Models List
 fastify.get("/api/llm/models", async (request, reply) => {
 	try {
 		const models = await fetchEmisModels();
@@ -594,7 +578,6 @@ fastify.get("/api/ai/models", async (request, reply) => {
 	}
 });
 
-// AI Chat Completion Endpoint (OpenAI / Emis Compatible & Gemini Fallback)
 fastify.post("/api/llm/chat", async (request, reply) => {
 	try {
 		const {
@@ -636,7 +619,6 @@ fastify.post("/api/llm/chat", async (request, reply) => {
 
 		const defaultSystem = systemInstruction || "You are Scenario, a powerful, fast, and helpful assistant built into VeilOS. You assist with coding, web navigation, research, creative writing, and problem solving. Provide accurate, clear markdown formatted responses.";
 
-		// Primary attempt: Emis OpenAI-compatible endpoint
 		try {
 			const result = await callEmisChatCompletions({
 				model,
@@ -667,7 +649,6 @@ fastify.post("/api/llm/chat", async (request, reply) => {
 		} catch (emisErr) {
 			console.warn("[EMIS Chat Error] Falling back to Gemini if available:", emisErr.message);
 
-			// Fallback to Gemini if configured
 			if (process.env.GEMINI_API_KEY) {
 				const ai = getAiClient();
 				const contents = chatMessages.map(msg => ({
@@ -709,7 +690,6 @@ fastify.post("/api/llm/chat", async (request, reply) => {
 	}
 });
 
-// Alias for /api/ai/chat
 fastify.post("/api/ai/chat", async (request, reply) => {
 	try {
 		const {
@@ -820,7 +800,6 @@ fastify.post("/api/ai/summarize", async (request, reply) => {
 });
 
 
-// Curated list of popular, high-utility Chrome extensions for instant browsing
 const FEATURED_EXTENSIONS = [
 	{
 		id: "eimadpbcbfnmbkopoojfekhnkhdbieeh",
@@ -904,12 +883,10 @@ const FEATURED_EXTENSIONS = [
 	}
 ];
 
-// Chrome Web Store Search Endpoint
 fastify.get("/api/webstore/search", async (request, reply) => {
 	try {
 		const rawQuery = (request.query && request.query.q ? String(request.query.q).trim() : "");
 
-		// 1. Direct Web Store URL or pure 32-letter Extension ID check
 		let directExtId = null;
 		const urlMatch = rawQuery.match(/detail\/(?:[^\/]+\/)?([a-z]{32})/i);
 		if (urlMatch) {
@@ -918,7 +895,6 @@ fastify.get("/api/webstore/search", async (request, reply) => {
 			directExtId = rawQuery.toLowerCase();
 		}
 
-		// Empty or popular query
 		if (!rawQuery || rawQuery.toLowerCase() === "popular" || rawQuery.toLowerCase() === "featured") {
 			return reply.send({ results: FEATURED_EXTENSIONS });
 		}
@@ -934,7 +910,6 @@ fastify.get("/api/webstore/search", async (request, reply) => {
 		});
 
 		if (!response.ok) {
-			// Fallback to filtering featured extensions
 			const fallback = FEATURED_EXTENSIONS.filter(ex =>
 				ex.name.toLowerCase().includes(rawQuery.toLowerCase()) ||
 				ex.description.toLowerCase().includes(rawQuery.toLowerCase()) ||
@@ -947,7 +922,6 @@ fastify.get("/api/webstore/search", async (request, reply) => {
 		const items = [];
 		const seenIds = new Set();
 
-		// Priority check: if query matches any featured extension
 		for (const feat of FEATURED_EXTENSIONS) {
 			if (
 				feat.name.toLowerCase().includes(rawQuery.toLowerCase()) ||
@@ -959,7 +933,6 @@ fastify.get("/api/webstore/search", async (request, reply) => {
 			}
 		}
 
-		// Parse AF_initDataCallback structures
 		const cbMatches = [...html.matchAll(/AF_initDataCallback\(([\s\S]*?)\);<\/script>/g)];
 		for (const match of cbMatches) {
 			const raw = match[1];
@@ -996,12 +969,10 @@ fastify.get("/api/webstore/search", async (request, reply) => {
 						walk(obj.data);
 					});
 				} catch {
-					// continue if specific script fails evaluation
 				}
 			}
 		}
 
-		// Regex fallback for HTML anchors if AF_initDataCallback extracted nothing
 		if (items.length === 0) {
 			const linkMatches = [...html.matchAll(/detail\/([^\/]+)\/([a-z]{32})/g)];
 			for (const m of linkMatches) {
@@ -1034,7 +1005,6 @@ fastify.get("/api/webstore/search", async (request, reply) => {
 	}
 });
 
-// Chrome Web Store CRX Download & Proxy Endpoint
 fastify.get("/api/webstore/download", async (request, reply) => {
 	try {
 		const { id } = request.query || {};
@@ -1044,7 +1014,6 @@ fastify.get("/api/webstore/download", async (request, reply) => {
 
 		const cleanId = String(id).trim().toLowerCase();
 
-		// Query Omaha update endpoints to resolve actual CRX binary location
 		const metaUrls = [
 			`https://clients2.google.com/service/update2/crx?prodversion=130.0.6723.70&acceptformat=crx2,crx3&x=id%3D${cleanId}%26installsource%3Dondemand%26uc`,
 			`https://clients2.google.com/service/update2/crx?prodversion=120.0.0.0&acceptformat=crx2,crx3&x=id%3D${cleanId}%26installsource%3Dondemand%26uc`,

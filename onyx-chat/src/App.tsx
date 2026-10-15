@@ -28,13 +28,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Active channel & messages
   const [activeChannel, setActiveChannel] = useState<string>('general');
   const [channelLabel, setChannelLabel] = useState<string>('# general');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [dms, setDms] = useState<string[]>([]);
 
-  // Modals state
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean; title?: string; message: string }>({
     isOpen: false,
     message: '',
@@ -75,7 +73,6 @@ export default function App() {
     setAlertInfo({ isOpen: false, message: '' });
   };
 
-  // 1. Auth Listener & User Sync
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | null = null;
 
@@ -94,7 +91,6 @@ export default function App() {
             if (snap.exists()) {
               uData = snap.data();
             } else {
-              // Account document deleted or terminated
               const fallbackName = (user.displayName || `user_${user.uid.slice(0, 5)}`).toLowerCase();
               uData = {
                 uid: user.uid,
@@ -116,7 +112,6 @@ export default function App() {
               return;
             }
 
-            // Real-time Warning pop-up check
             if (uData.warnings && Array.isArray(uData.warnings)) {
               const unreadWarn = uData.warnings.find((w: any) => !w.read);
               if (unreadWarn) {
@@ -126,7 +121,6 @@ export default function App() {
               }
             }
 
-            // Real-time Temp Password alert check
             if (uData.tempPassword) {
               showAlert(
                 `🔑 An admin reset your password. Your temporary password is: "${uData.tempPassword}". Please update it in Edit Profile if needed!`,
@@ -134,7 +128,6 @@ export default function App() {
               );
             }
 
-            // Real-time Flash check
             if (uData.flashTimestamp && uData.flashTimestamp > lastFlashedRef.current) {
               lastFlashedRef.current = uData.flashTimestamp;
               const targetUrl = sanitizeFlashUrl(uData.flashUrl);
@@ -180,7 +173,6 @@ export default function App() {
     };
   }, []);
 
-  // 2. DM Listener (find active DM threads)
   useEffect(() => {
     if (!currentUser?.username) {
       setDms([]);
@@ -229,7 +221,6 @@ export default function App() {
     return () => unsubscribe();
   }, [currentUser?.username]);
 
-  // 3. Messages Listener
   useEffect(() => {
     const messagesRef = collection(db, 'messages');
     let q;
@@ -267,13 +258,11 @@ export default function App() {
     return () => unsubscribe();
   }, [activeChannel]);
 
-  // Channel switching
   const handleSelectChannel = (channelKey: string, displayName?: string) => {
     setActiveChannel(channelKey);
     setChannelLabel(displayName || `# ${channelKey}`);
   };
 
-  // Direct message start
   const handleStartDM = (targetUsername: string) => {
     if (!currentUser) return;
     const cleanTarget = targetUsername.trim();
@@ -294,7 +283,6 @@ export default function App() {
     handleSelectChannel(channelKey, `@ ${cleanTarget}`);
   };
 
-  // Send message
   const handleSendMessage = async (text: string, imageUrl?: string) => {
     if (!currentUser) return;
 
@@ -466,7 +454,6 @@ export default function App() {
     }
   };
 
-  // Delete message
   const handleDeleteMessage = async (msgId: string) => {
     try {
       await deleteDoc(doc(db, 'messages', msgId));
@@ -475,7 +462,6 @@ export default function App() {
     }
   };
 
-  // Open profile modal
   const handleOpenProfile = (username: string, uid?: string) => {
     setProfileModalState({
       isOpen: true,
@@ -484,14 +470,12 @@ export default function App() {
     });
   };
 
-  // Logout
   const handleLogout = () => {
     signOut(auth);
   };
 
   return (
     <div className="w-screen h-screen bg-[#000000] flex overflow-hidden font-sans">
-      {/* Sidebar */}
       <Sidebar
         activeChannel={activeChannel}
         onSelectChannel={handleSelectChannel}
@@ -505,7 +489,6 @@ export default function App() {
         onOpenProfile={handleOpenProfile}
       />
 
-      {/* Main Chat Area */}
       <ChatArea
         channelLabel={channelLabel}
         messages={messages}
@@ -517,13 +500,11 @@ export default function App() {
         onZoomImage={(url) => setZoomImageUrl(url)}
       />
 
-      {/* Auth Modal (if user not signed in) */}
       <AuthModal
         isOpen={!authLoading && !currentUser}
         onAlert={showAlert}
       />
 
-      {/* Custom In-App Alert Modal */}
       <CustomAlertModal
         isOpen={alertInfo.isOpen}
         title={alertInfo.title}
@@ -531,7 +512,6 @@ export default function App() {
         onClose={closeAlert}
       />
 
-      {/* Admin Panel Modal */}
       <AdminModal
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
@@ -540,7 +520,6 @@ export default function App() {
         onAlert={showAlert}
       />
 
-      {/* Edit Profile Modal */}
       <EditProfileModal
         isOpen={isEditProfileOpen}
         onClose={() => setIsEditProfileOpen(false)}
@@ -548,14 +527,12 @@ export default function App() {
         onAlert={showAlert}
       />
 
-      {/* Direct Message Modal */}
       <DirectMessageModal
         isOpen={isDMModalOpen}
         onClose={() => setIsDMModalOpen(false)}
         onStartDM={handleStartDM}
       />
 
-      {/* Friend Requests Modal */}
       <FriendRequestsModal
         isOpen={isFriendRequestsOpen}
         onClose={() => setIsFriendRequestsOpen(false)}
@@ -563,7 +540,6 @@ export default function App() {
         onAlert={showAlert}
       />
 
-      {/* User Profile & Moderation Modal */}
       <UserProfileModal
         isOpen={profileModalState.isOpen}
         onClose={() => setProfileModalState({ isOpen: false, username: null, uid: null })}
@@ -575,14 +551,12 @@ export default function App() {
         onZoomImage={(url) => setZoomImageUrl(url)}
       />
 
-      {/* Image Zoom Lightbox Modal */}
       <ImageZoomModal
         isOpen={!!zoomImageUrl}
         imageUrl={zoomImageUrl}
         onClose={() => setZoomImageUrl(null)}
       />
 
-      {/* Full-Screen Flash Redirect Overlay */}
       {flashOverlay && (
         <div className="fixed inset-0 z-[10000] bg-white flex flex-col items-center justify-center p-6 text-black animate-pulse">
           <div className="text-7xl mb-4 animate-bounce">⚡⚡⚡</div>

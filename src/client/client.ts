@@ -64,7 +64,6 @@ export type Trap<T> = {
 export class ScramjetClient {
 	locationProxy: any;
 	serviceWorker: ServiceWorkerContainer;
-	// epoxy: EpoxyClient;
 	bare: BareClient;
 
 	natives: NativeStore;
@@ -122,16 +121,7 @@ export class ScramjetClient {
 
 		this.box.registerClient(this, global as Self);
 
-		/*
-		initEpoxy().then(() => {
-			let options = new EpoxyClientOptions();
-			options.user_agent = navigator.userAgent;
-			this.epoxy = new EpoxyClient(config.wisp, options);
-		});
-		*/
-
 		if (iswindow) {
-			// this.bare = new EpoxyClient();
 			this.bare = new BareClient();
 		} else {
 			this.bare = new BareClient(
@@ -263,11 +253,9 @@ export class ScramjetClient {
 
 				let currentWin = client.global;
 				if (currentWin.parent.window == currentWin.window) {
-					// we're top level & we don't have a frame name
 					return null;
 				}
 
-				// find the topmost frame that's controlled by scramjet, stopping before the real top frame
 				while (currentWin.parent.window !== currentWin.window) {
 					if (!currentWin.parent.window[SCRAMJETCLIENT]) break;
 					currentWin = currentWin.parent.window;
@@ -279,11 +267,9 @@ export class ScramjetClient {
 					currentWin
 				);
 				if (!frame) {
-					// we're inside an iframe, but the top frame is scramjet-controlled and top level, so we can't get a top frame name
 					return null;
 				}
 				if (!frame.name) {
-					// the top frame is scramjet-controlled, but it has no name. this is user error
 					console.error(
 						"YOU NEED TO USE `new ScramjetFrame()`! DIRECT IFRAMES WILL NOT WORK"
 					);
@@ -297,13 +283,11 @@ export class ScramjetClient {
 				if (!iswindow)
 					throw new Error("parentFrameName was called from a worker?");
 				if (client.global.parent.window == client.global.window) {
-					// we're top level & we don't have a frame name
 					return null;
 				}
 
 				const parentWin = client.global.parent.window;
 				if (parentWin[SCRAMJETCLIENT]) {
-					// we're inside an iframe, and the parent is scramjet-controlled
 					const parentClient = parentWin[SCRAMJETCLIENT];
 					const frame = parentClient.descriptors.get(
 						"window.frameElement",
@@ -311,12 +295,10 @@ export class ScramjetClient {
 					);
 
 					if (!frame) {
-						// parent is scramjet controlled and top-level. there is no parent frame name
 						return null;
 					}
 
 					if (!frame.name) {
-						// the parent frame is scramjet-controlled, but it has no name. this is user error
 						console.error(
 							"YOU NEED TO USE `new ScramjetFrame()`! DIRECT IFRAMES WILL NOT WORK"
 						);
@@ -326,14 +308,11 @@ export class ScramjetClient {
 
 					return frame.name;
 				} else {
-					// we're inside an iframe, and the parent is not scramjet-controlled
-					// return our own frame name
 					const frame = client.descriptors.get(
 						"window.frameElement",
 						client.global
 					);
 					if (!frame.name) {
-						// the parent frame is not scramjet-controlled, so we can't get a parent frame name
 						console.error(
 							"YOU NEED TO USE `new ScramjetFrame()`! DIRECT IFRAMES WILL NOT WORK"
 						);
@@ -354,11 +333,10 @@ export class ScramjetClient {
 		if (!iswindow) return null;
 		const frame = this.descriptors.get("window.frameElement", this.global);
 
-		if (!frame) return null; // we're top level
+		if (!frame) return null;
 		const sframe = frame[SCRAMJETFRAME];
 
 		if (!sframe) {
-			// we're in a subframe, recurse upward until we find one
 			let currentwin = this.global.window;
 			while (currentwin.parent !== currentwin) {
 				const currentclient = currentwin[SCRAMJETCLIENT];
@@ -366,7 +344,7 @@ export class ScramjetClient {
 					"window.frameElement",
 					currentwin
 				);
-				if (!currentFrame) return null; // ??
+				if (!currentFrame) return null;
 				if (currentFrame && currentFrame[SCRAMJETFRAME]) {
 					return currentFrame[SCRAMJETFRAME];
 				}
@@ -380,7 +358,7 @@ export class ScramjetClient {
 		if (!iswindow) return false;
 		const frame = this.descriptors.get("window.frameElement", this.global);
 
-		if (!frame) return false; // we're top level
+		if (!frame) return false;
 		const sframe = frame[SCRAMJETFRAME];
 		if (!sframe) return true;
 
@@ -438,10 +416,6 @@ export class ScramjetClient {
 
 		this.global.location.href = rewriteUrl(ev.url, this.meta);
 	}
-
-	// below are the utilities for proxying and trapping dom APIs
-	// you don't have to understand this it just makes the rest easier
-	// i'll document it eventually
 
 	Proxy(name: string | string[], handler: Proxy) {
 		if (Array.isArray(name)) {

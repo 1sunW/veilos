@@ -1,10 +1,7 @@
-// delete all chrome specific apis, or apis that are not supported by any browser other than chrome
-// these are not worth emulating and typically cause issues
 
 import { isemulatedsw, iswindow } from "@client/entry";
 import { ScramjetClient } from "@client/index";
 
-// type self as any here, most of these are not defined in the types
 export default function (client: ScramjetClient, self: any) {
 	const del = (name: string) => {
 		const split = name.split(".");
@@ -17,15 +14,10 @@ export default function (client: ScramjetClient, self: any) {
 		}
 	};
 
-	// obviously
-	// del("chrome");
-
-	// ShapeDetector https://developer.chrome.com/docs/capabilities/shape-detection
 	del("BarcodeDetector");
 	del("FaceDetector");
 	del("TextDetector");
 
-	// background synchronization api
 	if (iswindow) {
 		del("ServiceWorkerRegistration.prototype.sync");
 	}
@@ -34,7 +26,6 @@ export default function (client: ScramjetClient, self: any) {
 		del("SyncEvent");
 	}
 
-	// trustedtypes
 	del("TrustedHTML");
 	del("TrustedScript");
 	del("TrustedScriptURL");
@@ -42,15 +33,12 @@ export default function (client: ScramjetClient, self: any) {
 	del("TrustedTypePolicyFactory");
 	self.__defineGetter__("trustedTypes", () => undefined);
 
-	// whatever this is
 	del("Navigator.prototype.joinAdInterestGroup");
 
 	if (!iswindow) return;
-	// DOM specific ones below here
 
 	del("MediaDevices.prototype.setCaptureHandleConfig");
 
-	// web bluetooth api
 	del("Navigator.prototype.bluetooth");
 	del("Bluetooth");
 	del("BluetoothDevice");
@@ -59,15 +47,12 @@ export default function (client: ScramjetClient, self: any) {
 	del("BluetoothRemoteGATTDescriptor");
 	del("BluetoothUUID");
 
-	// contact picker api
 	del("Navigator.prototype.contacts");
 	del("ContactAddress");
 	del("ContactManager");
 
-	// Idle Detection API
 	del("IdleDetector");
 
-	// Presentation API
 	del("Navigator.prototype.presentation");
 	del("Presentation");
 	del("PresentationConnection");
@@ -78,19 +63,16 @@ export default function (client: ScramjetClient, self: any) {
 	del("PresentationConnectionCloseEvent");
 	del("PresentationConnectionList");
 
-	// Window Controls Overlay API
 	del("WindowControlsOverlay");
 	del("WindowControlsOverlayGeometryChangeEvent");
 	del("Navigator.prototype.windowControlsOverlay");
 
-	// WebHID API
 	del("Navigator.prototype.hid");
 	del("HID");
 	del("HIDDevice");
 	del("HIDConnectionEvent");
 	del("HIDInputReportEvent");
 
-	// Navigation API (not chrome only but it's really annoying to implement)
 	del("navigation");
 	del("NavigateEvent");
 	del("NavigationActivation");

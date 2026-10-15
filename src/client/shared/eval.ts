@@ -3,8 +3,6 @@ import { rewriteJs } from "@rewriters/js";
 import { ScramjetClient } from "@client/index";
 
 export default function (client: ScramjetClient, self: Self) {
-	// used for proxying *direct eval*
-	// eval("...") -> eval($scramjet$rewrite("..."))
 	Object.defineProperty(self, config.globals.rewritefn, {
 		value: function (js: any) {
 			if (typeof js !== "string") return js;
@@ -19,7 +17,6 @@ export default function (client: ScramjetClient, self: Self) {
 }
 
 export function indirectEval(this: ScramjetClient, strict: boolean, js: any) {
-	// > If the argument of eval() is not a string, eval() returns the argument unchanged
 	if (typeof js !== "string") return js;
 
 	let indirection: typeof eval;

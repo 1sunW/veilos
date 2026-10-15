@@ -7,7 +7,6 @@
 <title>Pulse Games</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- Lucide Icons (lucide.dev) -->
 <script src="https://unpkg.com/lucide@latest"></script>
 <style>
   :root {
@@ -36,7 +35,6 @@
     transition: background 0.4s ease, color 0.4s ease;
   }
 
-  /* Custom sleek scrollbar */
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 9999px; }
@@ -350,7 +348,6 @@
     box-shadow: 0 8px 20px var(--glow);
   }
 
-  /* Top Right Theme Selector Floating Control */
   .theme-top-right {
     position: fixed;
     top: 1.25rem;
@@ -471,7 +468,6 @@
 </head>
 <body>
 
-<!-- Top Right Theme Selector Button -->
 <div class="theme-top-right">
   <button id="themeMenuBtn" class="theme-btn-trigger" onclick="toggleThemePopup(event)" title="Select Theme" aria-label="Select Theme">
     🎨
@@ -706,7 +702,6 @@ function handleProviderChange() {
     sortSelect.value = 'a-z';
   }
 
-  // Toggle sub-selectors
   categorySelect.style.display = (provider === 'petezah' || provider === 'gn-math') ? 'block' : 'none';
   categorySelect.value = '';
 
@@ -1226,7 +1221,6 @@ async function openGame(game) {
     fullUrl = 'https://cdn.jsdelivr.net/gh/freebuisness/html@main/' + game.url.replace('{HTML_URL}', '');
   }
 
-  // Blob handling for singlefiles with relative asset resolution
   const needsBlobFix = ['blox', 'elite', 'ugs', 'gn-math', 'seraph', 'ckv', 'hydra', 'lupine', '3kh0', '3kh0lite', 'alexr', 'petezah'];
 
   if (needsBlobFix.includes(game.provider)) {

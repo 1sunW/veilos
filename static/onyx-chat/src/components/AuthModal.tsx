@@ -67,7 +67,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onAlert }) => {
         const res = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(res.user, { displayName: cleanUsername });
 
-        // Get the current total number of registered users to assign sequential join number
         let nextJoinNumber = 1;
         try {
           const usersSnap = await getDocs(collection(db, 'users'));

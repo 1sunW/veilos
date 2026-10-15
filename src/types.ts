@@ -6,20 +6,11 @@ import * as client from "@/client/entry";
 import * as worker from "@/worker/index";
 import { DBSchema } from "idb";
 
-/**
- * Version information for the current Scramjet build.
- * Contains both the semantic version string and the git commit hash for build identification.
- */
 export interface ScramjetVersionInfo {
-	/** The git commit hash that this build was created from */
 	build: string;
-	/** The semantic version */
 	version: string;
 }
 
-/**
- * Scramjet Feature Flags, configured at build time
- */
 export type ScramjetFlags = {
 	serviceworkers: boolean;
 	syncxhr: boolean;
@@ -64,9 +55,6 @@ export interface ScramjetConfig {
 	};
 }
 
-/**
- * The config for Scramjet initialization.
- */
 export interface ScramjetInitConfig
 	extends Omit<ScramjetConfig, "codec" | "flags"> {
 	flags: Partial<ScramjetFlags>;
@@ -85,23 +73,14 @@ declare global {
 		WASM: string;
 		REAL_WASM: Uint8Array;
 
-		/**
-		 * The scramjet client belonging to a window.
-		 */
 		[SCRAMJETCLIENT]: ScramjetClient;
 	}
 
 	interface HTMLDocument {
-		/**
-		 * Should be the same as window.
-		 */
 		[SCRAMJETCLIENT]: ScramjetClient;
 	}
 
 	interface HTMLIFrameElement {
-		/**
-		 * The event target belonging to an iframe element holding an encoded URL.
-		 */
 		[SCRAMJETFRAME]: ScramjetFrame;
 	}
 }

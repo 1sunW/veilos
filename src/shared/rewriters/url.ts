@@ -46,11 +46,10 @@ export function rewriteUrl(url: string | URL, meta: URLMeta) {
 	} else {
 		let base = meta.base.href;
 
-		if (base.startsWith("about:")) base = unrewriteUrl(self.location.href); // jank!!!!! weird jank!!!
+		if (base.startsWith("about:")) base = unrewriteUrl(self.location.href);
 		const realUrl = tryCanParseURL(url, base);
 		if (!realUrl) return url;
 
-		// Skip mailto and chrome-extension scheme (which should remain literal)
 		if (
 			realUrl.protocol === "chrome-extension:" ||
 			realUrl.protocol === "moz-extension:"

@@ -11,7 +11,6 @@ import { readFileSync } from "node:fs";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const packagemeta = JSON.parse(await readFile("package.json"));
 
-// Configuration for standard IIFE builds
 const iifeConfig = defineConfig({
 	mode: "development",
 	devtool: "source-map",
@@ -113,7 +112,6 @@ const iifeConfig = defineConfig({
 	],
 });
 
-// Configuration for ES module build
 const moduleConfig = defineConfig({
 	mode: "development",
 	devtool: "source-map",
@@ -229,5 +227,4 @@ const moduleConfig = defineConfig({
 	],
 });
 
-// Export multiple configurations
 export default [iifeConfig, moduleConfig];

@@ -36,10 +36,6 @@ export default function (client: ScramjetClient, self: Self) {
 				return ctx.return(undefined);
 			}
 
-			// it's a sync request
-			// sync xhr to service worker is not supported
-			// there's a nice way of polyfilling this though, we can spin on an atomic using sharedarraybuffer. this will maintain the sync behavior
-
 			//@ts-ignore
 			const sab = new SharedArrayBuffer(1024, { maxByteLength: 2147483647 });
 			const view = new DataView(sab);
@@ -56,7 +52,6 @@ export default function (client: ScramjetClient, self: Self) {
 				if (performance.now() - now > 1000) {
 					throw new Error("xhr timeout");
 				}
-				/* spin */
 			}
 
 			const status = view.getUint16(1);
@@ -75,7 +70,6 @@ export default function (client: ScramjetClient, self: Self) {
 			);
 			const body = new TextDecoder().decode(bodyab);
 
-			// these should be using proxies to not leak scram strings but who cares
 			client.RawTrap(ctx.this, "status", {
 				get() {
 					return status;
@@ -116,7 +110,6 @@ export default function (client: ScramjetClient, self: Self) {
 				},
 			});
 
-			// send has no return value right
 			ctx.return(undefined);
 		},
 	});

@@ -10,9 +10,6 @@ interface StoredReferrerPolicies {
 	set(url: string, policy: string, referrer: string): Promise<void>;
 }
 
-/**
- * Headers for security policy features that haven't been emulated yet
- */
 const SEC_HEADERS = new Set([
 	"cross-origin-embedder-policy",
 	"cross-origin-opener-policy",
@@ -30,27 +27,15 @@ const SEC_HEADERS = new Set([
 	"x-permitted-cross-domain-policies",
 	"x-powered-by",
 	"x-xss-protection",
-	// This needs to be emulated, but for right now it isn't that important of a feature to be worried about
-	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Clear-Site-Data
 	"clear-site-data",
 ]);
 
-/**
- * Headers that are actually URLs that need to be rewritten
- */
 const URL_HEADERS = new Set(["location", "content-location", "referer"]);
 
 function rewriteLinkHeader(link: string, meta: URLMeta) {
 	return link.replace(/<(.*)>/gi, (match) => rewriteUrl(match, meta));
 }
 
-/**
- * Rewrites response headers
- * @param rawHeaders Headers before they were rewritten
- * @param meta Parsed Proxy URL
- * @param client `BareClient` instance used for fetching
- * @param isNavigationRequest Whether the request is a navigation request
- */
 export async function rewriteHeaders(
 	rawHeaders: BareHeaders,
 	meta: URLMeta,
@@ -83,7 +68,6 @@ export async function rewriteHeaders(
 		);
 	}
 
-	// Emulate the referrer policy to set it back to what it should've been without Force Referrer in place
 	if (typeof headers["referer"] === "string") {
 		const referrerUrl = new URL(headers["referer"]);
 		const storedPolicyData = await storedReferrerPolicies.get(referrerUrl.href);
@@ -123,7 +107,6 @@ export async function rewriteHeaders(
 					headers["referer"] = referrerUrl.origin;
 				}
 			}
-			// `strict-origin-when-cross-origin` is the default behavior anyway
 			else {
 				if (referrerUrl.origin === meta.origin.origin) {
 					headers["referer"] = referrerUrl.href;

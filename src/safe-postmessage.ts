@@ -1,6 +1,3 @@
-/**
- * Safe postMessage polyfill/patch to prevent DataCloneError across MessagePort, Worker, and Window
- */
 
 export function installSafePostMessage() {
 	if (typeof MessagePort === "undefined" || !MessagePort.prototype || !MessagePort.prototype.postMessage) {
@@ -86,7 +83,6 @@ export function installSafePostMessage() {
 			try {
 				out[key] = sanitizeValue(val[key], depth + 1, seen);
 			} catch {
-				// skip problematic keys
 			}
 		}
 
@@ -168,5 +164,4 @@ export function installSafePostMessage() {
 	}
 }
 
-// Auto-run on import
 installSafePostMessage();

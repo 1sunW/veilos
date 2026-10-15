@@ -7,7 +7,6 @@ import {
 import { IDBPDatabase } from "idb";
 import { openScramjetDB } from "@/shared/db";
 
-// Persist the redirect trackers for an hour
 const TRACKER_EXPIRY = 60 * 60 * 1000;
 const SITE_HIERARCHY: Record<SiteDirective, number> = {
 	none: 0,
@@ -16,21 +15,10 @@ const SITE_HIERARCHY: Record<SiteDirective, number> = {
 	"cross-site": 3,
 };
 
-/**
- * Gets a connection to the IndexedDB database
- *
- * @returns Promise that resolves to the database connection
- */
 async function getDB(): Promise<IDBPDatabase<ScramjetDB>> {
 	return openScramjetDB();
 }
 
-/**
- * Retrieves a redirect tracker for a given URL
- *
- * @param url The URL to look up
- * @returns Redirect tracker if found, or `null`
- */
 async function getTracker(url: string): Promise<RedirectTracker | null> {
 	try {
 		const db = await getDB();
@@ -44,12 +32,6 @@ async function getTracker(url: string): Promise<RedirectTracker | null> {
 	}
 }
 
-/**
- * Store or update a redirect tracker for a given URL
- *
- * @param url URL to store the tracker for
- * @param tracker Redirect tracker data to store
- */
 async function setTracker(
 	url: string,
 	tracker: RedirectTracker
@@ -63,11 +45,6 @@ async function setTracker(
 	}
 }
 
-/**
- * Delete a redirect tracker for a given URL
- *
- * @param url URL whose tracker should be deleted
- */
 async function deleteTracker(url: string): Promise<void> {
 	try {
 		const db = await getDB();
@@ -78,13 +55,6 @@ async function deleteTracker(url: string): Promise<void> {
 	}
 }
 
-/**
- * Initialize tracking for a new request that might redirect
- *
- * @param requestUrl URL of the request being made
- * @param referrer Referrer URL of the request, or `null`
- * @param initialSite Initial Sec-Fetch-Site directive
- */
 export async function initializeTracker(
 	requestUrl: string,
 	referrer: string | null,
@@ -103,13 +73,6 @@ export async function initializeTracker(
 	});
 }
 
-/**
- * Update tracker when a redirect is encountered
- *
- * @param originalUrl URL that is redirecting
- * @param redirectUrl URL being redirected to
- * @param newReferrerPolicy Referrer Policy from the redirect response
- */
 export async function updateTracker(
 	originalUrl: string,
 	redirectUrl: string,
@@ -125,13 +88,6 @@ export async function updateTracker(
 	await setTracker(redirectUrl, tracker);
 }
 
-/**
- * Get most restrictive site value for a request
- *
- * @param requestUrl The URL of the current request
- * @param currentSite The current `Sec-Fetch-Site` directive for this request
- * @returns Most restrictive `Sec-Fetch-Site` directive from the redirect chain
- */
 export async function getMostRestrictiveSite(
 	requestUrl: string,
 	currentSite: string
@@ -152,17 +108,10 @@ export async function getMostRestrictiveSite(
 	return tracker.mostRestrictiveSite;
 }
 
-/**
- * Clean up tracker after request completes
- * @param requestUrl URL of the completed request
- */
 export async function cleanTracker(requestUrl: string): Promise<void> {
 	await deleteTracker(requestUrl);
 }
 
-/**
- * Clean up expired trackers
- */
 export async function cleanExpiredTrackers(): Promise<void> {
 	try {
 		const now = Date.now();
@@ -183,13 +132,6 @@ export async function cleanExpiredTrackers(): Promise<void> {
 	}
 }
 
-/**
- * Store referrer policy for a URL
- *
- * @param url URL to store the policy for
- * @param policy Referrer policy to store
- * @param referrer The referrer URL that set this policy
- */
 export async function storeReferrerPolicy(
 	url: string,
 	policy: string,
@@ -205,12 +147,6 @@ export async function storeReferrerPolicy(
 	}
 }
 
-/**
- * Get referrer policy data for a URL
- *
- * @param url URL to get the policy for
- * @returns Referrer policy data if found, or `null`
- */
 export async function getReferrerPolicy(
 	url: string
 ): Promise<ReferrerPolicyData | null> {

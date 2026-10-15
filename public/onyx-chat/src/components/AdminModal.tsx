@@ -326,7 +326,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         </button>
       </div>
 
-      {/* In-App Prompt Modal */}
       {promptState.isOpen && (
         <div className="fixed inset-0 z-[2500] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#141418] border border-[#27272a] rounded-[20px] p-6 w-full max-w-[360px] text-center shadow-2xl animate-in fade-in zoom-in-95 duration-200">

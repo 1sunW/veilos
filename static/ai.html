@@ -5,18 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Scenario - Powered by GLM 5.3 & Emis API</title>
   
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Lucide Icons (lucide.dev) -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
 
-  <!-- Markdown-it and Highlight.js for code rendering -->
   <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -120,9 +116,7 @@
 </head>
 <body class="flex flex-col h-screen w-screen bg-[#09090d] text-slate-100 select-none">
 
-  <!-- TOP HEADER / CONTROLS -->
   <header class="h-14 bg-[#101017] border-b border-white/10 px-4 flex items-center justify-between shrink-0 shadow-md z-20">
-    <!-- Brand / Title -->
     <div class="flex items-center gap-3">
       <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 text-sm">
         ✨
@@ -139,16 +133,12 @@
       </div>
     </div>
 
-    <!-- Center / Right Controls -->
     <div class="flex items-center gap-2">
-      <!-- Quick Dropdown Model Select -->
       <div class="relative hidden lg:block">
         <select id="modelSelect" class="bg-[#181822] hover:bg-[#20202c] border border-white/10 hover:border-white/20 text-xs font-semibold text-white px-3 py-1.5 rounded-xl outline-none transition-all cursor-pointer max-w-[240px] truncate">
-          <!-- Populated dynamically -->
         </select>
       </div>
 
-      <!-- Persona Dropdown -->
       <select id="personaSelect" class="hidden sm:block bg-[#181822] hover:bg-[#20202c] border border-white/10 text-xs font-medium text-neutral-300 px-3 py-1.5 rounded-xl outline-none transition-all cursor-pointer">
         <option value="general">✨ General Assistant</option>
         <option value="code">💻 Code Wizard</option>
@@ -156,7 +146,6 @@
         <option value="creative">🎨 Creative Writer</option>
       </select>
 
-      <!-- Browse All Models Catalog Button -->
       <button id="browseModelsBtn" title="Open All 80+ Models Catalog" class="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-sm">
         <span>⚡</span>
         <span>Browse 80+ Models</span>
@@ -164,22 +153,18 @@
 
       <div class="h-5 w-px bg-white/10 mx-1"></div>
 
-      <!-- Clear Chat Button -->
       <button id="clearChatBtn" title="Clear Conversation" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white border border-white/5 flex items-center justify-center text-xs transition-colors cursor-pointer">
         🗑️
       </button>
 
-      <!-- Export Button -->
       <button id="exportChatBtn" title="Export Chat Markdown" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white border border-white/5 flex items-center justify-center text-xs transition-colors cursor-pointer">
         💾
       </button>
     </div>
   </header>
 
-  <!-- CHAT MESSAGES SCROLL CONTAINER -->
   <main id="chatContainer" class="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-5 max-w-4xl w-full mx-auto select-text">
     
-    <!-- WELCOME HERO STATE -->
     <div id="heroWelcome" class="flex flex-col items-center justify-center my-auto py-6 text-center select-none">
       <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white text-3xl shadow-2xl shadow-indigo-500/30 mb-4 animate-bounce">
         🧠
@@ -189,7 +174,6 @@
         Connected to <span class="font-mono text-indigo-300">https://emis.zxs-is-very.cool/v1</span> • Active model: <span id="welcomeModelBadge" class="font-bold text-white bg-indigo-950/60 border border-indigo-500/40 px-2 py-0.5 rounded-md font-mono">GLM 5.3</span>
       </p>
 
-      <!-- Quick Prompt Suggestions Grid -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl text-left">
         <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Explain how proxy protocols like Scramjet and Wisp work together in modern web browsers.">
           <div class="flex items-center gap-2 text-xs font-bold text-white mb-1">
@@ -225,10 +209,8 @@
       </div>
     </div>
 
-    <!-- Messages will be appended here dynamically -->
     <div id="messagesList" class="flex flex-col gap-4"></div>
 
-    <!-- Loading Indicator -->
     <div id="loadingIndicator" class="hidden flex items-start gap-3 mt-2">
       <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shrink-0 text-xs shadow-md">
         🧠
@@ -240,7 +222,6 @@
     </div>
   </main>
 
-  <!-- INPUT AREA -->
   <footer class="p-4 bg-[#101017] border-t border-white/10 shrink-0">
     <div class="max-w-4xl mx-auto flex flex-col gap-2">
       <form id="chatForm" class="flex items-end gap-2 bg-[#161622] border border-white/10 focus-within:border-indigo-500/60 rounded-2xl p-2 transition-all shadow-xl">
@@ -273,11 +254,9 @@
     </div>
   </footer>
 
-  <!-- FULL MODEL CATALOG MODAL / DIALOG -->
   <div id="modelModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-3 sm:p-4">
     <div class="bg-[#111119] border border-white/15 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
       
-      <!-- Modal Header -->
       <div class="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-[#151520]">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 flex items-center justify-center text-lg">
@@ -294,9 +273,7 @@
         </button>
       </div>
 
-      <!-- Search and Filter Bar -->
       <div class="p-3 sm:p-4 border-b border-white/10 flex flex-col sm:flex-row gap-3 bg-[#13131c]">
-        <!-- Search Input -->
         <div class="relative flex-1">
           <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400">🔍</span>
           <input
@@ -307,7 +284,6 @@
           />
         </div>
 
-        <!-- Filter Tags -->
         <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs shrink-0">
           <button class="filter-btn px-2.5 py-1.5 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer shrink-0" data-filter="all">All</button>
           <button class="filter-btn px-2.5 py-1.5 rounded-xl bg-[#1b1b26] hover:bg-[#252533] text-neutral-300 font-semibold cursor-pointer shrink-0" data-filter="reasoning">🧠 Reasoning</button>
@@ -317,12 +293,9 @@
         </div>
       </div>
 
-      <!-- Models List Grid -->
       <div id="modalModelGrid" class="flex-1 overflow-y-auto p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 bg-[#0d0d14] min-h-[320px]">
-        <!-- Rendered dynamically -->
       </div>
 
-      <!-- Modal Footer -->
       <div class="p-3.5 border-t border-white/10 bg-[#151520] flex items-center justify-between text-xs text-neutral-400">
         <div>
           <span>Showing <b id="displayedModelCount" class="text-white font-mono">0</b> models</span>

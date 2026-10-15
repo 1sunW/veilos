@@ -83,7 +83,6 @@ export default function (client: ScramjetClient, self: typeof window) {
 		}
 	}
 
-	// note that href is not here
 	const urlprops = [
 		"protocol",
 		"hash",
@@ -182,7 +181,7 @@ export default function (client: ScramjetClient, self: typeof window) {
 				const r = rule[name.toLowerCase()];
 				if (!r) return false;
 				if (r === "*") return true;
-				if (typeof r === "function") return false; // this can't happen but ts
+				if (typeof r === "function") return false;
 
 				return r.includes(ctx.this.tagName.toLowerCase());
 			});
@@ -205,7 +204,6 @@ export default function (client: ScramjetClient, self: typeof window) {
 		},
 	});
 
-	// i actually need to do something with this
 	client.Proxy("Element.prototype.setAttributeNode", {
 		apply(_ctx) {},
 	});
@@ -218,7 +216,7 @@ export default function (client: ScramjetClient, self: typeof window) {
 				const r = rule[name.toLowerCase()];
 				if (!r) return false;
 				if (r === "*") return true;
-				if (typeof r === "function") return false; // this can't happen but ts
+				if (typeof r === "function") return false;
 
 				return r.includes(ctx.this.tagName.toLowerCase());
 			});
@@ -235,7 +233,6 @@ export default function (client: ScramjetClient, self: typeof window) {
 		},
 	});
 
-	// this is separate from the regular href handlers because it returns an SVGAnimatedString
 	client.Trap("SVGAnimatedString.prototype.baseVal", {
 		get(ctx) {
 			const href = ctx.get() as string;
@@ -254,7 +251,6 @@ export default function (client: ScramjetClient, self: typeof window) {
 
 			return unrewriteUrl(href);
 		},
-		// it has no setter
 	});
 
 	client.Proxy("Element.prototype.removeAttribute", {
@@ -334,7 +330,6 @@ export default function (client: ScramjetClient, self: typeof window) {
 
 	client.Trap("Node.prototype.textContent", {
 		set(ctx, value: string) {
-			// TODO: box the instanceofs
 			if (ctx.this instanceof self.HTMLScriptElement) {
 				const newval: string = rewriteJs(
 					value,
@@ -477,7 +472,6 @@ export default function (client: ScramjetClient, self: typeof window) {
 				if (!realwin) return realwin;
 
 				if (!(SCRAMJETCLIENT in realwin)) {
-					// hook the iframe before the client can start to steal globals out of it
 					const newclient = new ScramjetClient(realwin);
 					newclient.hook();
 				}
@@ -522,7 +516,6 @@ export default function (client: ScramjetClient, self: typeof window) {
 			apply(ctx) {
 				const doc = ctx.call();
 				if (doc) {
-					// we trap the contentDocument, this is really the scramjet version
 					return ctx.return(ctx.this.contentDocument);
 				}
 			},
