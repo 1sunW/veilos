@@ -45,7 +45,7 @@ const defaultBare = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.bareur
 	getLocalBare();
 
 const defaultNotes = [
-	{ id: "note_1", title: "Welcome to VeilOS", content: "# VeilOS Web Operating System\n\nWelcome to your new Web OS!\n\nFeatures:\n- Multi-window desktop manager\n- Veil Web Browser with proxy engine & Chrome extensions\n- Tab Cloaking & presets (Classroom, Drive, Canvas, Desmos, etc.)\n- Blob & About:blank Cloaking\n- Search engine choice (DuckDuckGo, Google, Bing, Brave)\n- Games, Movies, Vault & Chat", updatedAt: Date.now() }
+	{ id: "note_1", title: "Welcome to VeilOS", content: "# VeilOS Web Operating System\n\nWelcome to your new Web OS!\n\nFeatures:\n- Multi-window desktop manager\n- Veil Web Browser with fast proxy engine\n- Tab Cloaking & presets (Classroom, Drive, Canvas, Desmos, etc.)\n- Blob & About:blank Cloaking\n- Search engine choice (DuckDuckGo, Google, Bing, Brave)\n- Games, Movies, Vault & Chat", updatedAt: Date.now() }
 ];
 
 try {
@@ -87,9 +87,9 @@ const initialSettings = {
 	history: [
 		{ id: "h1", name: "Google", url: "https://google.com", visitedAt: Date.now() - 3600000 }
 	],
-	theme: "halloween",
-	wallpaper: "assets/halloween.jpg",
-	accentColor: "orange",
+	theme: "christmas",
+	wallpaper: "assets/christmas.jpg",
+	accentColor: "red",
 	notes: defaultNotes,
 	osUsername: "Veil User",
 	dockPosition: "bottom",
@@ -147,17 +147,14 @@ if (!store.bookmarks || !Array.isArray(store.bookmarks) || store.bookmarks.lengt
 if (store.showBookmarksBar === undefined) {
 	store.showBookmarksBar = true;
 }
-if (!store.history || !Array.isArray(store.history)) {
-	store.history = [];
+if (!store.theme || store.theme === "halloween") {
+	store.theme = "christmas";
 }
-if (!store.theme) {
-	store.theme = "halloween";
+if (!store.wallpaper || store.wallpaper === "assets/background.jpg" || store.wallpaper === "assets/halloween.jpg") {
+	store.wallpaper = "assets/christmas.jpg";
 }
-if (!store.wallpaper || store.wallpaper === "assets/background.jpg") {
-	store.wallpaper = "assets/halloween.jpg";
-}
-if (!store.accentColor) {
-	store.accentColor = "orange";
+if (!store.accentColor || store.accentColor === "orange") {
+	store.accentColor = "red";
 }
 
 // Global Tab Cloak Helper

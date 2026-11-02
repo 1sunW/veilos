@@ -17,6 +17,10 @@ async function safeApiFetch(urlPath, options) {
 	return fetch(urlPath, options);
 }
 
+function escapeHtml(str) {
+	return ("" + (str || "")).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 const script1 = document.createElement('script');
 script1.async = true;
 script1.src = 'https://www.googletagmanager.com/gtag/js?id=G-0LH2MR13BF';
@@ -425,19 +429,19 @@ function Config() {
 
         ${use(this.cfgTab, (tab) => {
 					if (tab === "theme") {
-						const curTheme = (store.theme || "halloween").toLowerCase();
+						const curTheme = (store.theme || "christmas").toLowerCase();
 						const themesList = [
-							{ id: "halloween", name: "Halloween Spooky", icon: "🎃", wp: "assets/halloween.jpg", accent: "orange", desc: "Haunted twilight forest, amber jack-o'-lanterns, and witch violet ambient glow." },
+							{ id: "christmas", name: "Jolly Christmas", icon: "🎄", wp: "assets/christmas.jpg", accent: "red", desc: "Cozy snow-dusted pine trees, golden fairy lights, and warm holiday hearth glow." },
 							{ id: "default", name: "Midnight Dark", icon: "🌌", wp: "assets/background.jpg", accent: "indigo", desc: "Classic sleek dark mode with high-resolution aesthetic floral wallpaper." },
 							{ id: "cyber", name: "Cyber Matrix", icon: "⚡", wp: "gradient", accent: "emerald", desc: "High-tech emerald neon gradients and terminal aesthetic." },
-							{ id: "crimson", name: "Vampire Crimson", icon: "🩸", wp: "gradient", accent: "rose", desc: "Blood moon gothic deep red and obsidian styling." }
+							{ id: "crimson", name: "Winter Crimson", icon: "🧣", wp: "gradient", accent: "rose", desc: "Festive frosted crimson red and obsidian styling." }
 						];
 						return html`
               <div class="flex flex-col gap-3 mb-4 animate-fade">
                 <div class="flex items-center justify-between">
                   <div class="section-title">System Theme & Appearance</div>
-                  <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${curTheme === 'halloween' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' : 'bg-white/10 text-neutral-300'}">
-                    ${curTheme === 'halloween' ? '🎃 Seasonal Active' : 'Active'}
+                  <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${curTheme === 'christmas' || curTheme === 'jolly' ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-white/10 text-neutral-300'}">
+                    ${curTheme === 'christmas' || curTheme === 'jolly' ? '🎄 Jolly Active' : 'Active'}
                   </span>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
@@ -445,7 +449,7 @@ function Config() {
 										const isSel = curTheme === th.id;
 										return html`
                       <button class="p-3 rounded-2xl border text-left flex flex-col gap-1.5 cursor-pointer transition-all ${
-												isSel ? 'selected-item bg-orange-500/15 border-orange-500/50 text-white shadow-lg shadow-orange-950/40' : 'bg-white/5 border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'
+												isSel ? 'selected-item bg-red-500/15 border-red-500/50 text-white shadow-lg shadow-red-950/40' : 'bg-white/5 border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'
 											}"
                         on:click=${() => {
 													store.theme = th.id;
@@ -671,264 +675,8 @@ window.addEventListener("load", async () => {
 	}
 
 	window.ensureSapphire = async function () {
-		if (window.sapphire) return window.sapphire;
-		let SapphireClass = window.Sapphire || globalThis.Sapphire;
-		if (!SapphireClass) {
-			for (let i = 0; i < 50; i++) {
-				await new Promise((r) => setTimeout(r, 60));
-				SapphireClass = window.Sapphire || globalThis.Sapphire;
-				if (SapphireClass) break;
-			}
-		}
-		if (!SapphireClass) {
-			console.error("[Sapphire] Sapphire constructor is not loaded on window.");
-			return null;
-		}
-
-		if (window.__sapphireInitPromise) {
-			return await window.__sapphireInitPromise;
-		}
-
-		window.__sapphireInitPromise = (async () => {
-			try {
-				const sInstance = new SapphireClass({
-					host: {
-						getTabId: (win) => {
-							const os = window.osGlobalInstance;
-							if (!os) return null;
-							for (const osWin of os.windows) {
-								if (osWin.customState && osWin.customState.tabs) {
-									for (const tab of osWin.customState.tabs) {
-										if (tab.frameObj?.frame?.contentWindow === win) {
-											return tab.numericId;
-										}
-									}
-								}
-							}
-							return null;
-						},
-						getActiveTabId: () => {
-							const os = window.osGlobalInstance;
-							if (!os) return 1;
-							const activeWin = os.windows.find((w) => w.focused && w.customState?.tabs?.length) ||
-							                  os.windows.find((w) => w.customState?.tabs?.length);
-							if (activeWin && activeWin.customState && activeWin.customState.tabs) {
-								const activeTab = activeWin.customState.tabs.find((t) => t.id === activeWin.customState.activeTabId) ||
-								                  activeWin.customState.tabs[0];
-								return activeTab ? activeTab.numericId : 1;
-							}
-							return 1;
-						},
-						getTab: (id) => {
-							const os = window.osGlobalInstance;
-							if (!os) return null;
-							for (const osWin of os.windows) {
-								if (osWin.customState && osWin.customState.tabs) {
-									const tab = osWin.customState.tabs.find((t) => t.numericId === id);
-									if (tab) {
-										const rawUrl = tab.url || tab.frameObj?.url || "https://google.com";
-										return {
-											id: tab.numericId,
-											windowId: 1,
-											url: rawUrl.startsWith("http") ? rawUrl : (rawUrl.startsWith("about:") ? rawUrl : "https://google.com"),
-											title: tab.title || "Tab",
-											active: osWin.customState.activeTabId === tab.id,
-										};
-									}
-								}
-							}
-							return null;
-						},
-						getAllTabs: () => {
-							const all = [];
-							const os = window.osGlobalInstance;
-							if (!os) return all;
-							for (const osWin of os.windows) {
-								if (osWin.customState && osWin.customState.tabs) {
-									for (const tab of osWin.customState.tabs) {
-										const rawUrl = tab.url || tab.frameObj?.url || "https://google.com";
-										all.push({
-											id: tab.numericId,
-											windowId: 1,
-											url: rawUrl.startsWith("http") ? rawUrl : (rawUrl.startsWith("about:") ? rawUrl : "https://google.com"),
-											title: tab.title || "Tab",
-											active: osWin.customState.activeTabId === tab.id,
-										});
-									}
-								}
-							}
-							return all;
-						},
-						getTabWindow: (id) => {
-							const os = window.osGlobalInstance;
-							if (!os) return null;
-							for (const osWin of os.windows) {
-								if (osWin.customState && osWin.customState.tabs) {
-									const tab = osWin.customState.tabs.find((t) => t.numericId === id);
-									if (tab && tab.frameObj?.frame?.contentWindow) {
-										return tab.frameObj.frame.contentWindow;
-									}
-								}
-							}
-							return null;
-						},
-						openTab: (url, active = true) => {
-							const os = window.osGlobalInstance;
-							if (!os) return;
-							let targetWin = (os.activeWinId ? os.windows.find((w) => w.id === os.activeWinId && w.appId === "browser") : null) ||
-							                os.windows.find((w) => w.appId === "browser" && !w.isMinimized) ||
-							                os.windows.find((w) => w.appId === "browser");
-							if (!targetWin) {
-								os.openApp("browser", undefined, { url: url || "https://google.com" });
-								return;
-							}
-							if (targetWin.isMinimized) {
-								targetWin.isMinimized = false;
-							}
-							os.focusWindow(targetWin.id);
-							if (targetWin.customState?.hidePopover) {
-								targetWin.customState.hidePopover();
-							}
-							if (typeof targetWin.customState?.createNewTab === "function") {
-								targetWin.customState.createNewTab(url || "https://google.com");
-							} else {
-								targetWin.customState = targetWin.customState || {};
-								targetWin.customState.url = url || "https://google.com";
-							}
-						},
-						navigateTab: (id, url) => {
-							const os = window.osGlobalInstance;
-							if (!os) return;
-							if (id !== null && id !== undefined) {
-								for (const osWin of os.windows) {
-									if (osWin.customState && osWin.customState.tabs) {
-										const tab = osWin.customState.tabs.find((t) => t.numericId === id);
-										if (tab) {
-											tab.url = url;
-											if (tab.frameObj?.go) {
-												tab.frameObj.go(url);
-											}
-											return;
-										}
-									}
-								}
-							}
-							let targetWin = (os.activeWinId ? os.windows.find((w) => w.id === os.activeWinId && w.appId === "browser") : null) ||
-							                os.windows.find((w) => w.appId === "browser" && !w.isMinimized) ||
-							                os.windows.find((w) => w.appId === "browser");
-							if (!targetWin) {
-								os.openApp("browser", undefined, { url: url || "https://google.com" });
-								return;
-							}
-							if (targetWin.isMinimized) {
-								targetWin.isMinimized = false;
-							}
-							os.focusWindow(targetWin.id);
-							if (targetWin.customState?.hidePopover) {
-								targetWin.customState.hidePopover();
-							}
-							if (typeof targetWin.customState?.createNewTab === "function") {
-								targetWin.customState.createNewTab(url || "https://google.com");
-							} else {
-								targetWin.customState = targetWin.customState || {};
-								targetWin.customState.url = url || "https://google.com";
-							}
-						},
-						openExtensionTab: (extId, page, tabId) => {
-							const pageUrl = `${window.location.origin}/~/sx/${extId}/${String(page || "").replace(/^\//, "")}`;
-							const os = window.osGlobalInstance;
-							if (!os) return;
-							if (tabId !== null && tabId !== undefined) {
-								for (const osWin of os.windows) {
-									if (osWin.customState && osWin.customState.tabs) {
-										const tab = osWin.customState.tabs.find((t) => t.numericId === id);
-										if (tab) {
-											tab.url = pageUrl;
-											if (tab.frameObj?.go) {
-												tab.frameObj.go(pageUrl);
-											}
-											return;
-										}
-									}
-								}
-							}
-							let targetWin = (os.activeWinId ? os.windows.find((w) => w.id === os.activeWinId && w.appId === "browser") : null) ||
-							                os.windows.find((w) => w.appId === "browser" && !w.isMinimized) ||
-							                os.windows.find((w) => w.appId === "browser");
-							if (!targetWin) {
-								os.openApp("browser", undefined, { url: pageUrl });
-								return;
-							}
-							if (targetWin.isMinimized) {
-								targetWin.isMinimized = false;
-							}
-							os.focusWindow(targetWin.id);
-							if (targetWin.customState?.hidePopover) {
-								targetWin.customState.hidePopover();
-							}
-							if (typeof targetWin.customState?.createNewTab === "function") {
-								targetWin.customState.createNewTab(pageUrl);
-							} else {
-								targetWin.customState = targetWin.customState || {};
-								targetWin.customState.url = pageUrl;
-							}
-						},
-						ensureController: () => {
-							if (window.__scramjetController && window.sapphire) window.sapphire.attachController(window.__scramjetController);
-						},
-						showNotification: (title, message) => {
-							console.log(`[Extension Notification] ${title}: ${message}`);
-						},
-					},
-				});
-
-				window.sapphire = sInstance;
-				if (window.__scramjetController) sInstance.attachController(window.__scramjetController);
-
-				if (typeof sInstance.getPopupUrl !== "function") {
-					sInstance.getPopupUrl = async function (extId) {
-						if (!extId) return null;
-						try {
-							const page = typeof this.getExtensionPopupPage === "function" ? this.getExtensionPopupPage(extId) : null;
-							if (page) {
-								return `${window.location.origin}/~/sx/${extId}/${String(page).replace(/^\//, "")}`;
-							}
-							const ext = this.registry?.get ? this.registry.get(extId) : null;
-							if (ext) {
-								const fallback =
-									ext.popupPage ||
-									ext.manifest?.action?.default_popup ||
-									ext.manifest?.browser_action?.default_popup ||
-									ext.manifest?.page_action?.default_popup;
-								if (fallback) {
-									return `${window.location.origin}/~/sx/${extId}/${String(fallback).replace(/^\//, "")}`;
-								}
-							}
-						} catch (e) {
-							console.warn("[getPopupUrl] error:", e);
-						}
-						return null;
-					};
-				}
-
-				try {
-					await sInstance.init();
-				} catch (initErr) {
-					console.warn("[Sapphire] sInstance.init warning:", initErr);
-				}
-
-				console.log("[OnyxOS] Sapphire Chrome Extensions engine initialized");
-				return sInstance;
-			} catch (err) {
-				console.error("[OnyxOS] Failed to initialize Sapphire:", err);
-				return window.sapphire || null;
-			}
-		})();
-
-		return await window.__sapphireInitPromise;
+		return null;
 	};
-
-	window.ensureSapphire().catch((e) => console.warn("[Sapphire Auto-Init Error]", e));
 
 	connection = new BareMux.BareMuxConnection("/baremux/worker.js");
 	await applyTransport(store.transport || "/baremod/index.mjs", store.wispurl, store.bareurl);
@@ -1067,7 +815,7 @@ window.addEventListener("load", async () => {
 			iconClass: "fa-solid fa-music", 
 			iconColor: "text-rose-400", 
 			dockGradient: "from-rose-500 via-fuchsia-600 to-indigo-600", 
-			desc: "Lossless and high-fidelity music streaming", 
+			desc: "Lossless music streaming (Music unavailable until VPS)", 
 			category: "Entertainment", 
 			defaultW: 1060, 
 			defaultH: 700, 
@@ -1209,11 +957,11 @@ window.addEventListener("load", async () => {
 		this.notifications = [];
 		this.soundEffects = (store && store.soundEffects !== undefined) ? store.soundEffects : true;
 		this.desktopWidgetsOpen = (store && store.desktopWidgets !== undefined) ? store.desktopWidgets : true;
-		if (!store.wallpaper || store.wallpaper === "assets/background.jpg") {
-			store.wallpaper = "assets/halloween.jpg";
+		if (!store.wallpaper || store.wallpaper === "assets/background.jpg" || store.wallpaper === "assets/halloween.jpg") {
+			store.wallpaper = "assets/christmas.jpg";
 		}
-		if (!store.theme) {
-			store.theme = "halloween";
+		if (!store.theme || store.theme === "halloween") {
+			store.theme = "christmas";
 		}
 		this.batteryLevel = 100;
 		this.isCharging = true;
@@ -1249,19 +997,253 @@ window.addEventListener("load", async () => {
 		};
 		window.veilNotify = this.notify;
 
-		this.openSpotlight = () => {
-			this.spotlightOpen = true;
-			this.spotlightQuery = "";
+		this.spotlightOpen = false;
+		this.spotlightQuery = "";
+		this.spotlightSelectedIdx = 0;
+
+		const spotlightOverlay = document.createElement("div");
+		spotlightOverlay.id = "os-spotlight-overlay";
+		spotlightOverlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-md p-4 transition-all duration-150 pointer-events-auto hidden";
+		this.spotlightOverlay = spotlightOverlay;
+
+		spotlightOverlay.onclick = (e) => {
+			if (e.target === spotlightOverlay) {
+				this.closeSpotlight();
+			}
+		};
+
+		const spotlightCard = document.createElement("div");
+		spotlightCard.className = "w-full max-w-xl bg-neutral-900/98 border border-white/20 rounded-3xl shadow-2xl backdrop-blur-3xl overflow-hidden flex flex-col m-auto animate-spotlight text-white font-sans";
+		spotlightOverlay.appendChild(spotlightCard);
+
+		const searchHeader = document.createElement("div");
+		searchHeader.className = "flex items-center px-4 py-3.5 border-b border-white/10 gap-3 shrink-0";
+
+		const searchIcon = document.createElement("i");
+		searchIcon.className = "fa-solid fa-magnifying-glass text-indigo-400 text-base shrink-0";
+		searchHeader.appendChild(searchIcon);
+
+		const searchInput = document.createElement("input");
+		searchInput.id = "spotlight-search-input";
+		searchInput.type = "text";
+		searchInput.autocomplete = "off";
+		searchInput.spellcheck = false;
+		searchInput.className = "flex-1 bg-transparent text-white placeholder-neutral-400 outline-none text-sm font-sans";
+		searchInput.placeholder = "Search apps or type a web address...";
+		searchHeader.appendChild(searchInput);
+
+		const escBadge = document.createElement("span");
+		escBadge.className = "text-[10px] text-neutral-400 font-mono bg-white/10 px-2 py-1 rounded-md shrink-0 select-none cursor-pointer hover:bg-white/15";
+		escBadge.textContent = "ESC to close";
+		escBadge.onclick = () => this.closeSpotlight();
+		searchHeader.appendChild(escBadge);
+
+		spotlightCard.appendChild(searchHeader);
+
+		const mathCard = document.createElement("div");
+		mathCard.className = "hidden m-3 p-3 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 items-center justify-between";
+		spotlightCard.appendChild(mathCard);
+
+		const resultsScroll = document.createElement("div");
+		resultsScroll.className = "max-h-80 overflow-y-auto custom-scrollbar p-2 flex flex-col gap-1";
+		spotlightCard.appendChild(resultsScroll);
+
+		this.renderSpotlightResults = () => {
+			resultsScroll.innerHTML = "";
+			const rawQ = (searchInput.value || "").trim();
+			const q = rawQ.toLowerCase();
+
+			const mathVal = this.evaluateMath(rawQ);
+			if (mathVal !== null) {
+				mathCard.className = "m-3 p-3 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-between";
+				mathCard.innerHTML = `
+					<div class="flex items-center gap-2.5">
+						<i class="fa-solid fa-calculator text-indigo-300"></i>
+						<span class="text-xs text-neutral-300 font-mono">${escapeHtml(rawQ)} =</span>
+						<span class="text-base font-bold font-mono text-white">${mathVal}</span>
+					</div>
+					<button class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer">
+						Copy
+					</button>
+				`;
+				const copyBtn = mathCard.querySelector("button");
+				if (copyBtn) {
+					copyBtn.onclick = () => {
+						navigator.clipboard.writeText("" + mathVal);
+						this.notify("Copied", `Result ${mathVal} copied to clipboard`, "fa-solid fa-check");
+					};
+				}
+			} else {
+				mathCard.className = "hidden";
+				mathCard.innerHTML = "";
+			}
+
+			const filtered = APPS.filter(a => {
+				if (!q) return true;
+				return a.name.toLowerCase().includes(q) ||
+					(a.desc && a.desc.toLowerCase().includes(q)) ||
+					(a.category && a.category.toLowerCase().includes(q)) ||
+					a.id.toLowerCase().includes(q);
+			});
+
+			const countHeader = document.createElement("div");
+			countHeader.className = "text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-3 py-1 select-none flex items-center justify-between";
+			countHeader.innerHTML = `<span>APPLICATIONS (${filtered.length})</span>`;
+			resultsScroll.appendChild(countHeader);
+
+			if (filtered.length === 0 && !rawQ) {
+				const emptyEl = document.createElement("div");
+				emptyEl.className = "px-3 py-4 text-center text-xs text-neutral-500";
+				emptyEl.textContent = "No applications found";
+				resultsScroll.appendChild(emptyEl);
+			}
+
+			filtered.forEach((app, idx) => {
+				const row = document.createElement("div");
+				const isSelected = idx === this.spotlightSelectedIdx;
+				row.className = `flex items-center justify-between px-3 py-2 rounded-2xl cursor-pointer transition-colors group ${isSelected ? 'bg-white/15' : 'hover:bg-white/10'}`;
+
+				const left = document.createElement("div");
+				left.className = "flex items-center gap-3 min-w-0";
+
+				const iconBox = document.createElement("div");
+				iconBox.className = "w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white text-sm shadow-sm group-hover:scale-105 transition-transform overflow-hidden p-0.5 shrink-0";
+				if (app.logoUrl) {
+					const img = document.createElement("img");
+					img.src = app.logoUrl;
+					img.alt = app.name;
+					img.className = "w-6 h-6 object-contain pointer-events-none rounded-lg";
+					iconBox.appendChild(img);
+				} else {
+					const ic = document.createElement("i");
+					ic.className = `${app.iconClass || 'fa-solid fa-shapes'} ${app.iconColor || 'text-white'} text-base`;
+					iconBox.appendChild(ic);
+				}
+				left.appendChild(iconBox);
+
+				const textCol = document.createElement("div");
+				textCol.className = "flex flex-col min-w-0";
+
+				const nameSpan = document.createElement("span");
+				nameSpan.className = "text-xs font-semibold text-white truncate";
+				nameSpan.textContent = app.name;
+				textCol.appendChild(nameSpan);
+
+				const descSpan = document.createElement("span");
+				descSpan.className = "text-[11px] text-neutral-400 truncate";
+				descSpan.textContent = app.desc || app.category || "";
+				textCol.appendChild(descSpan);
+
+				left.appendChild(textCol);
+				row.appendChild(left);
+
+				const enterHint = document.createElement("span");
+				enterHint.className = `text-[10px] text-neutral-400 font-mono transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`;
+				enterHint.textContent = "Press ↵";
+				row.appendChild(enterHint);
+
+				row.onclick = () => {
+					this.openApp(app.id);
+					this.closeSpotlight();
+				};
+
+				resultsScroll.appendChild(row);
+			});
+
+			if (rawQ) {
+				const isUrl = /^https?:\/\//i.test(rawQ) || (rawQ.includes(".") && !rawQ.includes(" "));
+				const webRow = document.createElement("div");
+				webRow.className = "flex items-center justify-between px-3 py-2.5 mt-1 rounded-2xl bg-white/5 hover:bg-white/10 cursor-pointer border border-white/5 group";
+				webRow.innerHTML = `
+					<div class="flex items-center gap-3 min-w-0">
+						<i class="fa-solid fa-globe text-sky-400 text-base shrink-0"></i>
+						<span class="text-xs text-neutral-200 truncate">
+							${isUrl ? `Open URL "<span class="font-bold text-white">${escapeHtml(rawQ)}</span>"` : `Search web for "<span class="font-bold text-white">${escapeHtml(rawQ)}</span>"`}
+						</span>
+					</div>
+					<span class="text-[10px] text-sky-400 font-semibold shrink-0">Browse ↵</span>
+				`;
+				webRow.onclick = () => {
+					this.openApp("browser", "Search", { url: rawQ });
+					this.closeSpotlight();
+				};
+				resultsScroll.appendChild(webRow);
+			}
+		};
+
+		searchInput.oninput = () => {
 			this.spotlightSelectedIdx = 0;
+			this.renderSpotlightResults();
+		};
+
+		searchInput.onkeydown = (e) => {
+			if (e.key === "Escape") {
+				e.preventDefault();
+				this.closeSpotlight();
+			} else if (e.key === "ArrowDown") {
+				e.preventDefault();
+				const q = (searchInput.value || "").trim().toLowerCase();
+				const filtered = APPS.filter(a => !q || a.name.toLowerCase().includes(q) || (a.desc && a.desc.toLowerCase().includes(q)) || a.id.toLowerCase().includes(q));
+				if (filtered.length > 0) {
+					this.spotlightSelectedIdx = (this.spotlightSelectedIdx + 1) % filtered.length;
+					this.renderSpotlightResults();
+				}
+			} else if (e.key === "ArrowUp") {
+				e.preventDefault();
+				const q = (searchInput.value || "").trim().toLowerCase();
+				const filtered = APPS.filter(a => !q || a.name.toLowerCase().includes(q) || (a.desc && a.desc.toLowerCase().includes(q)) || a.id.toLowerCase().includes(q));
+				if (filtered.length > 0) {
+					this.spotlightSelectedIdx = (this.spotlightSelectedIdx - 1 + filtered.length) % filtered.length;
+					this.renderSpotlightResults();
+				}
+			} else if (e.key === "Enter") {
+				e.preventDefault();
+				const rawQ = (searchInput.value || "").trim();
+				const q = rawQ.toLowerCase();
+				const mathVal = this.evaluateMath(rawQ);
+				const filtered = APPS.filter(a => !q || a.name.toLowerCase().includes(q) || (a.desc && a.desc.toLowerCase().includes(q)) || a.id.toLowerCase().includes(q));
+
+				if (mathVal !== null && !filtered.some(a => a.name.toLowerCase() === q)) {
+					navigator.clipboard.writeText("" + mathVal);
+					this.notify("Copied", `Result ${mathVal} copied to clipboard`, "fa-solid fa-check");
+					this.closeSpotlight();
+				} else if (filtered.length > 0 && (this.spotlightSelectedIdx < filtered.length)) {
+					this.openApp(filtered[this.spotlightSelectedIdx].id);
+					this.closeSpotlight();
+				} else if (rawQ) {
+					this.openApp("browser", "Search", { url: rawQ });
+					this.closeSpotlight();
+				}
+			}
+		};
+
+		this.openSpotlight = () => {
+			if (this.windows && Array.isArray(this.windows)) {
+				this.windows.forEach(w => {
+					w.isMinimized = true;
+					updateWindowStyle(w, false);
+				});
+			}
+			this.activeWinId = null;
+			this.spotlightOpen = true;
 			this.appsMenuOpen = false;
 			this.startMenuOpen = false;
 			this.controlCenterOpen = false;
 			window.VeilAudio && window.VeilAudio.playClick();
+			spotlightOverlay.classList.remove("hidden");
+			searchInput.value = "";
+			this.spotlightSelectedIdx = 0;
+			this.renderSpotlightResults();
+			setTimeout(() => {
+				searchInput.focus();
+			}, 20);
 			this.windows = [...this.windows];
 		};
 
 		this.closeSpotlight = () => {
 			this.spotlightOpen = false;
+			spotlightOverlay.classList.add("hidden");
+			searchInput.value = "";
 			this.windows = [...this.windows];
 		};
 
@@ -1299,7 +1281,7 @@ window.addEventListener("load", async () => {
 		};
 
 		this.setWallpaper = (wpUrl) => {
-			store.wallpaper = wpUrl || "assets/halloween.jpg";
+			store.wallpaper = wpUrl || "assets/christmas.jpg";
 			this.notify("Wallpaper Updated", "Desktop appearance refreshed", "fa-solid fa-image");
 			this.windows = [...this.windows];
 		};
@@ -1698,25 +1680,29 @@ window.addEventListener("load", async () => {
 						}
 					}}>
 					${use(this.windows, () => {
-						const wp = (store && store.wallpaper) || "assets/halloween.jpg";
-						const isHalloween = (store && store.theme === "halloween");
+						const wp = (store && store.wallpaper) || "assets/christmas.jpg";
+						const isChristmas = (store && (store.theme === "christmas" || store.theme === "jolly"));
 						if (wp === "gradient") {
-							return html`<div class="w-full h-full bg-gradient-to-br from-indigo-950 via-neutral-950 to-black"></div>`;
+							return html`<div class="w-full h-full bg-gradient-to-br from-red-950 via-emerald-950 to-black"></div>`;
 						}
 						return html`
 							<img 
 								src="${wp}"
 								alt="Desktop Background"
-								onerror="this.src='assets/halloween.jpg'"
+								onerror="this.src='assets/christmas.jpg'"
 								class="w-full h-full object-cover pointer-events-none select-none" />
-							${isHalloween ? html`
+							${isChristmas ? html`
 								<div class="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
-									<div class="absolute inset-0 bg-gradient-to-t from-orange-950/25 via-purple-950/15 to-transparent mix-blend-screen pointer-events-none"></div>
-									<div class="absolute w-2.5 h-2.5 rounded-full bg-amber-400/80 blur-[1px] animate-pulse" style="bottom: 22%; left: 18%; box-shadow: 0 0 14px #f97316;"></div>
-									<div class="absolute w-1.5 h-1.5 rounded-full bg-orange-400/70 blur-[1px] animate-ping" style="bottom: 35%; left: 28%; animation-duration: 3s; box-shadow: 0 0 10px #ea580c;"></div>
-									<div class="absolute w-2 h-2 rounded-full bg-amber-300/80 blur-[1px] animate-pulse" style="bottom: 18%; left: 65%; animation-duration: 2.2s; box-shadow: 0 0 12px #f59e0b;"></div>
-									<div class="absolute w-1.5 h-1.5 rounded-full bg-orange-400/70 blur-[1px] animate-pulse" style="bottom: 28%; left: 82%; animation-duration: 2.7s; box-shadow: 0 0 8px #f97316;"></div>
-									<div class="absolute w-2.5 h-2.5 rounded-full bg-purple-400/70 blur-[1px] animate-pulse" style="bottom: 45%; left: 45%; animation-duration: 3.5s; box-shadow: 0 0 14px #a855f7;"></div>
+									<div class="absolute inset-0 bg-gradient-to-t from-red-950/20 via-emerald-950/15 to-transparent mix-blend-screen pointer-events-none"></div>
+									<div class="absolute text-white/80 text-sm animate-pulse" style="top: 15%; left: 12%; filter: drop-shadow(0 0 8px #ffffff);">❄</div>
+									<div class="absolute text-amber-300/90 text-xs animate-ping" style="top: 25%; left: 22%; animation-duration: 3s; filter: drop-shadow(0 0 10px #fbbf24);">✦</div>
+									<div class="absolute text-white/70 text-lg animate-pulse" style="top: 18%; left: 45%; animation-duration: 4s; filter: drop-shadow(0 0 6px #ffffff);">❅</div>
+									<div class="absolute text-amber-200/90 text-sm animate-pulse" style="top: 32%; left: 68%; animation-duration: 2.2s; filter: drop-shadow(0 0 12px #fde047);">✧</div>
+									<div class="absolute text-white/80 text-xs animate-pulse" style="top: 28%; left: 85%; animation-duration: 2.7s; filter: drop-shadow(0 0 8px #ffffff);">❄</div>
+									<div class="absolute text-white/70 text-base animate-pulse" style="top: 48%; left: 35%; animation-duration: 3.5s; filter: drop-shadow(0 0 10px #ffffff);">❅</div>
+									<div class="absolute text-amber-300/80 text-xs animate-ping" style="top: 40%; left: 78%; animation-duration: 3.2s; filter: drop-shadow(0 0 10px #f59e0b);">✦</div>
+									<div class="absolute w-2.5 h-2.5 rounded-full bg-amber-400/80 blur-[1px] animate-pulse" style="bottom: 22%; left: 28%; box-shadow: 0 0 14px #eab308;"></div>
+									<div class="absolute w-2 h-2 rounded-full bg-red-400/80 blur-[1px] animate-pulse" style="bottom: 18%; left: 72%; animation-duration: 2.5s; box-shadow: 0 0 12px #ef4444;"></div>
 								</div>
 							` : null}
 						`;
@@ -1746,19 +1732,19 @@ window.addEventListener("load", async () => {
 								<span>${this.pingMs}ms</span>
 							</div>
 							<div class="w-px h-3.5 bg-white/15"></div>
-							<button class="px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${store.theme === 'halloween' ? 'bg-orange-500/25 text-orange-300 border border-orange-500/40 shadow-[0_0_12px_rgba(249,115,22,0.3)]' : 'bg-white/10 hover:bg-white/20 text-neutral-300'}"
+							<button class="px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${store.theme === 'christmas' || store.theme === 'jolly' ? 'bg-red-500/25 text-red-200 border border-red-500/40 shadow-[0_0_12px_rgba(239,68,68,0.3)]' : 'bg-white/10 hover:bg-white/20 text-neutral-300'}"
 								on:click=${() => {
-									const isH = store.theme === "halloween";
-									const newT = isH ? "default" : "halloween";
+									const isC = store.theme === "christmas" || store.theme === "jolly";
+									const newT = isC ? "default" : "christmas";
 									store.theme = newT;
-									store.wallpaper = newT === "halloween" ? "assets/halloween.jpg" : "assets/background.jpg";
-									store.accentColor = newT === "halloween" ? "orange" : "indigo";
+									store.wallpaper = newT === "christmas" ? "assets/christmas.jpg" : "assets/background.jpg";
+									store.accentColor = newT === "christmas" ? "red" : "indigo";
 									try { localStorage.setItem("veil_user_theme", newT); } catch(e){}
-									this.notify(newT === "halloween" ? "🎃 Spooky Mode Active" : "Default Theme Active", newT === "halloween" ? "Happy Halloween season in VeilOS!" : "Restored classic desktop appearance", "fa-solid fa-ghost");
+									this.notify(newT === "christmas" ? "🎄 Jolly Mode Active" : "Default Theme Active", newT === "christmas" ? "Merry Christmas & Happy Holidays in VeilOS!" : "Restored classic desktop appearance", "fa-solid fa-gift");
 									this.windows = [...this.windows];
-								}} title="Toggle Halloween Theme (🎃)">
-								<span>🎃</span>
-								<span class="font-bold text-[10px] uppercase tracking-wider">${store.theme === 'halloween' ? 'Spooky' : 'Halloween'}</span>
+								}} title="Toggle Jolly Christmas Theme (🎄)">
+								<span>🎄</span>
+								<span class="font-bold text-[10px] uppercase tracking-wider">${store.theme === 'christmas' || store.theme === 'jolly' ? 'Jolly' : 'Christmas'}</span>
 							</button>
 							<div class="w-px h-3.5 bg-white/15"></div>
 							<button class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-white flex items-center gap-1 transition-all cursor-pointer active:scale-95"
@@ -1935,7 +1921,7 @@ window.addEventListener("load", async () => {
 					</div>
 				</div>
 
-				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-2 ${store.theme === 'halloween' ? 'bg-black/85 border border-orange-500/40 shadow-[0_0_25px_rgba(249,115,22,0.25)]' : 'bg-black/75 border border-white/15 shadow-2xl'} rounded-3xl backdrop-blur-2xl text-white max-w-[96vw] overflow-visible transition-all"
+				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-2 ${store.theme === 'christmas' || store.theme === 'jolly' ? 'bg-[#06100a]/90 border border-red-500/40 shadow-[0_0_25px_rgba(239,68,68,0.25)]' : 'bg-black/75 border border-white/15 shadow-2xl'} rounded-3xl backdrop-blur-2xl text-white max-w-[96vw] overflow-visible transition-all"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
@@ -1984,19 +1970,19 @@ window.addEventListener("load", async () => {
 					</div>
 
 					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
-					<button class="w-10 h-10 rounded-2xl ${store.theme === 'halloween' ? 'bg-orange-500/25 text-orange-300 border border-orange-400/50 shadow-[0_0_14px_rgba(249,115,22,0.35)]' : 'bg-white/10 hover:bg-white/20 border border-white/20 text-neutral-300'} active:scale-95 transition-all flex items-center justify-center text-lg cursor-pointer shrink-0 dock-icon-anim"
+					<button class="w-10 h-10 rounded-2xl ${store.theme === 'christmas' || store.theme === 'jolly' ? 'bg-red-500/25 text-red-200 border border-red-400/50 shadow-[0_0_14px_rgba(239,68,68,0.35)]' : 'bg-white/10 hover:bg-white/20 border border-white/20 text-neutral-300'} active:scale-95 transition-all flex items-center justify-center text-lg cursor-pointer shrink-0 dock-icon-anim"
 						on:click=${(e) => {
 							e.stopPropagation();
-							const isH = store.theme === "halloween";
-							const newT = isH ? "default" : "halloween";
+							const isC = store.theme === "christmas" || store.theme === "jolly";
+							const newT = isC ? "default" : "christmas";
 							store.theme = newT;
-							store.wallpaper = newT === "halloween" ? "assets/halloween.jpg" : "assets/background.jpg";
-							store.accentColor = newT === "halloween" ? "orange" : "indigo";
+							store.wallpaper = newT === "christmas" ? "assets/christmas.jpg" : "assets/background.jpg";
+							store.accentColor = newT === "christmas" ? "red" : "indigo";
 							try { localStorage.setItem("veil_user_theme", newT); } catch(err){}
-							this.notify(newT === "halloween" ? "🎃 Spooky Mode Active" : "Default Theme Active", newT === "halloween" ? "Happy Halloween season in VeilOS!" : "Restored classic desktop appearance", "fa-solid fa-ghost");
+							this.notify(newT === "christmas" ? "🎄 Jolly Mode Active" : "Default Theme Active", newT === "christmas" ? "Merry Christmas & Happy Holidays in VeilOS!" : "Restored classic desktop appearance", "fa-solid fa-gift");
 							this.windows = [...this.windows];
-						}} title="Toggle Halloween Theme (🎃)">
-						<span>🎃</span>
+						}} title="Toggle Jolly Christmas Theme (🎄)">
+						<span>🎄</span>
 					</button>
 
 					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
@@ -2140,108 +2126,7 @@ window.addEventListener("load", async () => {
 					</button>
 				</div>
 
-				${use(this.windows, () => {
-					if (!this.spotlightOpen) return null;
-					const q = (this.spotlightQuery || "").trim().toLowerCase();
-					const mathRes = this.evaluateMath(this.spotlightQuery);
-					const filteredApps = APPS.filter(a => !q || a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q) || a.id.toLowerCase().includes(q));
-
-					return html`
-						<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade"
-							on:click=${(e) => {
-								if (e.target === e.currentTarget) this.closeSpotlight();
-							}}>
-							<div class="w-full max-w-xl bg-neutral-900/95 border border-white/20 rounded-3xl shadow-2xl backdrop-blur-3xl overflow-hidden flex flex-col animate-spotlight m-auto self-center">
-								<div class="flex items-center px-4 py-3.5 border-b border-white/10 gap-3">
-									<i class="fa-solid fa-magnifying-glass text-indigo-400 text-base"></i>
-									<input id="spotlight-input"
-										class="flex-1 bg-transparent text-white placeholder-neutral-400 outline-none text-sm font-sans"
-										placeholder="Search apps or type a web address..."
-										bind:value=${use(this.spotlightQuery)}
-										on:input=${(e) => { this.spotlightQuery = e.target.value; this.windows = [...this.windows]; }}
-										on:keydown=${(e) => {
-											if (e.key === "Escape") {
-												this.closeSpotlight();
-											} else if (e.key === "Enter") {
-												if (mathRes !== null) {
-													navigator.clipboard.writeText("" + mathRes);
-													this.notify("Copied", `Result ${mathRes} copied to clipboard`, "fa-solid fa-check");
-													this.closeSpotlight();
-												} else if (filteredApps.length > 0) {
-													this.openApp(filteredApps[0].id);
-													this.closeSpotlight();
-												} else if (this.spotlightQuery) {
-													this.openApp("browser", "Search", { url: this.spotlightQuery });
-													this.closeSpotlight();
-												}
-											}
-										}} autofocus />
-									<span class="text-[10px] text-neutral-400 font-mono bg-white/10 px-2 py-1 rounded-md">ESC to close</span>
-								</div>
-
-								${mathRes !== null ? html`
-									<div class="m-3 p-3 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-between">
-										<div class="flex items-center gap-2.5">
-											<i class="fa-solid fa-calculator text-indigo-300"></i>
-											<span class="text-xs text-neutral-300">${this.spotlightQuery} =</span>
-											<span class="text-base font-bold font-mono text-white">${mathRes}</span>
-										</div>
-										<button class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer"
-											on:click=${() => {
-												navigator.clipboard.writeText("" + mathRes);
-												this.notify("Copied", "Result copied to clipboard", "fa-solid fa-check");
-											}}>
-											Copy
-										</button>
-									</div>
-								` : null}
-
-								<div class="max-h-72 overflow-y-auto custom-scrollbar p-2 flex flex-col gap-1">
-									<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-3 py-1">Applications (${filteredApps.length})</div>
-									${filteredApps.map((app, idx) => {
-										const iconCls = `${app.iconClass || 'fa-solid fa-shapes'} ${app.iconColor || 'text-white'} text-base`;
-										return html`
-										<div class="flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-white/10 active:scale-[0.99] cursor-pointer transition-colors group"
-											on:click=${() => {
-												this.openApp(app.id);
-												this.closeSpotlight();
-											}}>
-											<div class="flex items-center gap-3">
-												<div class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white text-sm shadow-sm group-hover:scale-105 transition-transform overflow-hidden p-0.5">
-													${app.logoUrl ? html`
-														<img src="${app.logoUrl}" alt="${app.name}" class="w-6 h-6 object-contain pointer-events-none rounded-lg" />
-													` : html`
-														<i class="${iconCls}"></i>
-													`}
-												</div>
-												<div class="flex flex-col">
-													<span class="text-xs font-semibold text-white">${app.name}</span>
-													<span class="text-[11px] text-neutral-400">${app.desc}</span>
-												</div>
-											</div>
-											<span class="text-[10px] text-neutral-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity">Press ↵</span>
-										</div>
-									`;
-									})}
-
-									${this.spotlightQuery ? html`
-										<div class="flex items-center justify-between px-3 py-2.5 mt-1 rounded-2xl bg-white/5 hover:bg-white/10 cursor-pointer border border-white/5"
-											on:click=${() => {
-												this.openApp("browser", "Search", { url: this.spotlightQuery });
-												this.closeSpotlight();
-											}}>
-											<div class="flex items-center gap-3">
-												<i class="fa-solid fa-globe text-sky-400 text-base"></i>
-												<span class="text-xs text-neutral-200">Search web for "<span class="font-bold text-white">${this.spotlightQuery}</span>"</span>
-											</div>
-											<span class="text-[10px] text-sky-400 font-semibold">Browse ↵</span>
-										</div>
-									` : null}
-								</div>
-							</div>
-						</div>
-					`;
-				})}
+				${this.spotlightOverlay}
 
 				${use(this.windows, () => {
 					if (!this.contextMenu.open) return null;
@@ -2430,14 +2315,14 @@ window.addEventListener("load", async () => {
 			win.domEl.style.borderWidth = "1px";
 			win.domEl.style.zIndex = "" + win.zIndex;
 		}
-		const isHalloween = (typeof store !== "undefined" && store.theme === "halloween");
+		const isChristmas = (typeof store !== "undefined" && (store.theme === "christmas" || store.theme === "jolly"));
 		if (isFocused) {
-			win.domEl.className = isHalloween
-				? "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-orange-500/40 shadow-[0_12px_40px_rgba(249,115,22,0.25)] bg-[#0c0616]/95 backdrop-blur-2xl"
+			win.domEl.className = isChristmas
+				? "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-red-500/40 shadow-[0_12px_40px_rgba(239,68,68,0.25)] bg-[#07130c]/95 backdrop-blur-2xl"
 				: "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl";
 		} else {
-			win.domEl.className = isHalloween
-				? "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-purple-500/20 bg-[#08040f]/90 backdrop-blur-xl"
+			win.domEl.className = isChristmas
+				? "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-emerald-500/25 bg-[#050e09]/90 backdrop-blur-xl"
 				: "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/10 bg-neutral-950/90 backdrop-blur-xl";
 		}
 	}
@@ -2452,10 +2337,10 @@ window.addEventListener("load", async () => {
 		}
 
 		const isFocused = win.id === osInstance.activeWinId;
-		const isHalloween = (typeof store !== "undefined" && store.theme === "halloween");
+		const isChristmas = (typeof store !== "undefined" && (store.theme === "christmas" || store.theme === "jolly"));
 		const winClass = isFocused
-			? (isHalloween ? 'border-orange-500/40 shadow-[0_12px_40px_rgba(249,115,22,0.25)] bg-[#0c0616]/95 backdrop-blur-2xl' : 'border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl')
-			: (isHalloween ? 'border-purple-500/20 bg-[#08040f]/90 backdrop-blur-xl' : 'border-white/10 bg-neutral-950/90 backdrop-blur-xl');
+			? (isChristmas ? 'border-red-500/40 shadow-[0_12px_40px_rgba(239,68,68,0.25)] bg-[#07130c]/95 backdrop-blur-2xl' : 'border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl')
+			: (isChristmas ? 'border-emerald-500/25 bg-[#050e09]/90 backdrop-blur-xl' : 'border-white/10 bg-neutral-950/90 backdrop-blur-xl');
 		const styleStr = win.isMaximized 
 			? `position: absolute; top:0; left:0; width:100%; height:100%; z-index:${win.zIndex || 100}; display:flex; visibility:${win.isMinimized ? 'hidden' : 'visible'}; opacity:${win.isMinimized ? '0' : '1'}; pointer-events:${win.isMinimized ? 'none' : 'auto'}; border-radius: 0px; border-width: 0px;`
 			: `position: absolute; top:${win.y}px; left:${win.x}px; width:${win.w}px; height:${win.h}px; z-index:${win.zIndex}; display:flex; visibility:${win.isMinimized ? 'hidden' : 'visible'}; opacity:${win.isMinimized ? '0' : '1'}; pointer-events:${win.isMinimized ? 'none' : 'auto'}; border-radius: 1rem; border-width: 1px;`;
@@ -2628,6 +2513,10 @@ window.addEventListener("load", async () => {
 							<i class="fa-solid fa-music text-rose-400 text-[10px]"></i>
 							<span>Sonora</span>
 						</span>
+						<span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono font-medium flex items-center gap-1 ml-1 select-none">
+							<i class="fa-solid fa-triangle-exclamation text-[9px] text-amber-400"></i>
+							<span>Music unavailable until VPS</span>
+						</span>
 					</div>
 					<div class="flex items-center gap-2">
 						<button class="text-[10px] text-neutral-400 hover:text-white px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
@@ -2638,6 +2527,10 @@ window.addEventListener("load", async () => {
 							<span>Open in Browser</span>
 						</button>
 					</div>
+				</div>
+				<div class="bg-amber-950/90 border-b border-amber-500/40 text-amber-300 text-xs px-3 py-1.5 flex items-center justify-center gap-2 font-medium shrink-0 shadow-sm select-none">
+					<i class="fa-solid fa-triangle-exclamation text-amber-400 text-xs"></i>
+					<span>Music unavailable until VPS</span>
 				</div>
 				<div class="flex-1 w-full h-full relative overflow-hidden">
 					${iframe}
@@ -2796,7 +2689,7 @@ window.addEventListener("load", async () => {
 				return "onyx://history";
 			}
 			if (lower === "onyx://extensions" || lower === "veil://extensions" || lower === "chrome://extensions" || lower === "about:extensions" || lower === "onyx:extensions" || lower === "veil:extensions" || lower === "chrome:extensions") {
-				return "onyx://extensions";
+				return "onyx://newtab";
 			}
 			if (lower === "onyx://settings" || lower === "veil://settings" || lower === "chrome://settings" || lower === "about:settings" || lower === "onyx:settings" || lower === "veil:settings" || lower === "chrome:settings") {
 				return "onyx://settings";
@@ -2918,13 +2811,7 @@ window.addEventListener("load", async () => {
 		historyToggleBtn.className = "w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center cursor-pointer bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white";
 		historyToggleBtn.innerHTML = '<i class="fa-solid fa-clock-rotate-left text-purple-400"></i>';
 
-		const extensionsToggleBtn = document.createElement("button");
-		extensionsToggleBtn.title = "Extensions (onyx://extensions)";
-		extensionsToggleBtn.className = "w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center cursor-pointer bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white";
-		extensionsToggleBtn.innerHTML = '<i class="fa-solid fa-puzzle-piece text-emerald-400"></i>';
-
 		panelToggles.appendChild(historyToggleBtn);
-		panelToggles.appendChild(extensionsToggleBtn);
 		tabStrip.appendChild(tabsListContainer);
 		tabStrip.appendChild(panelToggles);
 
@@ -2975,154 +2862,9 @@ window.addEventListener("load", async () => {
 		goBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i>';
 		goBtn.title = "Go to URL";
 
-		const toolbarExtensions = document.createElement("div");
-		toolbarExtensions.className = "flex items-center gap-1.5 shrink-0";
-
-		const floatingPopover = document.createElement("div");
-		floatingPopover.className = "absolute right-2 top-[calc(100%+6px)] z-50 w-[360px] rounded-2xl border border-white/20 bg-[#191a24] shadow-2xl shadow-black/90 overflow-hidden flex flex-col hidden animate-fade";
-
-		function renderExtensionPopup(extId, popupUrl) {
-			floatingPopover.innerHTML = "";
-			let targetId = extId;
-			let ext = window.sapphire && window.sapphire.registry?.get ? window.sapphire.registry.get(targetId) : null;
-			if (!ext && window.sapphire && typeof window.sapphire.getInstalledExtensions === "function") {
-				const allExts = window.sapphire.getInstalledExtensions();
-				const match = allExts.find(e => e.id === targetId || e.id.toLowerCase() === targetId.toLowerCase() || (e.name && targetId.length > 20 && e.name.toLowerCase().includes("ublock")));
-				if (match) {
-					targetId = match.id;
-					ext = window.sapphire.registry.get(targetId);
-				}
-			}
-			const name = ext?.manifest?.name || "Extension";
-
-			const topBanner = document.createElement("div");
-			topBanner.className = "h-11 bg-[#1e202d] px-3 flex items-center justify-between border-b border-white/10 shrink-0";
-			topBanner.innerHTML = `
-				<div class="flex items-center gap-2 truncate">
-					<span class="text-sm">🧩</span>
-					<span class="text-xs font-bold text-white truncate">${name}</span>
-				</div>
-			`;
-			const closeBtn = document.createElement("button");
-			closeBtn.className = "text-neutral-400 hover:text-white text-xs cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10";
-			closeBtn.textContent = "✕";
-			closeBtn.onclick = (e) => {
-				e.stopPropagation();
-				floatingPopover.classList.add("hidden");
-				win.customState.activePopup = null;
-			};
-			topBanner.appendChild(closeBtn);
-			floatingPopover.appendChild(topBanner);
-
-			const frameContainer = document.createElement("div");
-			frameContainer.className = "w-full h-[480px] bg-[#0c0d14] relative overflow-hidden";
-			const iframe = document.createElement("iframe");
-			iframe.className = "w-full h-full border-0 outline-none bg-transparent";
-			frameContainer.appendChild(iframe);
-			floatingPopover.appendChild(frameContainer);
-
-			const activeTab = win.customState?.tabs?.find(t => t.id === win.customState.activeTabId) || win.customState?.tabs?.[0];
-			const activeTabId = activeTab ? activeTab.numericId : 1;
-
-			const extIdForLog = targetId;
-			const iframeExists = !!iframe;
-			const controllerSet = !!(window.sapphire && window.sapphire.controller);
-
-			console.log("[ExtensionPopup Open]", {
-				extId: extIdForLog,
-				iframeExists,
-				controllerSet,
-				sapphireExists: !!window.sapphire,
-				hasMountExtensionPopup: typeof window.sapphire?.mountExtensionPopup === "function",
-			});
-
-			if (window.sapphire && typeof window.sapphire.mountExtensionPopup === "function") {
-				window.sapphire.mountExtensionPopup(iframe, targetId, activeTabId).then((mounted) => {
-					console.log("[ExtensionPopup mountExtensionPopup returned]", {
-						extId: targetId,
-						returnedValue: mounted,
-					});
-					if (!mounted) {
-						console.warn("[renderExtensionPopup] mountExtensionPopup returned false, setting iframe.src");
-						iframe.src = popupUrl || `/~/sx/${targetId}/popup.html`;
-					}
-				}).catch((err) => {
-					console.log("[ExtensionPopup mountExtensionPopup error]", {
-						extId: targetId,
-						error: err?.message || err,
-					});
-					console.warn("[renderExtensionPopup] mountExtensionPopup failed, fallback to src:", err);
-					iframe.src = popupUrl || `/~/sx/${targetId}/popup.html`;
-				});
-			} else {
-				const reason = !window.sapphire
-					? "window.sapphire is not defined"
-					: "window.sapphire.mountExtensionPopup is not a function";
-				console.log("[ExtensionPopup mountExtensionPopup not called]", {
-					extId: targetId,
-					reason,
-				});
-				iframe.src = popupUrl || `/~/sx/${targetId}/popup.html`;
-			}
-		}
-
-		win.customState.renderExtensionPopup = renderExtensionPopup;
-		win.customState.showExtensionPopover = (extId, popupUrl) => {
-			win.customState.activePopup = extId;
-			renderExtensionPopup(extId, popupUrl);
-			floatingPopover.classList.remove("hidden");
-		};
-
-		const renderToolbarExtensions = () => {
-			toolbarExtensions.innerHTML = "";
-
-			if (window.sapphire && typeof window.sapphire.getInstalledExtensions === "function") {
-				const installed = window.sapphire.getInstalledExtensions();
-				installed.filter(ex => ex.enabled).forEach(ex => {
-					const extBtn = document.createElement("button");
-					extBtn.className = "w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all cursor-pointer shadow-sm relative shrink-0";
-					extBtn.title = ex.name || "Extension";
-					if (ex.iconUrl) {
-						extBtn.innerHTML = `<img src="${ex.iconUrl}" class="w-4 h-4 object-contain rounded" />`;
-					} else {
-						extBtn.innerHTML = `<span class="text-xs">🧩</span>`;
-					}
-					extBtn.onclick = async (e) => {
-						e.stopPropagation();
-						if (!floatingPopover.classList.contains("hidden") && win.customState.activePopup === ex.id) {
-							floatingPopover.classList.add("hidden");
-							win.customState.activePopup = null;
-							return;
-						}
-						try {
-							let popupUrl = null;
-							if (typeof window.sapphire.getPopupUrl === "function") {
-								popupUrl = await window.sapphire.getPopupUrl(ex.id);
-							}
-							win.customState.activePopup = ex.id;
-							renderExtensionPopup(ex.id, popupUrl);
-							floatingPopover.classList.remove("hidden");
-						} catch (popupErr) {
-							console.error("[ToolbarExtension] Failed to get popup URL:", popupErr);
-						}
-					};
-					toolbarExtensions.appendChild(extBtn);
-				});
-			}
-		};
-		win.customState.renderToolbarExtensions = renderToolbarExtensions;
-
-		const onDocumentClick = (e) => {
-			if (!floatingPopover.classList.contains("hidden")) {
-				if (!floatingPopover.contains(e.target) && !toolbarExtensions.contains(e.target)) {
-					floatingPopover.classList.add("hidden");
-					win.customState.activePopup = null;
-				}
-			}
-		};
-		document.addEventListener("mousedown", onDocumentClick);
-
-		renderToolbarExtensions();
+		win.customState.renderExtensionPopup = () => {};
+		win.customState.showExtensionPopover = () => {};
+		win.customState.renderToolbarExtensions = () => {};
 
 		urlBar.appendChild(backBtn);
 		urlBar.appendChild(fwdBtn);
@@ -3130,8 +2872,6 @@ window.addEventListener("load", async () => {
 		urlBar.appendChild(homeBtn);
 		urlBar.appendChild(urlInputBox);
 		urlBar.appendChild(goBtn);
-		urlBar.appendChild(toolbarExtensions);
-		urlBar.appendChild(floatingPopover);
 
 		const quickBmBar = document.createElement("div");
 		quickBmBar.className = "flex items-center gap-1.5 px-3 py-1.5 bg-neutral-950 border-b border-white/10 overflow-x-auto text-xs shrink-0 custom-scrollbar";
@@ -3200,25 +2940,25 @@ window.addEventListener("load", async () => {
 				const homeWrap = document.createElement("div");
 				homeWrap.className = "flex flex-col items-center justify-center max-w-xl w-full gap-7";
 
-				const isHalloween = (store && store.theme === "halloween");
+				const isChristmas = (store && (store.theme === "christmas" || store.theme === "jolly"));
 
-				if (isHalloween) {
-					const spookBadge = document.createElement("div");
-					spookBadge.className = "text-xs font-bold uppercase tracking-widest text-orange-400 flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-950/50 border border-orange-500/40 shadow-[0_0_15px_rgba(249,115,22,0.25)]";
-					spookBadge.innerHTML = '<span>🎃</span><span>Halloween Spooky Edition</span><span>🎃</span>';
-					homeWrap.appendChild(spookBadge);
+				if (isChristmas) {
+					const jollyBadge = document.createElement("div");
+					jollyBadge.className = "text-xs font-bold uppercase tracking-widest text-emerald-300 flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.25)]";
+					jollyBadge.innerHTML = '<span>🎄</span><span>Jolly Christmas Edition</span><span>❄️</span>';
+					homeWrap.appendChild(jollyBadge);
 				}
 
 				const titleEl = document.createElement("h1");
-				titleEl.className = isHalloween 
-					? "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none drop-shadow-[0_0_25px_rgba(249,115,22,0.35)]" 
+				titleEl.className = isChristmas 
+					? "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none drop-shadow-[0_0_25px_rgba(239,68,68,0.35)]" 
 					: "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none";
 				titleEl.textContent = "onyx";
 				homeWrap.appendChild(titleEl);
 
 				const searchCard = document.createElement("div");
-				searchCard.className = isHalloween
-					? "w-full flex items-center bg-[#150a22]/90 border border-orange-500/40 hover:border-orange-500/60 focus-within:border-orange-400 rounded-full px-4 py-2.5 gap-3 shadow-[0_4px_25px_rgba(249,115,22,0.2)] transition-all"
+				searchCard.className = isChristmas
+					? "w-full flex items-center bg-[#07150d]/90 border border-emerald-500/40 hover:border-emerald-400 focus-within:border-red-400 rounded-full px-4 py-2.5 gap-3 shadow-[0_4px_25px_rgba(16,185,129,0.2)] transition-all"
 					: "w-full flex items-center bg-[#13141b] border border-white/10 hover:border-white/20 focus-within:border-white/25 rounded-full px-4 py-2.5 gap-3 shadow-2xl transition-all";
 
 				const searchIcon = document.createElement("span");
@@ -3281,7 +3021,6 @@ window.addEventListener("load", async () => {
 				quickNav.className = "flex flex-wrap items-center justify-center gap-2 pt-1";
 				const quickItems = [
 					{ name: "Onyx Chat", url: "onyx://chat", icon: "💬" },
-					{ name: "Extensions", url: "onyx://extensions", icon: "🧩" },
 					{ name: "Settings", url: "onyx://settings", icon: "⚙️" },
 					{ name: "Bookmarks", url: "onyx://bookmarks", icon: "⭐" },
 					{ name: "History", url: "onyx://history", icon: "🕒" }
@@ -3345,7 +3084,6 @@ window.addEventListener("load", async () => {
 				{ id: "chat", url: "onyx://chat", label: "Chat", icon: "💬" },
 				{ id: "bookmarks", url: "onyx://bookmarks", label: "Bookmarks", icon: "⭐" },
 				{ id: "history", url: "onyx://history", label: "History", icon: "🕒" },
-				{ id: "extensions", url: "onyx://extensions", label: "Extensions", icon: "🧩" },
 				{ id: "settings", url: "onyx://settings", label: "Settings", icon: "⚙️" }
 			];
 
@@ -4233,34 +3971,34 @@ window.addEventListener("load", async () => {
 
 				const themeSec = document.createElement("div");
 				themeSec.className = "p-5 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-4";
-				const curTheme = (store.theme || "halloween").toLowerCase();
+				const curTheme = (store.theme || "christmas").toLowerCase();
 				themeSec.innerHTML = `
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2.5">
-							<span class="text-lg">🎃</span>
+							<span class="text-lg">🎄</span>
 							<div>
 								<h3 class="text-sm font-bold text-white">Theme & Desktop Style</h3>
 								<p class="text-xs text-neutral-400">Select your active aesthetic theme for VeilOS and Onyx Browser.</p>
 							</div>
 						</div>
-						<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${curTheme === 'halloween' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' : 'bg-white/10 text-neutral-300'}">
-							${curTheme === 'halloween' ? '🎃 Halloween Active' : 'Active'}
+						<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${curTheme === 'christmas' || curTheme === 'jolly' ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-white/10 text-neutral-300'}">
+							${curTheme === 'christmas' || curTheme === 'jolly' ? '🎄 Jolly Christmas Active' : 'Active'}
 						</span>
 					</div>
 				`;
 				const themesGrid = document.createElement("div");
 				themesGrid.className = "grid grid-cols-1 sm:grid-cols-2 gap-2.5";
 				const themeOptions = [
-					{ id: "halloween", label: "Halloween Spooky", icon: "🎃", wp: "assets/halloween.jpg", accent: "orange", desc: "Haunted twilight forest, glowing jack-o'-lanterns, and witch violet ambient glow." },
+					{ id: "christmas", label: "Jolly Christmas", icon: "🎄", wp: "assets/christmas.jpg", accent: "red", desc: "Cozy snow-dusted pine trees, golden fairy lights, and warm holiday hearth glow." },
 					{ id: "default", label: "Midnight Dark", icon: "🌌", wp: "assets/background.jpg", accent: "indigo", desc: "Classic sleek dark mode with high-resolution floral aesthetic wallpaper." },
 					{ id: "cyber", label: "Cyber Matrix", icon: "⚡", wp: "gradient", accent: "emerald", desc: "High-tech emerald neon gradients and terminal aesthetic." },
-					{ id: "crimson", label: "Vampire Crimson", icon: "🩸", wp: "gradient", accent: "rose", desc: "Blood moon gothic deep red and obsidian styling." }
+					{ id: "crimson", label: "Winter Crimson", icon: "🧣", wp: "gradient", accent: "rose", desc: "Festive frosted crimson red and obsidian styling." }
 				];
 				themeOptions.forEach(th => {
 					const btn = document.createElement("button");
 					const isSel = curTheme === th.id;
 					btn.className = `p-3 rounded-xl border text-left flex flex-col gap-1 cursor-pointer transition-all ${
-						isSel ? 'selected-item bg-orange-500/15 border-orange-500/50 text-white shadow-lg shadow-orange-950/40' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
+						isSel ? 'selected-item bg-red-500/15 border-red-500/50 text-white shadow-lg shadow-red-950/40' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
 					}`;
 					btn.innerHTML = `
 						<div class="flex items-center justify-between">
@@ -4268,7 +4006,7 @@ window.addEventListener("load", async () => {
 								<span>${th.icon}</span>
 								<span class="text-xs font-bold text-white">${th.label}</span>
 							</div>
-							${isSel ? '<span class="text-xs text-orange-400 font-bold">✓</span>' : ''}
+							${isSel ? '<span class="text-xs text-red-400 font-bold">✓</span>' : ''}
 						</div>
 						<p class="text-[10px] text-neutral-400 leading-snug">${th.desc}</p>
 					`;
@@ -4730,13 +4468,9 @@ window.addEventListener("load", async () => {
 			const activeTab = getActiveTab();
 			const activeUrl = (activeTab?.url || "").toLowerCase();
 			const isHistory = activeUrl.startsWith("veil://history") || activeUrl.startsWith("onyx://history");
-			const isExtensions = activeUrl.startsWith("veil://extensions") || activeUrl.startsWith("onyx://extensions");
 
 			historyToggleBtn.className = `w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center cursor-pointer ${
 				isHistory ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm' : 'bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white border border-transparent'
-			}`;
-			extensionsToggleBtn.className = `w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center cursor-pointer ${
-				isExtensions ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm' : 'bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white border border-transparent'
 			}`;
 		};
 
@@ -5524,9 +5258,6 @@ window.addEventListener("load", async () => {
 			handleNav("onyx://history");
 		};
 
-		extensionsToggleBtn.onclick = () => {
-			handleNav("onyx://extensions");
-		};
 
 		if (!win.customState.urlPollTimer) {
 			win.customState.urlPollTimer = setInterval(() => {

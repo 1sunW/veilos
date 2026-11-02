@@ -6125,49 +6125,75 @@ function isTextMime(mime) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   EXT_FILES_STORE: () => (EXT_FILES_STORE),
-  EXT_STATE_STORE: () => (EXT_STATE_STORE),
   EXT_STORAGE_STORE: () => (EXT_STORAGE_STORE),
   EXT_STORE: () => (EXT_STORE),
   dbDelete: () => (dbDelete),
-  dbDeletePrefix: () => (dbDeletePrefix),
   dbGet: () => (dbGet),
   dbGetAll: () => (dbGetAll),
   dbGetAllKeys: () => (dbGetAllKeys),
   dbGetAllKeysPrefix: () => (dbGetAllKeysPrefix),
-  dbGetPrefix: () => (dbGetPrefix),
-  dbPut: () => (dbPut),
-  dbWriteMany: () => (dbWriteMany)
+  dbPut: () => (dbPut)
 });
 const DB_NAME = "sapphire_extensions";
-const DB_VERSION = 2;
+const DB_VERSION = 1;
 const EXT_STORE = "extensions";
 const EXT_FILES_STORE = "extension_files";
 const EXT_STORAGE_STORE = "extension_storage";
-const EXT_STATE_STORE = "extension_state";
 let dbPromise = null;
+function ensureStores(db) {
+    if (!db.objectStoreNames.contains(EXT_STORE)) {
+        db.createObjectStore(EXT_STORE, {
+            keyPath: "id"
+        });
+    }
+    if (!db.objectStoreNames.contains(EXT_FILES_STORE)) {
+        db.createObjectStore(EXT_FILES_STORE);
+    }
+    if (!db.objectStoreNames.contains(EXT_STORAGE_STORE)) {
+        db.createObjectStore(EXT_STORAGE_STORE);
+    }
+}
 function openDB() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject)=>{
-        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        // Open without hardcoded version so existing version 2+ never triggers VersionError
+        const req = indexedDB.open(DB_NAME);
         req.onupgradeneeded = ()=>{
-            const db = req.result;
-            if (!db.objectStoreNames.contains(EXT_STORE)) {
-                db.createObjectStore(EXT_STORE, {
-                    keyPath: "id"
-                });
-            }
-            if (!db.objectStoreNames.contains(EXT_FILES_STORE)) {
-                db.createObjectStore(EXT_FILES_STORE);
-            }
-            if (!db.objectStoreNames.contains(EXT_STATE_STORE)) {
-                db.createObjectStore(EXT_STATE_STORE);
-            }
-            if (!db.objectStoreNames.contains(EXT_STORAGE_STORE)) {
-                db.createObjectStore(EXT_STORAGE_STORE);
-            }
+            ensureStores(req.result);
         };
-        req.onsuccess = ()=>resolve(req.result);
-        req.onerror = ()=>reject(req.error);
+        req.onsuccess = ()=>{
+            const db = req.result;
+            db.onversionchange = ()=>{
+                db.close();
+                dbPromise = null;
+            };
+            if (db.objectStoreNames.contains(EXT_STORE) && db.objectStoreNames.contains(EXT_FILES_STORE) && db.objectStoreNames.contains(EXT_STORAGE_STORE)) {
+                resolve(db);
+                return;
+            }
+            const nextVersion = (db.version || 1) + 1;
+            db.close();
+            const upgradeReq = indexedDB.open(DB_NAME, nextVersion);
+            upgradeReq.onupgradeneeded = ()=>{
+                ensureStores(upgradeReq.result);
+            };
+            upgradeReq.onsuccess = ()=>{
+                const uDb = upgradeReq.result;
+                uDb.onversionchange = ()=>{
+                    uDb.close();
+                    dbPromise = null;
+                };
+                resolve(uDb);
+            };
+            upgradeReq.onerror = ()=>{
+                dbPromise = null;
+                reject(upgradeReq.error);
+            };
+        };
+        req.onerror = ()=>{
+            dbPromise = null;
+            reject(req.error);
+        };
     });
     return dbPromise;
 }
@@ -6217,58 +6243,12 @@ async function dbGetAllKeys(store) {
         req.onerror = ()=>reject(req.error);
     });
 }
-/** Several puts/deletes in one transaction; `undefined` values are deletes. */ async function dbWriteMany(store, entries) {
-    if (!entries.length) return;
-    const db = await openDB();
-    return new Promise((resolve, reject)=>{
-        const tx = db.transaction(store, "readwrite");
-        const objStore = tx.objectStore(store);
-        for (const [key, value] of entries){
-            if (value === undefined) objStore.delete(key);
-            else objStore.put(value, key);
-        }
-        tx.oncomplete = ()=>resolve();
-        tx.onerror = ()=>reject(tx.error);
-        tx.onabort = ()=>reject(tx.error);
-    });
-}
-/** Every [key, value] whose string key starts with `prefix`. */ async function dbGetPrefix(store, prefix) {
-    const db = await openDB();
-    return new Promise((resolve, reject)=>{
-        const tx = db.transaction(store, "readonly");
-        const range = IDBKeyRange.bound(prefix, `${prefix}￿`);
-        const out = [];
-        const req = tx.objectStore(store).openCursor(range);
-        req.onsuccess = ()=>{
-            const cursor = req.result;
-            if (!cursor) {
-                resolve(out);
-                return;
-            }
-            out.push([
-                cursor.key,
-                cursor.value
-            ]);
-            cursor.continue();
-        };
-        req.onerror = ()=>reject(req.error);
-    });
-}
-async function dbDeletePrefix(store, prefix) {
-    const db = await openDB();
-    return new Promise((resolve, reject)=>{
-        const tx = db.transaction(store, "readwrite");
-        tx.objectStore(store).delete(IDBKeyRange.bound(prefix, `${prefix}￿`));
-        tx.oncomplete = ()=>resolve();
-        tx.onerror = ()=>reject(tx.error);
-    });
-}
 async function dbGetAllKeysPrefix(store, prefix) {
     const db = await openDB();
     return new Promise((resolve, reject)=>{
         const tx = db.transaction(store, "readonly");
-        const req = tx.objectStore(store).getAllKeys(IDBKeyRange.bound(prefix, `${prefix}￿`));
-        req.onsuccess = ()=>resolve(req.result);
+        const req = tx.objectStore(store).getAllKeys(IDBKeyRange.bound(prefix, prefix + "\uffff"));
+        req.onsuccess = ()=>resolve(req.result.map(String));
         req.onerror = ()=>reject(req.error);
     });
 }

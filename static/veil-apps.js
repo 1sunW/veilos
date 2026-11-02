@@ -94,8 +94,8 @@
 	};
 
 	window.VEIL_WALLPAPERS = [
-		{ id: "halloween", name: "Halloween Spooky", url: "assets/halloween.jpg" },
-		{ id: "default", name: "Default (Floral)", url: "assets/background.jpg" }
+		{ id: "christmas", name: "Jolly Christmas", url: "assets/christmas.jpg" },
+		{ id: "default", name: "Classic (Floral)", url: "assets/background.jpg" }
 	];
 
 	function escapeHtml(str) {
@@ -544,8 +544,29 @@
 
 	const CHANGELOG_DATA = [
 		{
-			era: "V0.7.x",
+			era: "V0.8.x",
 			badge: "Current Release",
+			badgeClass: "bg-red-500/20 text-red-300 border-red-500/30",
+			versions: [
+				{
+					version: "V0.8.1",
+					title: "remove extensions, when search button is pushed it should automatically minimize all windows open, fix search bar.",
+					tag: "Search & Windows",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Removed browser extension subsystem and toolbar puzzle icons for a faster, distraction-free browsing experience. Upgraded search button to automatically minimize all open windows to reveal the desktop and search immediately. Fixed the Spotlight search bar with high-performance native DOM rendering, instant application filtering, keyboard navigation, and seamless web/URL browsing without template artifacts."
+				},
+				{
+					version: "V0.8.0",
+					title: "remove spooky add jolly (CHRISTMAS)",
+					tag: "Jolly Christmas Theme",
+					tagClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+					desc: "Transitioned VeilOS from Halloween to the festive Jolly Christmas season! Added holiday wallpaper with illuminated snow-covered pine trees and cozy cabin glow, falling crystalline snowflakes and golden light shimmer, warm crimson red and pine emerald UI accents, holiday sound ambiance, and updated themes across Onyx Browser, Movies, and Games."
+				}
+			]
+		},
+		{
+			era: "V0.7.x",
+			badge: "Previous Release",
 			badgeClass: "bg-orange-500/20 text-orange-300 border-orange-500/30",
 			versions: [
 				{

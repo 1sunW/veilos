@@ -19,19 +19,19 @@
             font-family: 'Lexend', sans-serif;
         }
 
-        html[data-theme="halloween"] {
-            --bg: #0c0614;
-            --bg-2: #140b22;
-            --bg-3: #1d1033;
-            --bg-4: #291647;
-            --border: rgba(249, 115, 22, 0.35);
-            --border-2: rgba(249, 115, 22, 0.18);
-            --text: #f3f4f6;
-            --text-2: #fed7aa;
+        html[data-theme="christmas"], html[data-theme="jolly"] {
+            --bg: #07120c;
+            --bg-2: #0e1e15;
+            --bg-3: #142a1e;
+            --bg-4: #1b3828;
+            --border: rgba(239, 68, 68, 0.4);
+            --border-2: rgba(16, 185, 129, 0.25);
+            --text: #f0fdf4;
+            --text-2: #bbf7d0;
             --bright-text: #ffffff;
-            --accent: #f97316;
-            --accent-2: #ea580c;
-            --accent-glow: rgba(249, 115, 22, 0.25);
+            --accent: #ef4444;
+            --accent-2: #10b981;
+            --accent-glow: rgba(239, 68, 68, 0.35);
         }
 
         html[data-theme="default"] {
@@ -1099,7 +1099,7 @@
         const $ = (s) => document.querySelector(s);
 
         const availableThemes = [
-            "halloween", "default", "blood", "blossom", "crimson", "forest",
+            "christmas", "jolly", "default", "blood", "blossom", "crimson", "forest",
             "lavendar", "light", "midnight", "monochrome", "ocean", "sunset"
         ];
 

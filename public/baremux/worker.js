@@ -1,7 +1,3 @@
-/**
- * Safe postMessage polyfill/patch to prevent DataCloneError across MessagePort, Worker, and Window
- * Resolves: Uncaught DataCloneError: Failed to execute 'postMessage' on 'MessagePort': Event object could not be cloned.
- */
 (function (root) {
 	"use strict";
 
@@ -78,7 +74,6 @@
 				try {
 					out[key] = sanitizeValue(val[key], depth + 1, seen);
 				} catch {
-					// skip problematic keys
 				}
 			}
 			return out;
@@ -115,7 +110,6 @@
 									return v;
 								})
 							);
-							// Remove any transfer list that might have contained the uncloneable object
 							const safeRest = rest.length > 0 && Array.isArray(rest[0])
 								? [rest[0].filter((item) => isTransferable(item))]
 								: rest;
@@ -137,21 +131,18 @@
 			return patched;
 		}
 
-		// 1. Patch MessagePort.prototype.postMessage
 		if (typeof MessagePort !== "undefined" && MessagePort.prototype && MessagePort.prototype.postMessage) {
 			if (!MessagePort.prototype.postMessage.__safeClonePatched) {
 				MessagePort.prototype.postMessage = createPatchedPostMessage(MessagePort.prototype.postMessage);
 			}
 		}
 
-		// 2. Patch Worker.prototype.postMessage
 		if (typeof Worker !== "undefined" && Worker.prototype && Worker.prototype.postMessage) {
 			if (!Worker.prototype.postMessage.__safeClonePatched) {
 				Worker.prototype.postMessage = createPatchedPostMessage(Worker.prototype.postMessage);
 			}
 		}
 
-		// 3. Patch self.postMessage in worker context (SharedWorker or DedicatedWorker)
 		if (typeof root !== "undefined" && typeof root.postMessage === "function" && typeof window === "undefined") {
 			if (!root.postMessage.__safeClonePatched) {
 				root.postMessage = createPatchedPostMessage(root.postMessage);
