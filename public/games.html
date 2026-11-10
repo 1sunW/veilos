@@ -478,10 +478,6 @@
       <span>Color Theme</span>
       <i data-lucide="sparkles"></i>
     </div>
-    <button class="theme-option-item" onclick="pickTheme('christmas')">
-      <span class="theme-color-preview" style="background: #ef4444; box-shadow: 0 0 8px #ef4444;"></span>
-      <span>🎄 Jolly Christmas</span>
-    </button>
     <button class="theme-option-item" onclick="pickTheme('default')">
       <span class="theme-color-preview" style="background: #8b5cf6;"></span>
       <span>Cosmic Violet</span>
@@ -541,12 +537,12 @@
       <option value="seraph">Dominum Seraph</option>
       <option value="elite">Elite Gamez</option>
       <option value="ugs">UGS Singlefile (Bubbls & Multi-repo)</option>
-      <option value="truffled">Truffled.lol Multi-Proxy</option>
+      <option value="truffled">Truffled.lol Multi-Mirror</option>
       <option value="blox">Bloxcraft UBG (Blockers)</option>
       <option value="petezah">PeteZah Games</option>
     </optgroup>
     <optgroup label="🌐 Community & Stealth Vaults">
-      <option value="shuttle">ShuttleProxy / ShuttleMath</option>
+      <option value="shuttle">Shuttle / ShuttleMath</option>
       <option value="marz">The Marz Library</option>
     </optgroup>
   </select>
@@ -1345,24 +1341,6 @@ const root = document.documentElement;
 const themeSelect = document.getElementById('themeSelect');
 
 const themes = {
-  christmas: {
-    "--bg": "#07140d",
-    "--accent": "#ef4444",
-    "--blue": "#10b981",
-    "--text": "#f0fdf4",
-    "--surface": "rgba(239, 68, 68, 0.08)",
-    "--border": "rgba(16, 185, 129, 0.3)",
-    "--glow": "rgba(239, 68, 68, 0.45)"
-  },
-  jolly: {
-    "--bg": "#07140d",
-    "--accent": "#ef4444",
-    "--blue": "#10b981",
-    "--text": "#f0fdf4",
-    "--surface": "rgba(239, 68, 68, 0.08)",
-    "--border": "rgba(16, 185, 129, 0.3)",
-    "--glow": "rgba(239, 68, 68, 0.45)"
-  },
   default: {
     "--bg": "#090814",
     "--accent": "#8b5cf6",
@@ -1498,7 +1476,12 @@ document.addEventListener('click', (e) => {
 });
 
 (function() {
-  const savedName = localStorage.getItem("pulse-theme") || localStorage.getItem("dominum-theme") || "default";
+  let savedName = localStorage.getItem("pulse-theme") || localStorage.getItem("dominum-theme") || "default";
+  if (savedName === "christmas" || savedName === "jolly" || savedName === "halloween" || savedName === "spooky") {
+    savedName = "default";
+    localStorage.setItem("pulse-theme", "default");
+    localStorage.setItem("dominum-theme", "default");
+  }
   if (savedName === "custom") {
     const custom = JSON.parse(localStorage.getItem("pulse-custom-theme") || localStorage.getItem("dominum-custom-theme") || "{}");
     applyTheme(custom);

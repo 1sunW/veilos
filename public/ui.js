@@ -48,7 +48,7 @@ if (!store) {
 		proxy: "",
 		transport: "/epoxy/index.mjs",
 		searchEngine: "google",
-		tabCloak: "default",
+		tabCloak: "google",
 		customCloakTitle: "",
 		customCloakIcon: "",
 		autoAboutBlank: false,
@@ -190,13 +190,13 @@ function Config() {
       box-shadow: none !important;
     }
 
-    .selected-item, &.cfg .selected-item {
+    .selected-item, &.cfg .selected-item, dialog .selected-item, dialog button.selected-item {
       outline: 2px solid #ffffff !important;
       outline-offset: 2px !important;
-      border: 1px solid #ffffff !important;
-      background-color: rgba(255, 255, 255, 0.16) !important;
+      border: 2px solid #ffffff !important;
+      background-color: rgba(255, 255, 255, 0.2) !important;
       color: #ffffff !important;
-      box-shadow: 0 0 12px rgba(255, 255, 255, 0.25) !important;
+      box-shadow: 0 0 16px rgba(255, 255, 255, 0.45) !important;
     }
 
     &::backdrop {
@@ -429,28 +429,30 @@ function Config() {
 
         ${use(this.cfgTab, (tab) => {
 					if (tab === "theme") {
-						const curTheme = (store.theme || "christmas").toLowerCase();
+						const curTheme = (store.theme || "default").toLowerCase();
 						const themesList = [
-							{ id: "christmas", name: "Jolly Christmas", icon: "🎄", wp: "assets/christmas.jpg", accent: "red", desc: "Cozy snow-dusted pine trees, golden fairy lights, and warm holiday hearth glow." },
 							{ id: "default", name: "Midnight Dark", icon: "🌌", wp: "assets/background.jpg", accent: "indigo", desc: "Classic sleek dark mode with high-resolution aesthetic floral wallpaper." },
 							{ id: "cyber", name: "Cyber Matrix", icon: "⚡", wp: "gradient", accent: "emerald", desc: "High-tech emerald neon gradients and terminal aesthetic." },
-							{ id: "crimson", name: "Winter Crimson", icon: "🧣", wp: "gradient", accent: "rose", desc: "Festive frosted crimson red and obsidian styling." }
+							{ id: "crimson", name: "Deep Crimson", icon: "💎", wp: "gradient", accent: "rose", desc: "Refined frosted crimson red and obsidian styling." }
 						];
 						return html`
               <div class="flex flex-col gap-3 mb-4 animate-fade">
                 <div class="flex items-center justify-between">
                   <div class="section-title">System Theme & Appearance</div>
-                  <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${curTheme === 'christmas' || curTheme === 'jolly' ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-white/10 text-neutral-300'}">
-                    ${curTheme === 'christmas' || curTheme === 'jolly' ? '🎄 Jolly Active' : 'Active'}
+                  <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-neutral-300">
+                    Active
                   </span>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                   ${themesList.map(th => {
 										const isSel = curTheme === th.id;
 										return html`
-                      <button class="p-3 rounded-2xl border text-left flex flex-col gap-1.5 cursor-pointer transition-all ${
-												isSel ? 'selected-item bg-red-500/15 border-red-500/50 text-white shadow-lg shadow-red-950/40' : 'bg-white/5 border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'
-											}"
+                      <button
+                        class:selected-item=${isSel}
+                        class=${isSel
+                          ? "selected-item p-3 rounded-2xl border-2 border-white text-left flex flex-col gap-1.5 cursor-pointer transition-all bg-white/20 text-white shadow-lg ring-2 ring-white ring-offset-2 ring-offset-[#0c0e14]"
+                          : "p-3 rounded-2xl border border-white/10 text-left flex flex-col gap-1.5 cursor-pointer transition-all bg-white/5 text-neutral-300 hover:bg-white/10 hover:text-white"
+                        }
                         on:click=${() => {
 													store.theme = th.id;
 													store.wallpaper = th.wp;
@@ -465,7 +467,7 @@ function Config() {
                             <span class="text-base">${th.icon}</span>
                             <span class="text-xs font-bold text-white">${th.name}</span>
                           </div>
-                          ${isSel ? html`<i class="fa-solid fa-circle-check text-orange-400 text-xs"></i>` : null}
+                          ${isSel ? html`<i class="fa-solid fa-circle-check text-white text-xs"></i>` : null}
                         </div>
                         <p class="text-[11px] text-neutral-400 leading-snug">${th.desc}</p>
                       </button>
@@ -475,31 +477,39 @@ function Config() {
               </div>
             `;
 					} else if (tab === "search") {
-						const curEng = (store.searchEngine || "duckduckgo").toLowerCase();
+						const curEng = (store.searchEngine || "google").toLowerCase();
+						const engines = [
+							{ id: "google", name: "Google", icon: "fa-brands fa-google text-blue-400" },
+							{ id: "duckduckgo", name: "DuckDuckGo", icon: "fa-solid fa-shield-halved text-amber-400" },
+							{ id: "bing", name: "Bing", icon: "fa-brands fa-microsoft text-cyan-400" },
+							{ id: "brave", name: "Brave Search", icon: "fa-solid fa-fire text-orange-400" }
+						];
 						return html`
               <div class="flex flex-col gap-3 mb-4 animate-fade">
                 <div class="section-title">Default Search Engine</div>
                 <div class="grid grid-cols-2 gap-2 mb-2">
-                  <button class="p-3 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${curEng === 'google' ? 'selected-item bg-white/15 text-white font-semibold' : 'bg-white/5 border border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'}"
-                    on:click=${() => { store.searchEngine = "google"; try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){} this.cfgTab = "search"; }}>
-                    <i class="fa-brands fa-google text-blue-400 text-sm"></i>
-                    <span>Google</span>
-                  </button>
-                  <button class="p-3 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${curEng === 'duckduckgo' ? 'selected-item bg-white/15 text-white font-semibold' : 'bg-white/5 border border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'}"
-                    on:click=${() => { store.searchEngine = "duckduckgo"; try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){} this.cfgTab = "search"; }}>
-                    <i class="fa-solid fa-shield-halved text-amber-400 text-sm"></i>
-                    <span>DuckDuckGo</span>
-                  </button>
-                  <button class="p-3 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${curEng === 'bing' ? 'selected-item bg-white/15 text-white font-semibold' : 'bg-white/5 border border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'}"
-                    on:click=${() => { store.searchEngine = "bing"; try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){} this.cfgTab = "search"; }}>
-                    <i class="fa-brands fa-microsoft text-cyan-400 text-sm"></i>
-                    <span>Bing</span>
-                  </button>
-                  <button class="p-3 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer text-xs font-semibold ${curEng === 'brave' ? 'selected-item bg-white/15 text-white font-semibold' : 'bg-white/5 border border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'}"
-                    on:click=${() => { store.searchEngine = "brave"; try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){} this.cfgTab = "search"; }}>
-                    <i class="fa-solid fa-fire text-orange-400 text-sm"></i>
-                    <span>Brave Search</span>
-                  </button>
+                  ${engines.map(eng => {
+										const isSel = curEng === eng.id;
+										return html`
+                      <button
+                        class:selected-item=${isSel}
+                        class=${isSel
+                          ? "selected-item p-3 rounded-xl transition-all flex items-center justify-between cursor-pointer text-xs font-semibold bg-white/20 border-2 border-white text-white shadow-lg ring-2 ring-white ring-offset-2 ring-offset-[#0c0e14]"
+                          : "p-3 rounded-xl transition-all flex items-center justify-between cursor-pointer text-xs font-semibold bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white"
+                        }
+                        on:click=${() => {
+													store.searchEngine = eng.id;
+													try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){}
+													this.cfgTab = "search";
+												}}>
+                        <div class="flex items-center gap-2.5">
+                          <i class="${eng.icon} text-sm"></i>
+                          <span>${eng.name}</span>
+                        </div>
+                        ${isSel ? html`<i class="fa-solid fa-circle-check text-white text-xs"></i>` : null}
+                      </button>
+                    `;
+									})}
                 </div>
                 <div class="text-[11px] text-neutral-400 bg-white/5 p-3 rounded-xl leading-relaxed">
                   Queries entered into the address bar will automatically route through your selected search provider.
@@ -508,7 +518,7 @@ function Config() {
             `;
 					} else {
 						const presets = window.TAB_CLOAK_PRESETS || [
-							{ id: "default", name: "VeilOS (Default)", title: "VeilOS", icon: "/favicon.webp" },
+							{ id: "default", name: "Google (Default)", title: "Google", icon: "https://www.google.com/favicon.ico" },
 							{ id: "classroom", name: "Google Classroom", title: "Classes", icon: "https://ssl.gstatic.com/classroom/favicon.png" },
 							{ id: "drive", name: "Google Drive", title: "My Drive - Google Drive", icon: "https://ssl.gstatic.com/docs/doclist/images/drive_2022q3_32dp.png" },
 							{ id: "docs", name: "Google Docs", title: "Google Docs", icon: "https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico" },
@@ -521,16 +531,24 @@ function Config() {
                 <div class="section-title">Tab Cloak Presets</div>
                 <div class="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto custom-scrollbar p-1">
                   ${presets.map(p => {
-										const isSel = (store.tabCloak || "default") === p.id;
+										const isSel = (store.tabCloak || "google") === p.id || (p.id === "default" && (store.tabCloak === "google" || !store.tabCloak));
 										return html`
-                    <button class="p-2 rounded-xl text-left flex items-center gap-2 transition-all cursor-pointer text-xs ${isSel ? 'selected-item bg-white/15 text-white font-semibold' : 'bg-white/5 border border-white/5 text-neutral-300 hover:bg-white/10 hover:text-white'}"
+                    <button
+                      class:selected-item=${isSel}
+                      class=${isSel
+                        ? "selected-item p-2 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer text-xs bg-white/20 border-2 border-white text-white font-semibold shadow-lg ring-2 ring-white ring-offset-2 ring-offset-[#0c0e14]"
+                        : "p-2 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer text-xs bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white"
+                      }
                       on:click=${() => {
 												store.tabCloak = p.id;
 												if (window.applyTabCloak) window.applyTabCloak(p.id);
 												this.cfgTab = "cloak";
 											}}>
-                      <img src="${p.icon || '/favicon.webp'}" class="w-4 h-4 rounded object-contain shrink-0" onerror="this.src='/favicon.webp'" />
-                      <span class="truncate">${p.name}</span>
+                      <div class="flex items-center gap-2 truncate">
+                        <img src="${p.icon || 'https://www.google.com/favicon.ico'}" class="w-4 h-4 rounded object-contain shrink-0" onerror="this.src='https://www.google.com/favicon.ico'" />
+                        <span class="truncate">${p.name}</span>
+                      </div>
+                      ${isSel ? html`<i class="fa-solid fa-circle-check text-white text-xs shrink-0"></i>` : null}
                     </button>
                   `;
 									})}
@@ -585,7 +603,7 @@ function Config() {
               <i class="fa-solid fa-scroll text-emerald-400"></i>
               <span>View VeilOS Changelog & Credits</span>
             </div>
-            <span class="text-[10px] text-emerald-400 font-mono">v0.7.1 &rarr;</span>
+            <span class="text-[10px] text-emerald-400 font-mono">v0.8.4 &rarr;</span>
           </button>
 
           <button class="close-btn" on:click=${() => {
@@ -776,7 +794,7 @@ window.addEventListener("load", async () => {
 			iconClass: "fa-solid fa-bolt", 
 			iconColor: "text-sky-400", 
 			dockGradient: "from-blue-500 to-indigo-600", 
-			desc: "Proxy Web Browser powered by Scramjet engine", 
+			desc: "Fast, privacy-focused Web Browser with multi-tab workspace", 
 			category: "Internet", 
 			defaultW: 980, 
 			defaultH: 640, 
@@ -789,7 +807,7 @@ window.addEventListener("load", async () => {
 			iconClass: "fa-solid fa-film", 
 			iconColor: "text-rose-400", 
 			dockGradient: "from-pink-600 via-purple-700 to-indigo-800", 
-			desc: "Proxied movies, TV shows, and streaming player (Cherri / SSV)", 
+			desc: "Movies, TV shows, and streaming player (Cherri / SSV)", 
 			category: "Entertainment", 
 			defaultW: 1080, 
 			defaultH: 720, 
@@ -802,7 +820,7 @@ window.addEventListener("load", async () => {
 			iconClass: "fa-solid fa-gamepad", 
 			iconColor: "text-violet-400", 
 			dockGradient: "from-violet-600 to-purple-800", 
-			desc: "Unblocked arcade with community game libraries", 
+			desc: "Arcade and interactive games with community libraries", 
 			category: "Gaming", 
 			defaultW: 1080, 
 			defaultH: 720, 
@@ -957,11 +975,11 @@ window.addEventListener("load", async () => {
 		this.notifications = [];
 		this.soundEffects = (store && store.soundEffects !== undefined) ? store.soundEffects : true;
 		this.desktopWidgetsOpen = (store && store.desktopWidgets !== undefined) ? store.desktopWidgets : true;
-		if (!store.wallpaper || store.wallpaper === "assets/background.jpg" || store.wallpaper === "assets/halloween.jpg") {
-			store.wallpaper = "assets/christmas.jpg";
+		if (!store.wallpaper || store.wallpaper === "assets/christmas.jpg" || store.wallpaper === "assets/halloween.jpg") {
+			store.wallpaper = "assets/background.jpg";
 		}
-		if (!store.theme || store.theme === "halloween") {
-			store.theme = "christmas";
+		if (!store.theme || store.theme === "halloween" || store.theme === "christmas" || store.theme === "jolly") {
+			store.theme = "default";
 		}
 		this.batteryLevel = 100;
 		this.isCharging = true;
@@ -1281,7 +1299,7 @@ window.addEventListener("load", async () => {
 		};
 
 		this.setWallpaper = (wpUrl) => {
-			store.wallpaper = wpUrl || "assets/christmas.jpg";
+			store.wallpaper = wpUrl || "assets/background.jpg";
 			this.notify("Wallpaper Updated", "Desktop appearance refreshed", "fa-solid fa-image");
 			this.windows = [...this.windows];
 		};
@@ -1680,31 +1698,16 @@ window.addEventListener("load", async () => {
 						}
 					}}>
 					${use(this.windows, () => {
-						const wp = (store && store.wallpaper) || "assets/christmas.jpg";
-						const isChristmas = (store && (store.theme === "christmas" || store.theme === "jolly"));
+						const wp = (store && store.wallpaper) || "assets/background.jpg";
 						if (wp === "gradient") {
-							return html`<div class="w-full h-full bg-gradient-to-br from-red-950 via-emerald-950 to-black"></div>`;
+							return html`<div class="w-full h-full bg-gradient-to-br from-indigo-950 via-slate-950 to-black"></div>`;
 						}
 						return html`
 							<img 
 								src="${wp}"
 								alt="Desktop Background"
-								onerror="this.src='assets/christmas.jpg'"
+								onerror="this.src='assets/background.jpg'"
 								class="w-full h-full object-cover pointer-events-none select-none" />
-							${isChristmas ? html`
-								<div class="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
-									<div class="absolute inset-0 bg-gradient-to-t from-red-950/20 via-emerald-950/15 to-transparent mix-blend-screen pointer-events-none"></div>
-									<div class="absolute text-white/80 text-sm animate-pulse" style="top: 15%; left: 12%; filter: drop-shadow(0 0 8px #ffffff);">❄</div>
-									<div class="absolute text-amber-300/90 text-xs animate-ping" style="top: 25%; left: 22%; animation-duration: 3s; filter: drop-shadow(0 0 10px #fbbf24);">✦</div>
-									<div class="absolute text-white/70 text-lg animate-pulse" style="top: 18%; left: 45%; animation-duration: 4s; filter: drop-shadow(0 0 6px #ffffff);">❅</div>
-									<div class="absolute text-amber-200/90 text-sm animate-pulse" style="top: 32%; left: 68%; animation-duration: 2.2s; filter: drop-shadow(0 0 12px #fde047);">✧</div>
-									<div class="absolute text-white/80 text-xs animate-pulse" style="top: 28%; left: 85%; animation-duration: 2.7s; filter: drop-shadow(0 0 8px #ffffff);">❄</div>
-									<div class="absolute text-white/70 text-base animate-pulse" style="top: 48%; left: 35%; animation-duration: 3.5s; filter: drop-shadow(0 0 10px #ffffff);">❅</div>
-									<div class="absolute text-amber-300/80 text-xs animate-ping" style="top: 40%; left: 78%; animation-duration: 3.2s; filter: drop-shadow(0 0 10px #f59e0b);">✦</div>
-									<div class="absolute w-2.5 h-2.5 rounded-full bg-amber-400/80 blur-[1px] animate-pulse" style="bottom: 22%; left: 28%; box-shadow: 0 0 14px #eab308;"></div>
-									<div class="absolute w-2 h-2 rounded-full bg-red-400/80 blur-[1px] animate-pulse" style="bottom: 18%; left: 72%; animation-duration: 2.5s; box-shadow: 0 0 12px #ef4444;"></div>
-								</div>
-							` : null}
 						`;
 					})}
 					<div class="absolute inset-0 bg-black/25 pointer-events-none"></div>
@@ -1731,21 +1734,6 @@ window.addEventListener("load", async () => {
 								<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
 								<span>${this.pingMs}ms</span>
 							</div>
-							<div class="w-px h-3.5 bg-white/15"></div>
-							<button class="px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${store.theme === 'christmas' || store.theme === 'jolly' ? 'bg-red-500/25 text-red-200 border border-red-500/40 shadow-[0_0_12px_rgba(239,68,68,0.3)]' : 'bg-white/10 hover:bg-white/20 text-neutral-300'}"
-								on:click=${() => {
-									const isC = store.theme === "christmas" || store.theme === "jolly";
-									const newT = isC ? "default" : "christmas";
-									store.theme = newT;
-									store.wallpaper = newT === "christmas" ? "assets/christmas.jpg" : "assets/background.jpg";
-									store.accentColor = newT === "christmas" ? "red" : "indigo";
-									try { localStorage.setItem("veil_user_theme", newT); } catch(e){}
-									this.notify(newT === "christmas" ? "🎄 Jolly Mode Active" : "Default Theme Active", newT === "christmas" ? "Merry Christmas & Happy Holidays in VeilOS!" : "Restored classic desktop appearance", "fa-solid fa-gift");
-									this.windows = [...this.windows];
-								}} title="Toggle Jolly Christmas Theme (🎄)">
-								<span>🎄</span>
-								<span class="font-bold text-[10px] uppercase tracking-wider">${store.theme === 'christmas' || store.theme === 'jolly' ? 'Jolly' : 'Christmas'}</span>
-							</button>
 							<div class="w-px h-3.5 bg-white/15"></div>
 							<button class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-white flex items-center gap-1 transition-all cursor-pointer active:scale-95"
 								on:click=${() => this.openSpotlight()} title="Quick Search (⌘K)">
@@ -1921,7 +1909,7 @@ window.addEventListener("load", async () => {
 					</div>
 				</div>
 
-				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-2 ${store.theme === 'christmas' || store.theme === 'jolly' ? 'bg-[#06100a]/90 border border-red-500/40 shadow-[0_0_25px_rgba(239,68,68,0.25)]' : 'bg-black/75 border border-white/15 shadow-2xl'} rounded-3xl backdrop-blur-2xl text-white max-w-[96vw] overflow-visible transition-all"
+				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-2 bg-black/75 border border-white/15 shadow-2xl rounded-3xl backdrop-blur-2xl text-white max-w-[96vw] overflow-visible transition-all"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
@@ -1968,22 +1956,6 @@ window.addEventListener("load", async () => {
 							`;
 						})}
 					</div>
-
-					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
-					<button class="w-10 h-10 rounded-2xl ${store.theme === 'christmas' || store.theme === 'jolly' ? 'bg-red-500/25 text-red-200 border border-red-400/50 shadow-[0_0_14px_rgba(239,68,68,0.35)]' : 'bg-white/10 hover:bg-white/20 border border-white/20 text-neutral-300'} active:scale-95 transition-all flex items-center justify-center text-lg cursor-pointer shrink-0 dock-icon-anim"
-						on:click=${(e) => {
-							e.stopPropagation();
-							const isC = store.theme === "christmas" || store.theme === "jolly";
-							const newT = isC ? "default" : "christmas";
-							store.theme = newT;
-							store.wallpaper = newT === "christmas" ? "assets/christmas.jpg" : "assets/background.jpg";
-							store.accentColor = newT === "christmas" ? "red" : "indigo";
-							try { localStorage.setItem("veil_user_theme", newT); } catch(err){}
-							this.notify(newT === "christmas" ? "🎄 Jolly Mode Active" : "Default Theme Active", newT === "christmas" ? "Merry Christmas & Happy Holidays in VeilOS!" : "Restored classic desktop appearance", "fa-solid fa-gift");
-							this.windows = [...this.windows];
-						}} title="Toggle Jolly Christmas Theme (🎄)">
-						<span>🎄</span>
-					</button>
 
 					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
 
@@ -2315,15 +2287,10 @@ window.addEventListener("load", async () => {
 			win.domEl.style.borderWidth = "1px";
 			win.domEl.style.zIndex = "" + win.zIndex;
 		}
-		const isChristmas = (typeof store !== "undefined" && (store.theme === "christmas" || store.theme === "jolly"));
 		if (isFocused) {
-			win.domEl.className = isChristmas
-				? "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-red-500/40 shadow-[0_12px_40px_rgba(239,68,68,0.25)] bg-[#07130c]/95 backdrop-blur-2xl"
-				: "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl";
+			win.domEl.className = "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl";
 		} else {
-			win.domEl.className = isChristmas
-				? "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-emerald-500/25 bg-[#050e09]/90 backdrop-blur-xl"
-				: "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/10 bg-neutral-950/90 backdrop-blur-xl";
+			win.domEl.className = "pointer-events-auto flex flex-col overflow-hidden shadow-2xl border transition-[shadow,border-color,opacity,transform] duration-200 border-white/10 bg-neutral-950/90 backdrop-blur-xl";
 		}
 	}
 
@@ -2337,10 +2304,9 @@ window.addEventListener("load", async () => {
 		}
 
 		const isFocused = win.id === osInstance.activeWinId;
-		const isChristmas = (typeof store !== "undefined" && (store.theme === "christmas" || store.theme === "jolly"));
 		const winClass = isFocused
-			? (isChristmas ? 'border-red-500/40 shadow-[0_12px_40px_rgba(239,68,68,0.25)] bg-[#07130c]/95 backdrop-blur-2xl' : 'border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl')
-			: (isChristmas ? 'border-emerald-500/25 bg-[#050e09]/90 backdrop-blur-xl' : 'border-white/10 bg-neutral-950/90 backdrop-blur-xl');
+			? 'border-white/30 shadow-black/80 bg-neutral-950/95 backdrop-blur-2xl'
+			: 'border-white/10 bg-neutral-950/90 backdrop-blur-xl';
 		const styleStr = win.isMaximized 
 			? `position: absolute; top:0; left:0; width:100%; height:100%; z-index:${win.zIndex || 100}; display:flex; visibility:${win.isMinimized ? 'hidden' : 'visible'}; opacity:${win.isMinimized ? '0' : '1'}; pointer-events:${win.isMinimized ? 'none' : 'auto'}; border-radius: 0px; border-width: 0px;`
 			: `position: absolute; top:${win.y}px; left:${win.x}px; width:${win.w}px; height:${win.h}px; z-index:${win.zIndex}; display:flex; visibility:${win.isMinimized ? 'hidden' : 'visible'}; opacity:${win.isMinimized ? '0' : '1'}; pointer-events:${win.isMinimized ? 'none' : 'auto'}; border-radius: 1rem; border-width: 1px;`;
@@ -2674,9 +2640,50 @@ window.addEventListener("load", async () => {
 			return win.customState.rootEl;
 		}
 
+		const normalizeBrowserUrl = (rawUrl) => {
+			if (!rawUrl || typeof rawUrl !== "string") return rawUrl || "";
+			let str = rawUrl.trim();
+			if (!str || str === "about:blank" || str.startsWith("blob:") || str.startsWith("data:")) {
+				return str;
+			}
+			let depth = 0;
+			while (depth < 5) {
+				const qIndex = str.indexOf("?");
+				const scramjetIdx = str.indexOf("/scramjet/");
+				if (scramjetIdx === -1 || (qIndex !== -1 && scramjetIdx > qIndex)) {
+					break;
+				}
+				depth++;
+				const after = str.slice(scramjetIdx + "/scramjet/".length);
+				if (!after) break;
+				let decoded = null;
+				try {
+					decoded = decodeURIComponent(after);
+				} catch (e1) {
+					try {
+						decoded = decodeURI(after);
+					} catch (e2) {
+						try {
+							decoded = unescape(after);
+						} catch (e3) {
+							try {
+								decoded = decodeURIComponent(after.replace(/%(?![0-9a-fA-F]{2})/g, "%25"));
+							} catch (e4) {
+								decoded = after;
+							}
+						}
+					}
+				}
+				if (!decoded) break;
+				str = decoded;
+			}
+			return str;
+		};
+
 		const formatUrl = (targetUrl) => {
 			if (!targetUrl) return "https://google.com";
 			let clean = ("" + targetUrl).trim();
+			clean = normalizeBrowserUrl(clean);
 			const lower = clean.toLowerCase();
 
 			if (lower === "onyx://chat" || lower === "veil://chat" || lower === "chrome://chat" || lower === "about:chat" || lower === "onyx:chat" || lower === "veil:chat" || lower === "chrome:chat") {
@@ -2727,23 +2734,24 @@ window.addEventListener("load", async () => {
 
 		const getTitleFromUrl = (urlStr) => {
 			if (!urlStr) return "New Tab";
-			if (urlStr === "veil://chat" || urlStr === "onyx://chat") return "Onyx Chat";
-			if (urlStr === "veil://bookmarks" || urlStr === "onyx://bookmarks") return "Bookmarks";
-			if (urlStr === "veil://history" || urlStr === "onyx://history") return "History";
-			if (urlStr === "veil://extensions" || urlStr === "onyx://extensions") return "Extensions";
-			if (urlStr === "veil://settings" || urlStr === "onyx://settings") return "Settings";
-			if (urlStr === "veil://newtab" || urlStr === "onyx://newtab") return "New Tab";
-			if (urlStr.startsWith("veil://") || urlStr.startsWith("onyx://")) {
-				const prefix = urlStr.startsWith("veil://") ? "veil://" : "onyx://";
-				const part = urlStr.slice(prefix.length).replace(/\/$/, "");
+			const clean = normalizeBrowserUrl(urlStr);
+			if (clean === "veil://chat" || clean === "onyx://chat") return "Onyx Chat";
+			if (clean === "veil://bookmarks" || clean === "onyx://bookmarks") return "Bookmarks";
+			if (clean === "veil://history" || clean === "onyx://history") return "History";
+			if (clean === "veil://extensions" || clean === "onyx://extensions") return "Extensions";
+			if (clean === "veil://settings" || clean === "onyx://settings") return "Settings";
+			if (clean === "veil://newtab" || clean === "onyx://newtab") return "New Tab";
+			if (clean.startsWith("veil://") || clean.startsWith("onyx://")) {
+				const prefix = clean.startsWith("veil://") ? "veil://" : "onyx://";
+				const part = clean.slice(prefix.length).replace(/\/$/, "");
 				return part.charAt(0).toUpperCase() + part.slice(1);
 			}
 			try {
-				const u = new URL(urlStr);
+				const u = new URL(clean);
 				let host = u.hostname.replace(/^www\./, "");
 				return host.charAt(0).toUpperCase() + host.slice(1);
 			} catch (e) {
-				return urlStr || "New Tab";
+				return clean || "New Tab";
 			}
 		};
 
@@ -2760,18 +2768,20 @@ window.addEventListener("load", async () => {
 
 		const isBookmarked = (url) => {
 			if (!url) return false;
+			const clean = normalizeBrowserUrl(url);
 			const list = Array.isArray(store.bookmarks) ? store.bookmarks : [];
-			return list.some(b => b.url === url);
+			return list.some(b => normalizeBrowserUrl(b.url) === clean);
 		};
 
 		const addHistory = (title, url) => {
 			if (!url || url.startsWith("data:") || url === "about:blank" || url.startsWith("blob:")) return;
+			const cleanUrl = normalizeBrowserUrl(url);
 			const list = Array.isArray(store.history) ? [...store.history] : [];
-			if (list.length > 0 && list[0].url === url) return;
+			if (list.length > 0 && normalizeBrowserUrl(list[0].url) === cleanUrl) return;
 			const entry = {
 				id: "hist_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-				name: title || getTitleFromUrl(url),
-				url: url,
+				name: title || getTitleFromUrl(cleanUrl),
+				url: cleanUrl,
 				visitedAt: Date.now()
 			};
 			store.history = [entry, ...list].slice(0, 100);
@@ -2895,10 +2905,11 @@ window.addEventListener("load", async () => {
 		};
 
 		const syncActiveTabUrl = (url) => {
+			const clean = normalizeBrowserUrl(url);
 			if (document.activeElement !== urlInput) {
-				urlInput.value = url || "";
+				urlInput.value = clean || "";
 			}
-			const isBm = isBookmarked(url);
+			const isBm = isBookmarked(clean);
 			starBtn.innerHTML = isBm ? '<i class="fa-solid fa-star text-amber-400"></i>' : '<i class="fa-regular fa-star text-neutral-400"></i>';
 			starBtn.title = isBm ? "Remove Bookmark" : "Bookmark this Page";
 		};
@@ -2940,26 +2951,13 @@ window.addEventListener("load", async () => {
 				const homeWrap = document.createElement("div");
 				homeWrap.className = "flex flex-col items-center justify-center max-w-xl w-full gap-7";
 
-				const isChristmas = (store && (store.theme === "christmas" || store.theme === "jolly"));
-
-				if (isChristmas) {
-					const jollyBadge = document.createElement("div");
-					jollyBadge.className = "text-xs font-bold uppercase tracking-widest text-emerald-300 flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.25)]";
-					jollyBadge.innerHTML = '<span>🎄</span><span>Jolly Christmas Edition</span><span>❄️</span>';
-					homeWrap.appendChild(jollyBadge);
-				}
-
 				const titleEl = document.createElement("h1");
-				titleEl.className = isChristmas 
-					? "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none drop-shadow-[0_0_25px_rgba(239,68,68,0.35)]" 
-					: "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none";
+				titleEl.className = "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none";
 				titleEl.textContent = "onyx";
 				homeWrap.appendChild(titleEl);
 
 				const searchCard = document.createElement("div");
-				searchCard.className = isChristmas
-					? "w-full flex items-center bg-[#07150d]/90 border border-emerald-500/40 hover:border-emerald-400 focus-within:border-red-400 rounded-full px-4 py-2.5 gap-3 shadow-[0_4px_25px_rgba(16,185,129,0.2)] transition-all"
-					: "w-full flex items-center bg-[#13141b] border border-white/10 hover:border-white/20 focus-within:border-white/25 rounded-full px-4 py-2.5 gap-3 shadow-2xl transition-all";
+				searchCard.className = "w-full flex items-center bg-[#13141b] border border-white/10 hover:border-white/20 focus-within:border-white/25 rounded-full px-4 py-2.5 gap-3 shadow-2xl transition-all";
 
 				const searchIcon = document.createElement("span");
 				searchIcon.className = "text-neutral-400 text-sm pl-1";
@@ -3971,34 +3969,33 @@ window.addEventListener("load", async () => {
 
 				const themeSec = document.createElement("div");
 				themeSec.className = "p-5 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-4";
-				const curTheme = (store.theme || "christmas").toLowerCase();
+				const curTheme = (store.theme || "default").toLowerCase();
 				themeSec.innerHTML = `
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2.5">
-							<span class="text-lg">🎄</span>
+							<span class="text-lg">🎨</span>
 							<div>
 								<h3 class="text-sm font-bold text-white">Theme & Desktop Style</h3>
 								<p class="text-xs text-neutral-400">Select your active aesthetic theme for VeilOS and Onyx Browser.</p>
 							</div>
 						</div>
-						<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${curTheme === 'christmas' || curTheme === 'jolly' ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-white/10 text-neutral-300'}">
-							${curTheme === 'christmas' || curTheme === 'jolly' ? '🎄 Jolly Christmas Active' : 'Active'}
+						<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-neutral-300">
+							Active
 						</span>
 					</div>
 				`;
 				const themesGrid = document.createElement("div");
 				themesGrid.className = "grid grid-cols-1 sm:grid-cols-2 gap-2.5";
 				const themeOptions = [
-					{ id: "christmas", label: "Jolly Christmas", icon: "🎄", wp: "assets/christmas.jpg", accent: "red", desc: "Cozy snow-dusted pine trees, golden fairy lights, and warm holiday hearth glow." },
 					{ id: "default", label: "Midnight Dark", icon: "🌌", wp: "assets/background.jpg", accent: "indigo", desc: "Classic sleek dark mode with high-resolution floral aesthetic wallpaper." },
 					{ id: "cyber", label: "Cyber Matrix", icon: "⚡", wp: "gradient", accent: "emerald", desc: "High-tech emerald neon gradients and terminal aesthetic." },
-					{ id: "crimson", label: "Winter Crimson", icon: "🧣", wp: "gradient", accent: "rose", desc: "Festive frosted crimson red and obsidian styling." }
+					{ id: "crimson", label: "Deep Crimson", icon: "💎", wp: "gradient", accent: "rose", desc: "Refined frosted crimson red and obsidian styling." }
 				];
 				themeOptions.forEach(th => {
 					const btn = document.createElement("button");
 					const isSel = curTheme === th.id;
 					btn.className = `p-3 rounded-xl border text-left flex flex-col gap-1 cursor-pointer transition-all ${
-						isSel ? 'selected-item bg-red-500/15 border-red-500/50 text-white shadow-lg shadow-red-950/40' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
+						isSel ? 'selected-item bg-indigo-500/15 border-indigo-500/50 text-white shadow-lg shadow-indigo-950/40' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
 					}`;
 					btn.innerHTML = `
 						<div class="flex items-center justify-between">
@@ -4006,7 +4003,7 @@ window.addEventListener("load", async () => {
 								<span>${th.icon}</span>
 								<span class="text-xs font-bold text-white">${th.label}</span>
 							</div>
-							${isSel ? '<span class="text-xs text-red-400 font-bold">✓</span>' : ''}
+							${isSel ? '<span class="text-xs text-indigo-400 font-bold">✓</span>' : ''}
 						</div>
 						<p class="text-[10px] text-neutral-400 leading-snug">${th.desc}</p>
 					`;
@@ -4047,11 +4044,11 @@ window.addEventListener("load", async () => {
 				];
 				engines.forEach(eng => {
 					const btn = document.createElement("button");
-					const isSel = (store.searchEngine || "duckduckgo") === eng.id;
-					btn.className = `p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-						isSel ? 'selected-item bg-white/15 border-white text-white shadow-lg' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
+					const isSel = (store.searchEngine || "google") === eng.id;
+					btn.className = `p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer transition-all ${
+						isSel ? 'selected-item bg-white/20 border-2 border-white text-white shadow-lg ring-2 ring-white ring-offset-2 ring-offset-neutral-900 font-bold' : 'bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white'
 					}`;
-					btn.innerHTML = `<span>${eng.icon}</span><span>${eng.label}</span>`;
+					btn.innerHTML = `<div class="flex items-center gap-2"><span>${eng.icon}</span><span>${eng.label}</span></div>${isSel ? '<i class="fa-solid fa-circle-check text-white text-xs"></i>' : ''}`;
 					btn.onclick = () => {
 						store.searchEngine = eng.id;
 						try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){}
@@ -4076,7 +4073,7 @@ window.addEventListener("load", async () => {
 				const cloaksGrid = document.createElement("div");
 				cloaksGrid.className = "grid grid-cols-2 sm:grid-cols-3 gap-2.5";
 				const cloaks = [
-					{ id: "default", label: "Default (VeilOS)" },
+					{ id: "default", label: "Google (Default)" },
 					{ id: "google", label: "Google Search" },
 					{ id: "classroom", label: "Google Classroom" },
 					{ id: "drive", label: "Google Drive" },
@@ -4085,11 +4082,11 @@ window.addEventListener("load", async () => {
 				];
 				cloaks.forEach(clk => {
 					const btn = document.createElement("button");
-					const isSel = (store.tabCloak || "default") === clk.id;
-					btn.className = `p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-						isSel ? 'selected-item bg-white/15 border-white text-white shadow-lg' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
+					const isSel = (store.tabCloak || "google") === clk.id || (clk.id === "default" && (store.tabCloak === "google" || !store.tabCloak));
+					btn.className = `p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer transition-all ${
+						isSel ? 'selected-item bg-white/20 border-2 border-white text-white shadow-lg ring-2 ring-white ring-offset-2 ring-offset-neutral-900 font-bold' : 'bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white'
 					}`;
-					btn.innerHTML = `<span>🎭</span><span>${clk.label}</span>`;
+					btn.innerHTML = `<div class="flex items-center gap-2"><span>🎭</span><span>${clk.label}</span></div>${isSel ? '<i class="fa-solid fa-circle-check text-white text-xs"></i>' : ''}`;
 					btn.onclick = () => {
 						store.tabCloak = clk.id;
 						if (window.applyTabCloak) window.applyTabCloak(clk.id, store.customCloakTitle, store.customCloakIcon);
@@ -4222,9 +4219,11 @@ window.addEventListener("load", async () => {
 			} else {
 				tabObj.frameObj.go(target);
 			}
-			addHistory(tabObj.title, target);
+			const cleanTarget = normalizeBrowserUrl(target);
+			tabObj.url = cleanTarget;
+			addHistory(tabObj.title, cleanTarget);
 			if (win.customState.activeTabId === tabObj.id) {
-				syncActiveTabUrl(target);
+				syncActiveTabUrl(cleanTarget);
 			}
 			renderTabStrip();
 		};
@@ -4232,6 +4231,7 @@ window.addEventListener("load", async () => {
 		const createTab = (rawUrl, customTitle) => {
 			const tabNumericId = nextTabNumericId++;
 			const target = formatUrl(rawUrl || "https://google.com");
+			const cleanInitial = normalizeBrowserUrl(target);
 
 			const plugins = [];
 			if (window.sapphire && window.SapphireContentScriptPlugin) {
@@ -4261,8 +4261,8 @@ window.addEventListener("load", async () => {
 			const tabObj = {
 				id: "tab_" + Date.now() + "_" + Math.floor(Math.random() * 10000),
 				numericId: tabNumericId,
-				title: customTitle || getTitleFromUrl(target),
-				url: target,
+				title: customTitle || getTitleFromUrl(cleanInitial),
+				url: cleanInitial,
 				frameObj: frame,
 				tabEl: tabEl,
 				internalEl: null,
@@ -4270,12 +4270,13 @@ window.addEventListener("load", async () => {
 
 			const handleUrlUpdate = (newUrl) => {
 				if (!newUrl || newUrl === "about:blank" || newUrl.startsWith("blob:")) return;
-				if ((tabObj.url.startsWith("onyx://") || tabObj.url.startsWith("veil://")) && !newUrl.startsWith("http")) return;
-				tabObj.url = newUrl;
-				tabObj.title = getTitleFromUrl(newUrl);
-				addHistory(tabObj.title, newUrl);
+				const cleanUrl = normalizeBrowserUrl(newUrl);
+				if ((tabObj.url.startsWith("onyx://") || tabObj.url.startsWith("veil://")) && !cleanUrl.startsWith("http")) return;
+				tabObj.url = cleanUrl;
+				tabObj.title = getTitleFromUrl(cleanUrl);
+				addHistory(tabObj.title, cleanUrl);
 				if (win.customState.activeTabId === tabObj.id) {
-					syncActiveTabUrl(newUrl);
+					syncActiveTabUrl(cleanUrl);
 				}
 				renderTabStrip();
 			};
@@ -5265,11 +5266,14 @@ window.addEventListener("load", async () => {
 				if (!active || !active.frameObj) return;
 				try {
 					const curr = active.frameObj.url?.href;
-					if (curr && curr !== "about:blank" && curr !== active.url && !curr.startsWith("blob:")) {
-						active.url = curr;
-						active.title = getTitleFromUrl(curr);
-						syncActiveTabUrl(curr);
-						renderTabStrip();
+					if (curr && curr !== "about:blank" && !curr.startsWith("blob:")) {
+						const cleanCurr = normalizeBrowserUrl(curr);
+						if (cleanCurr && cleanCurr !== active.url) {
+							active.url = cleanCurr;
+							active.title = getTitleFromUrl(cleanCurr);
+							syncActiveTabUrl(cleanCurr);
+							renderTabStrip();
+						}
 					}
 				} catch (e) {}
 			}, 600);

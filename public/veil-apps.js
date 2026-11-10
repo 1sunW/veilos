@@ -94,8 +94,7 @@
 	};
 
 	window.VEIL_WALLPAPERS = [
-		{ id: "christmas", name: "Jolly Christmas", url: "assets/christmas.jpg" },
-		{ id: "default", name: "Classic (Floral)", url: "assets/background.jpg" }
+		{ id: "default", name: "Classic (Midnight Floral)", url: "assets/background.jpg" }
 	];
 
 	function escapeHtml(str) {
@@ -311,7 +310,7 @@
 						"  open <app>     Launch an application (e.g. open browser, open ai, open games)",
 						"  ps             List all running window tasks",
 						"  kill <pid>     Terminate a running window",
-						"  ping           Check proxy gateway network latency",
+						"  ping           Check network gateway latency",
 						"  date           Display current system date and time",
 						"  whoami         Print current logged in session username",
 						"  clear          Clear the terminal window",
@@ -546,8 +545,29 @@
 		{
 			era: "V0.8.x",
 			badge: "Current Release",
-			badgeClass: "bg-red-500/20 text-red-300 border-red-500/30",
+			badgeClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
 			versions: [
+				{
+					version: "V0.8.4",
+					title: "wheres the outline on the selected preference?",
+					tag: "Preference Outlines",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Fixed preference selection outlines across Settings, Theme Switcher, Search Engine selection, and Cloaking Hub. Resolved Dreamland attribute binding, restoring prominent high-contrast white outlines, checkmark indicators, and active rings on selected preferences."
+				},
+				{
+					version: "V0.8.3",
+					title: "can u remove EVERYTHING thats says web proxy and disguise as google",
+					tag: "Google Disguise & Clean Engine",
+					tagClass: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+					desc: "Eliminated all occurrences of 'web proxy', 'proxy', and 'unblocked' across system descriptions, terminal, apps, and movie/game catalogs. Fully disguised the operating system tab and metadata as Google with authentic Google Search titles, favicons, meta tags, and Google Workspace presets."
+				},
+				{
+					version: "V0.8.2",
+					title: "remove seasonal mode fully",
+					tag: "Clean OS Theme",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Fully removed all seasonal and holiday modes (Christmas and Halloween). Restored classic VeilOS sleek dark glass aesthetic with high-resolution cosmic wallpaper, reset default system styling, removed seasonal widgets and badges from top bar, dock, and browser."
+				},
 				{
 					version: "V0.8.1",
 					title: "remove extensions, when search button is pushed it should automatically minimize all windows open, fix search bar.",
@@ -1125,10 +1145,10 @@
 				},
 				{
 					name: "Scramjet",
-					role: "Web Proxy",
-					detail: "Core proxy engine powering stealth web browsing and media rewriting.",
+					role: "Web Engine",
+					detail: "Core web engine powering privacy browsing and media rewriting.",
 					icon: "fa-solid fa-bolt text-sky-400",
-					badge: "Proxy Engine"
+					badge: "Web Engine"
 				},
 				{
 					name: "InHeavenlyy",
@@ -1186,7 +1206,7 @@
 				{ name: "Truffled", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
 				{ name: "Bloxcraft UBG", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
 				{ name: "PeteZah", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "ShuttleProxy", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
+				{ name: "Shuttle", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
 				{ name: "Marz Library", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" }
 			]
 		}
@@ -1376,10 +1396,10 @@
 								</div>
 								<h2 class="text-xl font-bold text-white">VeilOS Web Operating System</h2>
 								<p class="text-xs text-neutral-400 max-w-md leading-relaxed">
-									A privacy-focused, unblocked web desktop operating system featuring an in-OS tabbed web browser, native proxy engine, media vaults, games arcade, and stealth tab disguise cloaks.
+									A privacy-focused web desktop operating system featuring an in-OS tabbed web browser, high-speed web engine, media vaults, games arcade, and Google disguise & cloaking.
 								</p>
 								<div class="flex items-center gap-2 mt-1">
-									<span class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Release v0.6.2</span>
+									<span class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Release v0.8.4</span>
 									<span class="px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-neutral-300 border border-white/10">MIT License</span>
 								</div>
 							</div>
@@ -1391,14 +1411,14 @@
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Current Build</span>
-									<span class="font-mono text-white">v0.6.2 (Unproxy Scenario)</span>
+									<span class="font-mono text-white">v0.8.4 (Preference Outlines)</span>
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Default Web Browser</span>
 									<span class="font-semibold text-sky-400">Onyx Browser</span>
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
-									<span class="text-neutral-400">Proxy Engine</span>
+									<span class="text-neutral-400">Web Engine</span>
 									<span class="font-semibold text-indigo-400">Scramjet Service Worker + BareMux</span>
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
@@ -1407,7 +1427,7 @@
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Tab Cloaking</span>
-									<span class="font-semibold text-purple-400">Classroom, Drive, Canvas, Desmos, Custom</span>
+									<span class="font-semibold text-purple-400">Google, Classroom, Drive, Canvas, Desmos, Custom</span>
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Stealth Modes</span>

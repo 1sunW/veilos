@@ -19,21 +19,6 @@
             font-family: 'Lexend', sans-serif;
         }
 
-        html[data-theme="christmas"], html[data-theme="jolly"] {
-            --bg: #07120c;
-            --bg-2: #0e1e15;
-            --bg-3: #142a1e;
-            --bg-4: #1b3828;
-            --border: rgba(239, 68, 68, 0.4);
-            --border-2: rgba(16, 185, 129, 0.25);
-            --text: #f0fdf4;
-            --text-2: #bbf7d0;
-            --bright-text: #ffffff;
-            --accent: #ef4444;
-            --accent-2: #10b981;
-            --accent-glow: rgba(239, 68, 68, 0.35);
-        }
-
         html[data-theme="default"] {
             --bg: #0e001a;
             --bg-2: #0a0a0a;
@@ -1028,9 +1013,9 @@
             <span style="font-size: 13px; font-weight: 500; color: var(--text-2);">Movies & TV</span>
         </div>
 
-        <div class="proxy-status-pill" title="Every video stream and external link is routed via Scramjet Proxy">
+        <div class="proxy-status-pill" title="Every video stream and external link is routed via Scramjet Engine">
             <span class="dot"></span>
-            <span>Proxied • Scramjet</span>
+            <span>Stream Engine • Scramjet</span>
         </div>
 
         <div class="topbar-nav">
@@ -1067,7 +1052,7 @@
                     <i data-lucide="film" style="color: var(--accent);"></i>
                     <span>movies</span>
                 </h2>
-                <p id="popupSubtitle">proxied stream</p>
+                <p id="popupSubtitle">media player</p>
             </div>
             <div class="popup-actions">
                 <button class="outline" id="popupBackBtn" style="display: none;" onclick="returnToCatalog()" title="Back to catalog">
@@ -1089,17 +1074,17 @@
     <script>
         const WISP_URL = "wss://fern.best/wisp/";
         const splashes = [
-            "AARUSH KAMAT KIRKY PROXY TUFF 67 1337 HACKOR!1!!",
-            "PROXIED STREAMING VIA SCRAMJET & BAREMUX",
-            "UNBLOCKED CINEMA ON ONYX OS",
+            "HIGH SPEED STREAMING VIA SCRAMJET & BAREMUX",
+            "HD STREAMING VIA SCRAMJET ENGINE",
+            "CINEMA ON ONYX OS",
             "ZERO ADS • HIGH SPEED STREAMING MIRRORS",
-            "BINGE YOUR FAVORITE MOVIES & EPISODES PROXIED"
+            "BINGE YOUR FAVORITE MOVIES & EPISODES"
         ];
 
         const $ = (s) => document.querySelector(s);
 
         const availableThemes = [
-            "christmas", "jolly", "default", "blood", "blossom", "crimson", "forest",
+            "default", "blood", "blossom", "crimson", "forest",
             "lavendar", "light", "midnight", "monochrome", "ocean", "sunset"
         ];
 
@@ -1670,7 +1655,7 @@
                             <div class="source-selector-wrap">
                                 <label for="proxyModeSelect"><i data-lucide="shield-check"></i> Mode:</label>
                                 <select class="custom-select" id="proxyModeSelect">
-                                    <option value="scramjet">Scramjet Proxy</option>
+                                    <option value="scramjet">Scramjet Stream</option>
                                     <option value="direct">Direct Embed</option>
                                 </select>
                             </div>
@@ -1681,9 +1666,9 @@
                         <div style="font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 8px;">
                             <div id="proxyLiveIndicator" class="proxy-status-pill" style="font-size: 11px; padding: 4px 10px;">
                                 <span class="dot" style="background: #22c55e;"></span>
-                                <span id="proxyLiveLabel">Proxied • Scramjet</span>
+                                <span id="proxyLiveLabel">Active • Scramjet</span>
                             </div>
-                            <button class="outline" onclick="openStreamInNewTab()" title="Open Proxied Video in New Tab" style="padding: 6px 10px; font-size: 11px; border-radius: 8px;">
+                            <button class="outline" onclick="openStreamInNewTab()" title="Open Video Stream in New Tab" style="padding: 6px 10px; font-size: 11px; border-radius: 8px;">
                                 <i data-lucide="external-link"></i>
                             </button>
                         </div>
@@ -1860,7 +1845,7 @@
             if (liveLabel) {
                 liveLabel.textContent = popupState.proxyMode === "direct"
                     ? `Direct (${source.name.split(" ")[0]})`
-                    : `Proxied • Scramjet (${source.name.split(" ")[0]})`;
+                    : `Active • Scramjet (${source.name.split(" ")[0]})`;
             }
 
             frame.src = proxiedUrl;
@@ -1968,7 +1953,7 @@
                     <div style="height:1px; background:var(--border-2);"></div>
 
                     <div>
-                        <div class="settings-section-title">Proxy Routing Engine</div>
+                        <div class="settings-section-title">Stream Routing Engine</div>
                         <p style="font-size:12px; color:var(--text-2); margin: 4px 0 12px;">Scramjet ServiceWorker & BareMux transport status</p>
                         <div class="watch-controls-bar">
                             <div style="font-size:13px; color:var(--bright-text);">
@@ -2020,7 +2005,12 @@
             }
         });
 
-        const savedTheme = localStorage.getItem("SSV-theme") || localStorage.getItem("KAMAT-theme");
+        let savedTheme = localStorage.getItem("SSV-theme") || localStorage.getItem("KAMAT-theme");
+        if (savedTheme === "christmas" || savedTheme === "jolly" || savedTheme === "halloween" || savedTheme === "spooky") {
+            savedTheme = "default";
+            localStorage.setItem("SSV-theme", "default");
+            localStorage.setItem("KAMAT-theme", "default");
+        }
         if (savedTheme && availableThemes.includes(savedTheme)) {
             applyTheme(savedTheme);
         }

@@ -3,11 +3,11 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>VeilOS</title>
-		<meta name="description" content="A sleek, feature-packed Web Operating System with multi-window management, proxy web browser, tab cloaking, blob & about:blank cloaking, games, and desktop app ecosystem." />
-		<meta property="og:title" content="VeilOS" />
-		<meta property="og:description" content="A sleek, feature-packed Web Operating System with multi-window management, proxy web browser, tab cloaking, blob & about:blank cloaking, games, and desktop app ecosystem." />
-		<link rel="icon" href="favicon.webp" />
+		<title>Google</title>
+		<meta name="description" content="Search the world's information, including webpages, images, videos and more." />
+		<meta property="og:title" content="Google" />
+		<meta property="og:description" content="Search the world's information, including webpages, images, videos and more." />
+		<link rel="icon" href="https://www.google.com/favicon.ico" />
 		<link
 			rel="stylesheet"
 			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
@@ -316,26 +316,49 @@
 				transform: translateY(0) scale(0.98);
 			}
 
-			.custom-scrollbar::-webkit-scrollbar {
-				width: 5px;
-				height: 5px;
-			}
-			.custom-scrollbar::-webkit-scrollbar-track {
-				background: transparent;
-			}
-			.custom-scrollbar::-webkit-scrollbar-thumb {
-				background: rgba(255, 255, 255, 0.15);
-				border-radius: 9999px;
-			}
-			.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-				background: rgba(255, 255, 255, 0.3);
+			/* Universal custom scrollbars for all elements across the OS */
+			*,
+			*::before,
+			*::after {
+				scrollbar-width: thin;
+				scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 			}
 
-			.selected-item {
+			::-webkit-scrollbar,
+			*::-webkit-scrollbar {
+				width: 6px;
+				height: 6px;
+			}
+
+			::-webkit-scrollbar-track,
+			*::-webkit-scrollbar-track {
+				background: transparent;
+			}
+
+			::-webkit-scrollbar-thumb,
+			*::-webkit-scrollbar-thumb {
+				background: rgba(255, 255, 255, 0.2);
+				border-radius: 9999px;
+				border: 1px solid rgba(255, 255, 255, 0.05);
+			}
+
+			::-webkit-scrollbar-thumb:hover,
+			*::-webkit-scrollbar-thumb:hover {
+				background: rgba(255, 255, 255, 0.4);
+			}
+
+			::-webkit-scrollbar-corner,
+			*::-webkit-scrollbar-corner {
+				background: transparent;
+			}
+
+			.selected-item, dialog .selected-item, dialog button.selected-item {
 				outline: 2px solid #ffffff !important;
-				outline-offset: 1px !important;
-				border: 1px solid #ffffff !important;
-				box-shadow: 0 0 12px rgba(255, 255, 255, 0.25) !important;
+				outline-offset: 2px !important;
+				border: 2px solid #ffffff !important;
+				background-color: rgba(255, 255, 255, 0.2) !important;
+				color: #ffffff !important;
+				box-shadow: 0 0 16px rgba(255, 255, 255, 0.45) !important;
 			}
 
 			@keyframes spotlightIn {

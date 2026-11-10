@@ -8,11 +8,11 @@ const defaultBookmarks = [
 ];
 
 const TAB_CLOAK_PRESETS = [
-	{ id: "default", name: "VeilOS (Default)", title: "VeilOS", icon: "/favicon.webp" },
+	{ id: "default", name: "Google (Default)", title: "Google", icon: "https://www.google.com/favicon.ico" },
+	{ id: "google", name: "Google Search", title: "Google", icon: "https://www.google.com/favicon.ico" },
 	{ id: "classroom", name: "Google Classroom", title: "Classes", icon: "https://ssl.gstatic.com/classroom/favicon.png" },
 	{ id: "drive", name: "Google Drive", title: "My Drive - Google Drive", icon: "https://ssl.gstatic.com/docs/doclist/images/drive_2022q3_32dp.png" },
 	{ id: "docs", name: "Google Docs", title: "Google Docs", icon: "https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico" },
-	{ id: "google", name: "Google Search", title: "Google", icon: "https://www.google.com/favicon.ico" },
 	{ id: "canvas", name: "Canvas LMS", title: "Canvas", icon: "https://du11hjcvx0uqb.cloudfront.net/dist/images/favicon-e10d657a73.ico" },
 	{ id: "desmos", name: "Desmos Calculator", title: "Desmos | Graphing Calculator", icon: "https://www.desmos.com/favicon.ico" },
 	{ id: "khan", name: "Khan Academy", title: "Dashboard | Khan Academy", icon: "https://www.khanacademy.org/favicon.ico" },
@@ -45,7 +45,7 @@ const defaultBare = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.bareur
 	getLocalBare();
 
 const defaultNotes = [
-	{ id: "note_1", title: "Welcome to VeilOS", content: "# VeilOS Web Operating System\n\nWelcome to your new Web OS!\n\nFeatures:\n- Multi-window desktop manager\n- Veil Web Browser with fast proxy engine\n- Tab Cloaking & presets (Classroom, Drive, Canvas, Desmos, etc.)\n- Blob & About:blank Cloaking\n- Search engine choice (DuckDuckGo, Google, Bing, Brave)\n- Games, Movies, Vault & Chat", updatedAt: Date.now() }
+	{ id: "note_1", title: "Welcome to Google Workspace", content: "# Google Workspace\n\nWelcome to your workspace environment.\n\nFeatures:\n- Multi-window desktop manager\n- Onyx Web Browser with high-speed browsing engine\n- Tab Cloaking & disguise presets (Google, Classroom, Drive, Docs, Canvas, Desmos, etc.)\n- Blob & About:blank Stealth\n- Integrated Search (Google, DuckDuckGo, Bing, Brave)\n- Games, Movies, Vault & Chat", updatedAt: Date.now() }
 ];
 
 try {
@@ -77,8 +77,8 @@ const initialSettings = {
 	bareurl: defaultBare,
 	proxy: "",
 	transport: "/epoxy/index.mjs",
-	searchEngine: "duckduckgo",
-	tabCloak: "default",
+	searchEngine: "google",
+	tabCloak: "google",
 	customCloakTitle: "",
 	customCloakIcon: "",
 	autoAboutBlank: false,
@@ -87,9 +87,9 @@ const initialSettings = {
 	history: [
 		{ id: "h1", name: "Google", url: "https://google.com", visitedAt: Date.now() - 3600000 }
 	],
-	theme: "christmas",
-	wallpaper: "assets/christmas.jpg",
-	accentColor: "red",
+	theme: "default",
+	wallpaper: "assets/background.jpg",
+	accentColor: "indigo",
 	notes: defaultNotes,
 	osUsername: "Veil User",
 	dockPosition: "bottom",
@@ -131,11 +131,11 @@ try {
 store.wispurl = defaultWisp;
 store.bareurl = defaultBare;
 
-if (!store.searchEngine || (!localStorage.getItem("veil_user_picked_engine") && store.searchEngine === "google")) {
-	store.searchEngine = "duckduckgo";
+if (!store.searchEngine) {
+	store.searchEngine = "google";
 }
-if (!store.tabCloak) {
-	store.tabCloak = "default";
+if (!store.tabCloak || store.tabCloak === "default") {
+	store.tabCloak = "google";
 }
 if (store.autoAboutBlank === undefined) {
 	store.autoAboutBlank = false;
@@ -144,28 +144,32 @@ if (store.autoAboutBlank === undefined) {
 if (!store.bookmarks || !Array.isArray(store.bookmarks) || store.bookmarks.length === 0) {
 	store.bookmarks = defaultBookmarks;
 }
-if (store.showBookmarksBar === undefined) {
-	store.showBookmarksBar = true;
+if (!store.theme || store.theme === "halloween" || store.theme === "christmas" || store.theme === "jolly" || store.theme === "spooky") {
+	store.theme = "default";
 }
-if (!store.theme || store.theme === "halloween") {
-	store.theme = "christmas";
+if (!store.wallpaper || store.wallpaper === "assets/christmas.jpg" || store.wallpaper === "assets/halloween.jpg") {
+	store.wallpaper = "assets/background.jpg";
 }
-if (!store.wallpaper || store.wallpaper === "assets/background.jpg" || store.wallpaper === "assets/halloween.jpg") {
-	store.wallpaper = "assets/christmas.jpg";
+if (!store.accentColor || store.accentColor === "orange" || store.accentColor === "red") {
+	store.accentColor = "indigo";
 }
-if (!store.accentColor || store.accentColor === "orange") {
-	store.accentColor = "red";
-}
+
+try {
+	const curSavedTheme = localStorage.getItem("veil_user_theme");
+	if (curSavedTheme === "christmas" || curSavedTheme === "jolly" || curSavedTheme === "halloween" || curSavedTheme === "spooky") {
+		localStorage.setItem("veil_user_theme", "default");
+	}
+} catch (e) {}
 
 // Global Tab Cloak Helper
 function applyTabCloak(presetId, customTitle, customIcon) {
-	const presetKey = presetId || store.tabCloak || "default";
-	let title = "VeilOS";
-	let icon = "/favicon.webp";
+	const presetKey = presetId || store.tabCloak || "google";
+	let title = "Google";
+	let icon = "https://www.google.com/favicon.ico";
 
 	if (presetKey === "custom") {
-		title = customTitle !== undefined ? customTitle : (store.customCloakTitle || "VeilOS");
-		icon = customIcon !== undefined ? customIcon : (store.customCloakIcon || "/favicon.webp");
+		title = customTitle !== undefined ? customTitle : (store.customCloakTitle || "Google");
+		icon = customIcon !== undefined ? customIcon : (store.customCloakIcon || "https://www.google.com/favicon.ico");
 	} else {
 		const found = TAB_CLOAK_PRESETS.find(p => p.id === presetKey);
 		if (found) {
@@ -175,14 +179,14 @@ function applyTabCloak(presetId, customTitle, customIcon) {
 	}
 
 	if (typeof document !== "undefined") {
-		document.title = title || "VeilOS";
+		document.title = title || "Google";
 		let link = document.querySelector("link[rel*='icon']");
 		if (!link) {
 			link = document.createElement("link");
 			link.rel = "icon";
 			document.head.appendChild(link);
 		}
-		link.href = icon || "/favicon.webp";
+		link.href = icon || "https://www.google.com/favicon.ico";
 	}
 	return { title, icon };
 }
