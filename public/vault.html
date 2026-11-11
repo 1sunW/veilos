@@ -12,7 +12,7 @@
     <script src="/baremux/index.js"></script>
     <script src="/scram/scramjet.all.js"></script>
 
-    <script type="module" src="/data.tsx"></script>
+    <script type="module" src="/data.js"></script>
 
     <style>
         * {
@@ -288,7 +288,7 @@
 
         async function loadVaultData() {
             try {
-                const mod = await import('/data.tsx?t=' + Date.now()).catch(() => import('/data.ts?t=' + Date.now()));
+                const mod = await import('/data.js?t=' + Date.now());
                 const raw = mod.VAULT_DATA || mod.default || (mod.movies ? mod : null) || mod;
                 parseVaultDataset(raw);
             } catch (err) {
