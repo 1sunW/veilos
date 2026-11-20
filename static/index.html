@@ -3,33 +3,21 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Google</title>
-		<meta name="description" content="Search the world's information, including webpages, images, videos and more." />
-		<meta property="og:title" content="Google" />
-		<meta property="og:description" content="Search the world's information, including webpages, images, videos and more." />
-		<link rel="icon" href="https://www.google.com/favicon.ico" />
+		<title>SpadeOS</title>
+		<meta name="description" content="SpadeOS — Modern web desktop environment with multi-window management, Onyx Browser, tab & stealth cloaking, search engine selection, games, movies, and media apps." />
+		<meta property="og:title" content="SpadeOS" />
+		<meta property="og:description" content="SpadeOS — Modern web desktop environment with multi-window management, Onyx Browser, tab & stealth cloaking, search engine selection, games, movies, and media apps." />
+		<link rel="icon" href="assets/spadeos-emblem.jpg" />
 		<link
 			rel="stylesheet"
 			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
 			crossorigin="anonymous"
 			referrerpolicy="no-referrer"
 		/>
-		<link
-			href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&amp;family=Inter+Tight:ital,wght@0,100..900;1,100..900&amp;family=Inter:wght@100..900&amp;display=swap&amp;"
-			rel="stylesheet"
-			crossorigin
-		/>
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
-			href="https://fonts.googleapis.com/css2?family=Hind:wght@300;400;500;600;700&display=swap"
-			rel="stylesheet"
-			crossorigin
-		/>
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			href="https://fonts.googleapis.com/css2?family=Hind:wght@300;400;500;600;700&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+			href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
 			rel="stylesheet"
 			crossorigin
 		/>
@@ -38,7 +26,7 @@
 			html,
 			#app {
 				font-family:
-					"Inter",
+					"Plus Jakarta Sans",
 					system-ui,
 					-apple-system,
 					BlinkMacSystemFont,
@@ -47,8 +35,11 @@
 				height: 100vh;
 				margin: 0;
 				padding: 0;
-				background-color: #050505;
+				background-color: #09090b;
 				overflow: hidden;
+			}
+			.tabular-nums {
+				font-variant-numeric: tabular-nums;
 			}
 
 			dialog {
@@ -75,18 +66,18 @@
 				}
 			}
 
-			@keyframes veilPulseGlow {
+			@keyframes spadePulseGlow {
 				0%, 100% {
-					box-shadow: 0 0 25px rgba(99, 102, 241, 0.4), 0 0 55px rgba(168, 85, 247, 0.25);
+					box-shadow: 0 0 25px rgba(99, 102, 241, 0.45), 0 0 55px rgba(56, 189, 248, 0.25);
 					transform: scale(1);
 				}
 				50% {
-					box-shadow: 0 0 45px rgba(129, 140, 248, 0.75), 0 0 90px rgba(192, 132, 252, 0.5);
+					box-shadow: 0 0 45px rgba(99, 102, 241, 0.7), 0 0 90px rgba(56, 189, 248, 0.35);
 					transform: scale(1.03);
 				}
 			}
 
-			@keyframes veilFloat {
+			@keyframes spadeFloat {
 				0%, 100% {
 					transform: translateY(0px) rotate(0deg);
 				}
@@ -95,7 +86,7 @@
 				}
 			}
 
-			@keyframes veilShimmer {
+			@keyframes spadeShimmer {
 				0% {
 					background-position: -200% 0;
 				}
@@ -104,7 +95,7 @@
 				}
 			}
 
-			@keyframes veilOrbFloat1 {
+			@keyframes spadeOrbFloat1 {
 				0%, 100% {
 					transform: translate(0, 0) scale(1);
 				}
@@ -116,7 +107,7 @@
 				}
 			}
 
-			@keyframes veilOrbFloat2 {
+			@keyframes spadeOrbFloat2 {
 				0%, 100% {
 					transform: translate(0, 0) scale(1);
 				}
@@ -239,20 +230,22 @@
 				}
 			}
 
+			.animate-spade-glow,
 			.animate-veil-glow {
-				animation: veilPulseGlow 3.5s ease-in-out infinite;
+				animation: spadePulseGlow 3.5s ease-in-out infinite;
 			}
 
+			.animate-spade-float,
 			.animate-veil-float {
-				animation: veilFloat 5.5s ease-in-out infinite;
+				animation: spadeFloat 5.5s ease-in-out infinite;
 			}
 
 			.animate-orb-1 {
-				animation: veilOrbFloat1 18s ease-in-out infinite;
+				animation: spadeOrbFloat1 18s ease-in-out infinite;
 			}
 
 			.animate-orb-2 {
-				animation: veilOrbFloat2 22s ease-in-out infinite;
+				animation: spadeOrbFloat2 22s ease-in-out infinite;
 			}
 
 			.animate-window-pop {
@@ -286,8 +279,8 @@
 
 			.shimmer-btn {
 				background-size: 200% 100%;
-				background-image: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
-				animation: veilShimmer 3s infinite linear;
+				background-image: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0) 100%);
+				animation: spadeShimmer 3s infinite linear;
 			}
 
 			.dock-icon-anim {
@@ -295,8 +288,8 @@
 			}
 
 			.dock-icon-anim:hover {
-				transform: translateY(-6px) scale(1.18);
-				box-shadow: 0 10px 25px -5px rgba(129, 140, 248, 0.5);
+				transform: translateY(-6px) scale(1.16);
+				box-shadow: 0 10px 26px -5px rgba(99, 102, 241, 0.45), 0 0 14px rgba(56, 189, 248, 0.22);
 			}
 
 			.dock-icon-anim:active {
@@ -435,32 +428,32 @@
 			}
 
 			:root {
-				--bg0: #0d0f12;
-				--bg1: #181c21;
-				--bg2: #1c2026;
-				--bg3: #252b33;
-				--bg-elevated: #161a1f;
+				--bg0: #09090b;
+				--bg1: #111118;
+				--bg2: #181822;
+				--bg3: #222230;
+				--bg-elevated: #14141e;
 				--surface: rgba(255, 255, 255, .08);
 				--surface2: rgba(255, 255, 255, .14);
-				--bd: #4f5963;
-				--bd2: #5a6370;
-				--tx: #f0f4f8;
-				--tx2: #b8c4d0;
-				--tx3: #7d8a98;
-				--ac: #9de5ff;
-				--ac2: #70d4ff;
-				--ok: #8aefb0;
-				--warn: #f8dc75;
-				--err: #ff9595;
+				--bd: #27273a;
+				--bd2: #383852;
+				--tx: #f8fafc;
+				--tx2: #94a3b8;
+				--tx3: #64748b;
+				--ac: #6366f1;
+				--ac2: #38bdf8;
+				--ok: #10b981;
+				--warn: #f59e0b;
+				--err: #fb7185;
 				--radius-sm: 8px;
 				--radius-md: 10px;
 				--radius-lg: 20px;
 				--radius-full: 9999px;
-				--shadow-sm: 0 1px 3px rgba(0, 0, 0, .35);
-				--shadow-md: 0 8px 24px rgba(0, 0, 0, .45);
+				--shadow-sm: 0 1px 3px rgba(0, 0, 0, .4);
+				--shadow-md: 0 8px 24px rgba(0, 0, 0, .55);
 				--ui-lh: 1.5;
-				--ui: 'Space Grotesk', 'Inter', 'Segoe UI', sans-serif;
-				--mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+				--ui: 'Plus Jakarta Sans', system-ui, sans-serif;
+				--mono: 'IBM Plex Mono', ui-monospace, monospace;
 			}
 			.tool-btn {
 				width: 30px;
@@ -1067,7 +1060,7 @@
 
 	<body>
 		<div id="app"></div>
-		<script src="veil-apps.js"></script>
+		<script src="spade-apps.js"></script>
 		<script src="ui.js"></script>
 	</body>
 </html>

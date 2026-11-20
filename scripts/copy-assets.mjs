@@ -68,17 +68,27 @@ if (existsSync(join(root, "onyx-chat"))) {
 
 copyDir(join(root, "dist"), join(outDir, "scram"));
 
-const scramjetWasmSrc = join(root, "node_modules", "@mercuryworkshop", "scramjet", "dist", "scramjet.wasm");
-if (existsSync(scramjetWasmSrc)) {
+const scramjetWasmSrc = [
+	join(root, "node_modules", "@mercuryworkshop", "scramjet", "dist", "scramjet.wasm"),
+	join(root, "public", "scramjet.wasm.wasm"),
+	join(root, "public", "scram", "scramjet.wasm.wasm"),
+].find((p) => existsSync(p));
+if (scramjetWasmSrc) {
 	try {
 		mkdirSync(join(root, "dist"), { recursive: true });
 		mkdirSync(join(outDir, "scram"), { recursive: true });
-		cpSync(scramjetWasmSrc, join(root, "dist", "scramjet.wasm.wasm"));
-		cpSync(scramjetWasmSrc, join(root, "dist", "scramjet.wasm"));
-		cpSync(scramjetWasmSrc, join(outDir, "scram", "scramjet.wasm.wasm"));
-		cpSync(scramjetWasmSrc, join(outDir, "scram", "scramjet.wasm"));
-		cpSync(scramjetWasmSrc, join(outDir, "scramjet.wasm.wasm"));
-		cpSync(scramjetWasmSrc, join(outDir, "scramjet.wasm"));
+		for (const dest of [
+			join(root, "dist", "scramjet.wasm.wasm"),
+			join(root, "dist", "scramjet.wasm"),
+			join(outDir, "scram", "scramjet.wasm.wasm"),
+			join(outDir, "scram", "scramjet.wasm"),
+			join(outDir, "scramjet.wasm.wasm"),
+			join(outDir, "scramjet.wasm"),
+		]) {
+			if (dest !== scramjetWasmSrc) {
+				cpSync(scramjetWasmSrc, dest);
+			}
+		}
 		console.log("  ✓ Copied scramjet wasm assets");
 	} catch (e) {
 		console.warn("  ! Warning: Failed to copy scramjet wasm:", e);

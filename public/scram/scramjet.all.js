@@ -6125,75 +6125,49 @@ function isTextMime(mime) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   EXT_FILES_STORE: () => (EXT_FILES_STORE),
+  EXT_STATE_STORE: () => (EXT_STATE_STORE),
   EXT_STORAGE_STORE: () => (EXT_STORAGE_STORE),
   EXT_STORE: () => (EXT_STORE),
   dbDelete: () => (dbDelete),
+  dbDeletePrefix: () => (dbDeletePrefix),
   dbGet: () => (dbGet),
   dbGetAll: () => (dbGetAll),
   dbGetAllKeys: () => (dbGetAllKeys),
   dbGetAllKeysPrefix: () => (dbGetAllKeysPrefix),
-  dbPut: () => (dbPut)
+  dbGetPrefix: () => (dbGetPrefix),
+  dbPut: () => (dbPut),
+  dbWriteMany: () => (dbWriteMany)
 });
 const DB_NAME = "sapphire_extensions";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const EXT_STORE = "extensions";
 const EXT_FILES_STORE = "extension_files";
 const EXT_STORAGE_STORE = "extension_storage";
+const EXT_STATE_STORE = "extension_state";
 let dbPromise = null;
-function ensureStores(db) {
-    if (!db.objectStoreNames.contains(EXT_STORE)) {
-        db.createObjectStore(EXT_STORE, {
-            keyPath: "id"
-        });
-    }
-    if (!db.objectStoreNames.contains(EXT_FILES_STORE)) {
-        db.createObjectStore(EXT_FILES_STORE);
-    }
-    if (!db.objectStoreNames.contains(EXT_STORAGE_STORE)) {
-        db.createObjectStore(EXT_STORAGE_STORE);
-    }
-}
 function openDB() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject)=>{
-        // Open without hardcoded version so existing version 2+ never triggers VersionError
-        const req = indexedDB.open(DB_NAME);
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
         req.onupgradeneeded = ()=>{
-            ensureStores(req.result);
-        };
-        req.onsuccess = ()=>{
             const db = req.result;
-            db.onversionchange = ()=>{
-                db.close();
-                dbPromise = null;
-            };
-            if (db.objectStoreNames.contains(EXT_STORE) && db.objectStoreNames.contains(EXT_FILES_STORE) && db.objectStoreNames.contains(EXT_STORAGE_STORE)) {
-                resolve(db);
-                return;
+            if (!db.objectStoreNames.contains(EXT_STORE)) {
+                db.createObjectStore(EXT_STORE, {
+                    keyPath: "id"
+                });
             }
-            const nextVersion = (db.version || 1) + 1;
-            db.close();
-            const upgradeReq = indexedDB.open(DB_NAME, nextVersion);
-            upgradeReq.onupgradeneeded = ()=>{
-                ensureStores(upgradeReq.result);
-            };
-            upgradeReq.onsuccess = ()=>{
-                const uDb = upgradeReq.result;
-                uDb.onversionchange = ()=>{
-                    uDb.close();
-                    dbPromise = null;
-                };
-                resolve(uDb);
-            };
-            upgradeReq.onerror = ()=>{
-                dbPromise = null;
-                reject(upgradeReq.error);
-            };
+            if (!db.objectStoreNames.contains(EXT_FILES_STORE)) {
+                db.createObjectStore(EXT_FILES_STORE);
+            }
+            if (!db.objectStoreNames.contains(EXT_STATE_STORE)) {
+                db.createObjectStore(EXT_STATE_STORE);
+            }
+            if (!db.objectStoreNames.contains(EXT_STORAGE_STORE)) {
+                db.createObjectStore(EXT_STORAGE_STORE);
+            }
         };
-        req.onerror = ()=>{
-            dbPromise = null;
-            reject(req.error);
-        };
+        req.onsuccess = ()=>resolve(req.result);
+        req.onerror = ()=>reject(req.error);
     });
     return dbPromise;
 }
@@ -6243,12 +6217,58 @@ async function dbGetAllKeys(store) {
         req.onerror = ()=>reject(req.error);
     });
 }
+/** Several puts/deletes in one transaction; `undefined` values are deletes. */ async function dbWriteMany(store, entries) {
+    if (!entries.length) return;
+    const db = await openDB();
+    return new Promise((resolve, reject)=>{
+        const tx = db.transaction(store, "readwrite");
+        const objStore = tx.objectStore(store);
+        for (const [key, value] of entries){
+            if (value === undefined) objStore.delete(key);
+            else objStore.put(value, key);
+        }
+        tx.oncomplete = ()=>resolve();
+        tx.onerror = ()=>reject(tx.error);
+        tx.onabort = ()=>reject(tx.error);
+    });
+}
+/** Every [key, value] whose string key starts with `prefix`. */ async function dbGetPrefix(store, prefix) {
+    const db = await openDB();
+    return new Promise((resolve, reject)=>{
+        const tx = db.transaction(store, "readonly");
+        const range = IDBKeyRange.bound(prefix, `${prefix}￿`);
+        const out = [];
+        const req = tx.objectStore(store).openCursor(range);
+        req.onsuccess = ()=>{
+            const cursor = req.result;
+            if (!cursor) {
+                resolve(out);
+                return;
+            }
+            out.push([
+                cursor.key,
+                cursor.value
+            ]);
+            cursor.continue();
+        };
+        req.onerror = ()=>reject(req.error);
+    });
+}
+async function dbDeletePrefix(store, prefix) {
+    const db = await openDB();
+    return new Promise((resolve, reject)=>{
+        const tx = db.transaction(store, "readwrite");
+        tx.objectStore(store).delete(IDBKeyRange.bound(prefix, `${prefix}￿`));
+        tx.oncomplete = ()=>resolve();
+        tx.onerror = ()=>reject(tx.error);
+    });
+}
 async function dbGetAllKeysPrefix(store, prefix) {
     const db = await openDB();
     return new Promise((resolve, reject)=>{
         const tx = db.transaction(store, "readonly");
-        const req = tx.objectStore(store).getAllKeys(IDBKeyRange.bound(prefix, prefix + "\uffff"));
-        req.onsuccess = ()=>resolve(req.result.map(String));
+        const req = tx.objectStore(store).getAllKeys(IDBKeyRange.bound(prefix, `${prefix}￿`));
+        req.onsuccess = ()=>resolve(req.result);
         req.onerror = ()=>reject(req.error);
     });
 }
@@ -11403,9 +11423,10 @@ __webpack_require__.d(__webpack_exports__, {
                 scramjet$token: data.scramjet$token,
                 scramjet$type: "cookie"
             };
-            client.serviceWorker.controller.postMessage(msg);
+            client.serviceWorker.controller?.postMessage(msg);
         }
     });
+    client.serviceWorker.startMessages?.();
     client.Trap("Document.prototype.cookie", {
         get () {
             return client.cookieStore.getCookies(client.url, true);
@@ -12428,6 +12449,22 @@ function loadAndHook(config) {
     }
     Reflect.deleteProperty(globalThis, "WASM");
     Reflect.deleteProperty(globalThis, "COOKIE");
+    const globalProto = Object.getPrototypeOf(globalThis);
+    for (const target of [
+        globalThis,
+        globalProto
+    ]){
+        if (!target) continue;
+        for (const prop of [
+            "setImmediate",
+            "clearImmediate"
+        ]){
+            const desc = Object.getOwnPropertyDescriptor(target, prop);
+            if (desc && desc.configurable && typeof desc.value === "function" && !String(desc.value).includes("[native code]")) {
+                Reflect.deleteProperty(target, prop);
+            }
+        }
+    }
 }
 
 
@@ -16982,22 +17019,29 @@ async function handleResponse(url, meta, scriptType, destination, mode, response
             responseHeaders["location"] = url.href;
         }
     }
-    const maybeHeaders = responseHeaders["set-cookie"] || [];
-    for(const cookie in maybeHeaders){
-        if (client) {
+    const rawSetCookie = responseHeaders["set-cookie"];
+    const setCookies = Array.isArray(rawSetCookie) ? rawSetCookie : rawSetCookie ? [
+        rawSetCookie
+    ] : [];
+    const prefix = swtarget.config?.prefix || _shared__rspack_import_6.config.prefix;
+    for (const cookie of setCookies){
+        if (client && client.url?.includes(prefix)) {
             const promise = swtarget.dispatch(client, {
                 scramjet$type: "cookie",
                 cookie,
                 url: url.href
             });
             if (destination !== "document" && destination !== "iframe") {
-                await promise;
+                await Promise.race([
+                    promise,
+                    new Promise((resolve)=>setTimeout(resolve, 1500))
+                ]);
             }
         }
     }
-    await cookieStore.setCookies(maybeHeaders instanceof Array ? maybeHeaders : [
-        maybeHeaders
-    ], url);
+    if (setCookies.length) {
+        await cookieStore.setCookies(setCookies, url);
+    }
     for(const header in responseHeaders){
         if (Array.isArray(responseHeaders[header])) responseHeaders[header] = responseHeaders[header][0];
     }
@@ -22607,56 +22651,427 @@ replaceTraps((oldTraps) => ({
 
 
 },
+"./rewriter/wasm/out/snippets/wasm-4b0f351a8e6eeb46/inline0.js"(__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+__webpack_require__.d(__webpack_exports__, {
+  scramtag: () => (scramtag)
+});
+
+function scramtag() {
+    return (""+1e10).replace(/[018]/g,
+      c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+}
+
+
+},
 "./rewriter/wasm/out/wasm.js"(__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   Rewriter: () => (Rewriter),
-  "default": () => (init),
+  "default": () => (__rspack_default_export),
   initSync: () => (initSync)
 });
+/* import */ var _snippets_wasm_4b0f351a8e6eeb46_inline0_js__rspack_import_0 = __webpack_require__("./rewriter/wasm/out/snippets/wasm-4b0f351a8e6eeb46/inline0.js");
+
+
 let wasm;
-const encoder = new TextEncoder();
+
+function addToExternrefTable0(obj) {
+    const idx = wasm.__externref_table_alloc();
+    wasm.__wbindgen_export_2.set(idx, obj);
+    return idx;
+}
+
+function handleError(f, args) {
+    try {
+        return f.apply(this, args);
+    } catch (e) {
+        const idx = addToExternrefTable0(e);
+        wasm.__wbindgen_exn_store(idx);
+    }
+}
+
+const cachedTextDecoder = (typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8', { ignoreBOM: true, fatal: true }) : { decode: () => { throw Error('TextDecoder not available') } } );
+
+if (typeof TextDecoder !== 'undefined') { cachedTextDecoder.decode(); };
+
+let cachedUint8ArrayMemory0 = null;
+
+function getUint8ArrayMemory0() {
+    if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
+        cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
+    }
+    return cachedUint8ArrayMemory0;
+}
+
+function getStringFromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
+}
+
+let WASM_VECTOR_LEN = 0;
+
+const cachedTextEncoder = (typeof TextEncoder !== 'undefined' ? new TextEncoder('utf-8') : { encode: () => { throw Error('TextEncoder not available') } } );
+
+const encodeString = (typeof cachedTextEncoder.encodeInto === 'function'
+    ? function (arg, view) {
+    return cachedTextEncoder.encodeInto(arg, view);
+}
+    : function (arg, view) {
+    const buf = cachedTextEncoder.encode(arg);
+    view.set(buf);
+    return {
+        read: arg.length,
+        written: buf.length
+    };
+});
+
+function passStringToWasm0(arg, malloc, realloc) {
+
+    if (realloc === undefined) {
+        const buf = cachedTextEncoder.encode(arg);
+        const ptr = malloc(buf.length, 1) >>> 0;
+        getUint8ArrayMemory0().subarray(ptr, ptr + buf.length).set(buf);
+        WASM_VECTOR_LEN = buf.length;
+        return ptr;
+    }
+
+    let len = arg.length;
+    let ptr = malloc(len, 1) >>> 0;
+
+    const mem = getUint8ArrayMemory0();
+
+    let offset = 0;
+
+    for (; offset < len; offset++) {
+        const code = arg.charCodeAt(offset);
+        if (code > 0x7F) break;
+        mem[ptr + offset] = code;
+    }
+
+    if (offset !== len) {
+        if (offset !== 0) {
+            arg = arg.slice(offset);
+        }
+        ptr = realloc(ptr, len, len = offset + arg.length * 3, 1) >>> 0;
+        const view = getUint8ArrayMemory0().subarray(ptr + offset, ptr + len);
+        const ret = encodeString(arg, view);
+
+        offset += ret.written;
+        ptr = realloc(ptr, len, offset, 1) >>> 0;
+    }
+
+    WASM_VECTOR_LEN = offset;
+    return ptr;
+}
+
+let cachedDataViewMemory0 = null;
+
+function getDataViewMemory0() {
+    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
+        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
+    }
+    return cachedDataViewMemory0;
+}
+
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
+
+function takeFromExternrefTable0(idx) {
+    const value = wasm.__wbindgen_export_2.get(idx);
+    wasm.__externref_table_dealloc(idx);
+    return value;
+}
+
+function passArray8ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 1, 1) >>> 0;
+    getUint8ArrayMemory0().set(arg, ptr / 1);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+const RewriterFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_rewriter_free(ptr >>> 0, 1));
 
 class Rewriter {
-	constructor(options) {
-		this.options = options;
-	}
-	free() {}
-	rewrite_html(html, base, cookie_store) {
-		return html;
-	}
-	rewrite_js(input, base, source, module) {
-		return {
-			js: typeof input === "string" ? encoder.encode(input) : input,
-			map: null,
-			scramtag: "",
-			errors: []
-		};
-	}
-	rewrite_js_bytes(input, base, source, module) {
-		return {
-			js: input,
-			map: null,
-			scramtag: "",
-			errors: []
-		};
-	}
-	rewrite_css(css, base) {
-		return css;
-	}
+
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        RewriterFinalization.unregister(this);
+        return ptr;
+    }
+
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_rewriter_free(ptr, 0);
+    }
+    /**
+     * @param {string} js
+     * @param {string} base
+     * @param {string} url
+     * @param {boolean} module
+     * @returns {JsRewriterOutput}
+     */
+    rewrite_js(js, base, url, module) {
+        const ptr0 = passStringToWasm0(js, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(base, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.rewriter_rewrite_js(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, module);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
+     * @param {Uint8Array} js
+     * @param {string} base
+     * @param {string} url
+     * @param {boolean} module
+     * @returns {JsRewriterOutput}
+     */
+    rewrite_js_bytes(js, base, url, module) {
+        const ptr0 = passArray8ToWasm0(js, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(base, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.rewriter_rewrite_js_bytes(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, module);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
+     * @param {object} scramjet
+     */
+    constructor(scramjet) {
+        const ret = wasm.rewriter_new(scramjet);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        this.__wbg_ptr = ret[0] >>> 0;
+        RewriterFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
 }
 
-function initSync(input) {
-	if (input && input.module) {
-		const instance = new WebAssembly.Instance(input.module, {});
-		wasm = instance.exports;
-	}
-	return wasm;
+async function __wbg_load(module, imports) {
+    if (typeof Response === 'function' && module instanceof Response) {
+        if (typeof WebAssembly.instantiateStreaming === 'function') {
+            try {
+                return await WebAssembly.instantiateStreaming(module, imports);
+
+            } catch (e) {
+                if (module.headers.get('Content-Type') != 'application/wasm') {
+                    console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", e);
+
+                } else {
+                    throw e;
+                }
+            }
+        }
+
+        const bytes = await module.arrayBuffer();
+        return await WebAssembly.instantiate(bytes, imports);
+
+    } else {
+        const instance = await WebAssembly.instantiate(module, imports);
+
+        if (instance instanceof WebAssembly.Instance) {
+            return { instance, module };
+
+        } else {
+            return instance;
+        }
+    }
 }
 
-async function init(input) {
-	return initSync(input);
+function __wbg_get_imports() {
+    const imports = {};
+    imports.wbg = {};
+    imports.wbg.__wbg_buffer_609cc3eee51ed158 = function(arg0) {
+        const ret = arg0.buffer;
+        return ret;
+    };
+    imports.wbg.__wbg_call_7cccdd69e0791ae2 = function() { return handleError(function (arg0, arg1, arg2) {
+        const ret = arg0.call(arg1, arg2);
+        return ret;
+    }, arguments) };
+    imports.wbg.__wbg_call_833bed5770ea2041 = function() { return handleError(function (arg0, arg1, arg2, arg3) {
+        const ret = arg0.call(arg1, arg2, arg3);
+        return ret;
+    }, arguments) };
+    imports.wbg.__wbg_get_67b2ba62fc30de12 = function() { return handleError(function (arg0, arg1) {
+        const ret = Reflect.get(arg0, arg1);
+        return ret;
+    }, arguments) };
+    imports.wbg.__wbg_new_405e22f390576ce2 = function() {
+        const ret = new Object();
+        return ret;
+    };
+    imports.wbg.__wbg_new_78feb108b6472713 = function() {
+        const ret = new Array();
+        return ret;
+    };
+    imports.wbg.__wbg_new_9ffbe0a71eff35e3 = function() { return handleError(function (arg0, arg1) {
+        const ret = new URL(getStringFromWasm0(arg0, arg1));
+        return ret;
+    }, arguments) };
+    imports.wbg.__wbg_new_a12002a7f91c75be = function(arg0) {
+        const ret = new Uint8Array(arg0);
+        return ret;
+    };
+    imports.wbg.__wbg_newwithbase_161c299e7a34e2eb = function() { return handleError(function (arg0, arg1, arg2, arg3) {
+        const ret = new URL(getStringFromWasm0(arg0, arg1), getStringFromWasm0(arg2, arg3));
+        return ret;
+    }, arguments) };
+    imports.wbg.__wbg_newwithbyteoffsetandlength_d97e637ebe145a9a = function(arg0, arg1, arg2) {
+        const ret = new Uint8Array(arg0, arg1 >>> 0, arg2 >>> 0);
+        return ret;
+    };
+    imports.wbg.__wbg_scramtag_3a255d78b157986d = function(arg0) {
+        const ret = (0,_snippets_wasm_4b0f351a8e6eeb46_inline0_js__rspack_import_0.scramtag)();
+        const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
+        getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
+    };
+    imports.wbg.__wbg_set_bb8cecf6a62b9f46 = function() { return handleError(function (arg0, arg1, arg2) {
+        const ret = Reflect.set(arg0, arg1, arg2);
+        return ret;
+    }, arguments) };
+    imports.wbg.__wbg_toString_5285597960676b7b = function(arg0) {
+        const ret = arg0.toString();
+        return ret;
+    };
+    imports.wbg.__wbg_toString_c813bbd34d063839 = function(arg0) {
+        const ret = arg0.toString();
+        return ret;
+    };
+    imports.wbg.__wbindgen_boolean_get = function(arg0) {
+        const v = arg0;
+        const ret = typeof(v) === 'boolean' ? (v ? 1 : 0) : 2;
+        return ret;
+    };
+    imports.wbg.__wbindgen_error_new = function(arg0, arg1) {
+        const ret = new Error(getStringFromWasm0(arg0, arg1));
+        return ret;
+    };
+    imports.wbg.__wbindgen_init_externref_table = function() {
+        const table = wasm.__wbindgen_export_2;
+        const offset = table.grow(4);
+        table.set(0, undefined);
+        table.set(offset + 0, undefined);
+        table.set(offset + 1, null);
+        table.set(offset + 2, true);
+        table.set(offset + 3, false);
+        ;
+    };
+    imports.wbg.__wbindgen_is_function = function(arg0) {
+        const ret = typeof(arg0) === 'function';
+        return ret;
+    };
+    imports.wbg.__wbindgen_memory = function() {
+        const ret = wasm.memory;
+        return ret;
+    };
+    imports.wbg.__wbindgen_string_get = function(arg0, arg1) {
+        const obj = arg1;
+        const ret = typeof(obj) === 'string' ? obj : undefined;
+        var ptr1 = isLikeNone(ret) ? 0 : passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
+        getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
+    };
+    imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
+        const ret = getStringFromWasm0(arg0, arg1);
+        return ret;
+    };
+    imports.wbg.__wbindgen_throw = function(arg0, arg1) {
+        throw new Error(getStringFromWasm0(arg0, arg1));
+    };
+
+    return imports;
 }
+
+function __wbg_init_memory(imports, memory) {
+
+}
+
+function __wbg_finalize_init(instance, module) {
+    wasm = instance.exports;
+    __wbg_init.__wbindgen_wasm_module = module;
+    cachedDataViewMemory0 = null;
+    cachedUint8ArrayMemory0 = null;
+
+
+    wasm.__wbindgen_start();
+    return wasm;
+}
+
+function initSync(module) {
+    if (wasm !== undefined) return wasm;
+
+
+    if (typeof module !== 'undefined') {
+        if (Object.getPrototypeOf(module) === Object.prototype) {
+            ({module} = module)
+        } else {
+            console.warn('using deprecated parameters for `initSync()`; pass a single object instead')
+        }
+    }
+
+    const imports = __wbg_get_imports();
+
+    __wbg_init_memory(imports);
+
+    if (!(module instanceof WebAssembly.Module)) {
+        module = new WebAssembly.Module(module);
+    }
+
+    const instance = new WebAssembly.Instance(module, imports);
+
+    return __wbg_finalize_init(instance, module);
+}
+
+async function __wbg_init(module_or_path) {
+    if (wasm !== undefined) return wasm;
+
+
+    if (typeof module_or_path !== 'undefined') {
+        if (Object.getPrototypeOf(module_or_path) === Object.prototype) {
+            ({module_or_path} = module_or_path)
+        } else {
+            console.warn('using deprecated parameters for the initialization function; pass a single object instead')
+        }
+    }
+
+    if (typeof module_or_path === 'undefined') {
+        module_or_path = new URL('wasm_bg.wasm', "");
+    }
+    const imports = __wbg_get_imports();
+
+    if (typeof module_or_path === 'string' || (typeof Request === 'function' && module_or_path instanceof Request) || (typeof URL === 'function' && module_or_path instanceof URL)) {
+        module_or_path = fetch(module_or_path);
+    }
+
+    __wbg_init_memory(imports);
+
+    const { instance, module } = await __wbg_load(await module_or_path, imports);
+
+    return __wbg_finalize_init(instance, module);
+}
+
+
+/* export default */ const __rspack_default_export = (__wbg_init);
 
 
 },

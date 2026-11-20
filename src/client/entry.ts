@@ -53,4 +53,20 @@ export function loadAndHook(config: ScramjetConfig) {
 
 	Reflect.deleteProperty(globalThis, "WASM");
 	Reflect.deleteProperty(globalThis, "COOKIE");
+
+	const globalProto = Object.getPrototypeOf(globalThis);
+	for (const target of [globalThis, globalProto]) {
+		if (!target) continue;
+		for (const prop of ["setImmediate", "clearImmediate"] as const) {
+			const desc = Object.getOwnPropertyDescriptor(target, prop);
+			if (
+				desc &&
+				desc.configurable &&
+				typeof desc.value === "function" &&
+				!String(desc.value).includes("[native code]")
+			) {
+				Reflect.deleteProperty(target, prop);
+			}
+		}
+	}
 }

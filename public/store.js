@@ -7,9 +7,15 @@ const defaultBookmarks = [
 	{ id: "bm6", name: "Discord", url: "https://discord.com", icon: "🎙️", addedAt: Date.now() }
 ];
 
+const SPADE_VERSION = "v0.9.1";
+if (typeof window !== "undefined") {
+	window.SPADE_VERSION = SPADE_VERSION;
+	window.VEIL_VERSION = SPADE_VERSION;
+}
+
 const TAB_CLOAK_PRESETS = [
-	{ id: "default", name: "Google (Default)", title: "Google", icon: "https://www.google.com/favicon.ico" },
-	{ id: "google", name: "Google Search", title: "Google", icon: "https://www.google.com/favicon.ico" },
+	{ id: "spade", name: "SpadeOS (Default)", title: "SpadeOS", icon: "assets/spadeos-emblem.jpg" },
+	{ id: "google", name: "Google", title: "Google", icon: "https://www.google.com/favicon.ico" },
 	{ id: "classroom", name: "Google Classroom", title: "Classes", icon: "https://ssl.gstatic.com/classroom/favicon.png" },
 	{ id: "drive", name: "Google Drive", title: "My Drive - Google Drive", icon: "https://ssl.gstatic.com/docs/doclist/images/drive_2022q3_32dp.png" },
 	{ id: "docs", name: "Google Docs", title: "Google Docs", icon: "https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico" },
@@ -25,10 +31,6 @@ if (typeof window !== "undefined") {
 	window.TAB_CLOAK_PRESETS = TAB_CLOAK_PRESETS;
 }
 
-const getLocalWisp = () => {
-	return (typeof WISP_URL !== "undefined" ? WISP_URL : ((typeof window !== "undefined" && window.WISP_URL) || "wss://fern.best/wisp/"));
-};
-
 const getLocalBare = () => {
 	if (typeof location !== "undefined" && location.host) {
 		return location.origin + "/bare/";
@@ -38,14 +40,14 @@ const getLocalBare = () => {
 
 const defaultWisp = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.wispurl) ||
 	(typeof window !== "undefined" && window._CONFIG && window._CONFIG.wispurl) ||
-	(typeof WISP_URL !== "undefined" ? WISP_URL : "wss://fern.best/wisp/");
+	(typeof WISP_URL !== "undefined" ? WISP_URL : ((typeof window !== "undefined" && window.WISP_URL) || "wss://fern.best/wisp/"));
 
 const defaultBare = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.bareurl) ||
 	(typeof window !== "undefined" && window._CONFIG && window._CONFIG.bareurl) ||
 	getLocalBare();
 
 const defaultNotes = [
-	{ id: "note_1", title: "Welcome to Google Workspace", content: "# Google Workspace\n\nWelcome to your workspace environment.\n\nFeatures:\n- Multi-window desktop manager\n- Onyx Web Browser with high-speed browsing engine\n- Tab Cloaking & disguise presets (Google, Classroom, Drive, Docs, Canvas, Desmos, etc.)\n- Blob & About:blank Stealth\n- Integrated Search (Google, DuckDuckGo, Bing, Brave)\n- Games, Movies, Vault & Chat", updatedAt: Date.now() }
+	{ id: "note_1", title: "Welcome to SpadeOS", content: "# SpadeOS\n\nWelcome to your web desktop environment.\n\nFeatures:\n- Multi-window desktop manager with SpadeOS Snap\n- Onyx Web Browser with multi-tab workspace\n- Tab Cloaking & disguise presets (Google, Classroom, Drive, Docs, Canvas, Desmos, etc.)\n- Blob & About:blank Stealth\n- Integrated Search (Google, DuckDuckGo, Bing, Brave)\n- Games, Movies, Vault, Music, AI & Chat", updatedAt: Date.now() }
 ];
 
 try {
@@ -62,13 +64,13 @@ try {
 				isValid = false;
 			}
 			if (!isValid) {
-				console.warn("[VeilOS Store] Found corrupted or incompatible settings in localStorage, resetting key.");
+				console.warn("[SpadeOS Store] Found corrupted or incompatible settings in localStorage, resetting key.");
 				localStorage.removeItem("settings");
 			}
 		}
 	}
 } catch (e) {
-	console.warn("[VeilOS Store] Could not access localStorage:", e);
+	console.warn("[SpadeOS Store] Could not access localStorage:", e);
 }
 
 const initialSettings = {
@@ -78,7 +80,7 @@ const initialSettings = {
 	proxy: "",
 	transport: "/epoxy/index.mjs",
 	searchEngine: "google",
-	tabCloak: "google",
+	tabCloak: "spade",
 	customCloakTitle: "",
 	customCloakIcon: "",
 	autoAboutBlank: false,
@@ -91,7 +93,7 @@ const initialSettings = {
 	wallpaper: "assets/background.jpg",
 	accentColor: "indigo",
 	notes: defaultNotes,
-	osUsername: "Veil User",
+	osUsername: "Spade User",
 	dockPosition: "bottom",
 	soundEffects: true,
 	desktopWidgets: true
@@ -107,7 +109,7 @@ try {
 		store = initialSettings;
 	}
 } catch (storeErr) {
-	console.error("[VeilOS Store] Error during $store initialization, clearing storage and falling back:", storeErr);
+	console.error("[SpadeOS Store] Error during $store initialization, clearing storage and falling back:", storeErr);
 	try {
 		if (typeof localStorage !== "undefined") {
 			localStorage.removeItem("settings");
@@ -123,19 +125,23 @@ try {
 			store = initialSettings;
 		}
 	} catch (retryErr) {
-		console.error("[VeilOS Store] Retry failed, using reactive or plain fallback:", retryErr);
+		console.error("[SpadeOS Store] Retry failed, using reactive or plain fallback:", retryErr);
 		store = (typeof $state === "function") ? $state(initialSettings) : initialSettings;
 	}
 }
 
-store.wispurl = defaultWisp;
-store.bareurl = defaultBare;
+if (!store.wispurl) {
+	store.wispurl = defaultWisp;
+}
+if (!store.bareurl) {
+	store.bareurl = defaultBare;
+}
 
 if (!store.searchEngine) {
 	store.searchEngine = "google";
 }
 if (!store.tabCloak || store.tabCloak === "default") {
-	store.tabCloak = "google";
+	store.tabCloak = "spade";
 }
 if (store.autoAboutBlank === undefined) {
 	store.autoAboutBlank = false;
@@ -144,32 +150,49 @@ if (store.autoAboutBlank === undefined) {
 if (!store.bookmarks || !Array.isArray(store.bookmarks) || store.bookmarks.length === 0) {
 	store.bookmarks = defaultBookmarks;
 }
-if (!store.theme || store.theme === "halloween" || store.theme === "christmas" || store.theme === "jolly" || store.theme === "spooky") {
+
+try {
+	const migrated = localStorage.getItem("spade_clean_migrated_v1");
+	if (!migrated) {
+		store.theme = "default";
+		store.wallpaper = "assets/background.jpg";
+		store.accentColor = "indigo";
+		if (!store.osUsername || store.osUsername === "Veil User") {
+			store.osUsername = "Spade User";
+		}
+		if (!store.tabCloak || store.tabCloak === "google") {
+			store.tabCloak = "spade";
+		}
+		localStorage.setItem("spade_clean_migrated_v1", "true");
+	}
+} catch (e) {}
+
+if (!store.theme || store.theme === "vice" || store.theme === "leonida" || store.theme === "halloween" || store.theme === "christmas" || store.theme === "jolly" || store.theme === "spooky") {
 	store.theme = "default";
 }
-if (!store.wallpaper || store.wallpaper === "assets/christmas.jpg" || store.wallpaper === "assets/halloween.jpg") {
+if (!store.wallpaper || store.wallpaper === "assets/spadeos-gta6-wallpaper.jpg" || store.wallpaper === "assets/spadeos-lock-backdrop.jpg" || store.wallpaper === "assets/christmas.jpg" || store.wallpaper === "assets/halloween.jpg") {
 	store.wallpaper = "assets/background.jpg";
 }
-if (!store.accentColor || store.accentColor === "orange" || store.accentColor === "red") {
+if (!store.accentColor || store.accentColor === "vice" || store.accentColor === "orange" || store.accentColor === "red") {
 	store.accentColor = "indigo";
 }
 
 try {
-	const curSavedTheme = localStorage.getItem("veil_user_theme");
-	if (curSavedTheme === "christmas" || curSavedTheme === "jolly" || curSavedTheme === "halloween" || curSavedTheme === "spooky") {
-		localStorage.setItem("veil_user_theme", "default");
+	const curSavedTheme = localStorage.getItem("spade_user_theme") || localStorage.getItem("veil_user_theme");
+	if (curSavedTheme === "vice" || curSavedTheme === "leonida" || curSavedTheme === "christmas" || curSavedTheme === "jolly" || curSavedTheme === "halloween" || curSavedTheme === "spooky") {
+		localStorage.setItem("spade_user_theme", "default");
 	}
 } catch (e) {}
 
 // Global Tab Cloak Helper
 function applyTabCloak(presetId, customTitle, customIcon) {
-	const presetKey = presetId || store.tabCloak || "google";
-	let title = "Google";
-	let icon = "https://www.google.com/favicon.ico";
+	const presetKey = presetId || store.tabCloak || "spade";
+	let title = "SpadeOS";
+	let icon = "assets/spadeos-emblem.jpg";
 
 	if (presetKey === "custom") {
-		title = customTitle !== undefined ? customTitle : (store.customCloakTitle || "Google");
-		icon = customIcon !== undefined ? customIcon : (store.customCloakIcon || "https://www.google.com/favicon.ico");
+		title = customTitle !== undefined ? customTitle : (store.customCloakTitle || "SpadeOS");
+		icon = customIcon !== undefined ? customIcon : (store.customCloakIcon || "assets/spadeos-emblem.jpg");
 	} else {
 		const found = TAB_CLOAK_PRESETS.find(p => p.id === presetKey);
 		if (found) {
@@ -179,14 +202,14 @@ function applyTabCloak(presetId, customTitle, customIcon) {
 	}
 
 	if (typeof document !== "undefined") {
-		document.title = title || "Google";
+		document.title = title || "SpadeOS";
 		let link = document.querySelector("link[rel*='icon']");
 		if (!link) {
 			link = document.createElement("link");
 			link.rel = "icon";
 			document.head.appendChild(link);
 		}
-		link.href = icon || "https://www.google.com/favicon.ico";
+		link.href = icon || "assets/spadeos-emblem.jpg";
 	}
 	return { title, icon };
 }
@@ -215,12 +238,12 @@ function openAboutBlankCloak(targetUrl) {
 	<link rel="icon" href="${cloakInfo.icon || "https://ssl.gstatic.com/classroom/favicon.png"}">
 	<style>
 		* { box-sizing: border-box; }
-		html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #050505; }
+		html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #09090b; }
 		iframe { width: 100vw; height: 100vh; border: none; outline: none; margin: 0; padding: 0; display: block; }
 	</style>
 </head>
 <body>
-	<iframe name="veil_cloaked_frame" src="${frameUrl}" allow="fullscreen; autoplay; encrypted-media; camera; microphone; clipboard-read; clipboard-write; display-capture; geolocation"></iframe>
+	<iframe name="spade_cloaked_frame" src="${frameUrl}" allow="fullscreen; autoplay; encrypted-media; camera; microphone; clipboard-read; clipboard-write; display-capture; geolocation"></iframe>
 </body>
 </html>`);
 		doc.close();
@@ -247,12 +270,12 @@ function openBlobCloak(targetUrl) {
 	<link rel="icon" href="${cloakInfo.icon || "https://ssl.gstatic.com/docs/doclist/images/drive_2022q3_32dp.png"}">
 	<style>
 		* { box-sizing: border-box; }
-		html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #050505; }
+		html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #09090b; }
 		iframe { width: 100vw; height: 100vh; border: none; outline: none; margin: 0; padding: 0; display: block; }
 	</style>
 </head>
 <body>
-	<iframe name="veil_cloaked_frame" src="${frameUrl}" allow="fullscreen; autoplay; encrypted-media; camera; microphone; clipboard-read; clipboard-write; display-capture; geolocation"></iframe>
+	<iframe name="spade_cloaked_frame" src="${frameUrl}" allow="fullscreen; autoplay; encrypted-media; camera; microphone; clipboard-read; clipboard-write; display-capture; geolocation"></iframe>
 </body>
 </html>`;
 
@@ -277,10 +300,10 @@ if (typeof window !== "undefined") {
 	setTimeout(() => {
 		applyTabCloak(store.tabCloak, store.customCloakTitle, store.customCloakIcon);
 
-		const isAuto = Boolean(store.autoAboutBlank) || (typeof localStorage !== "undefined" && localStorage.getItem("veil_auto_about_blank") === "true");
+		const isAuto = Boolean(store.autoAboutBlank) || (typeof localStorage !== "undefined" && (localStorage.getItem("spade_auto_about_blank") === "true" || localStorage.getItem("veil_auto_about_blank") === "true"));
 		if (isAuto) {
 			const currentHref = window.location.href;
-			const isAlreadyInCloak = currentHref.includes("cloaked=1") || window.name === "veil_cloaked_frame" || currentHref.startsWith("blob:") || currentHref.includes("about:blank");
+			const isAlreadyInCloak = currentHref.includes("cloaked=1") || window.name === "spade_cloaked_frame" || window.name === "veil_cloaked_frame" || currentHref.startsWith("blob:") || currentHref.includes("about:blank");
 			if (!isAlreadyInCloak) {
 				try {
 					const cloaked = openAboutBlankCloak(currentHref);

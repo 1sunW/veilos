@@ -1,5 +1,5 @@
 (function () {
-	window.VeilAudio = {
+	window.SpadeAudio = {
 		ctx: null,
 		init() {
 			if (!this.ctx && typeof window !== "undefined") {
@@ -92,10 +92,13 @@
 			} catch (e) {}
 		}
 	};
+	window.VeilAudio = window.SpadeAudio;
 
-	window.VEIL_WALLPAPERS = [
-		{ id: "default", name: "Classic (Midnight Floral)", url: "assets/background.jpg" }
+	window.SPADE_WALLPAPERS = [
+		{ id: "default", name: "Midnight Floral", url: "assets/background.jpg" },
+		{ id: "gradient", name: "Obsidian Slate", url: "gradient" }
 	];
+	window.VEIL_WALLPAPERS = window.SPADE_WALLPAPERS;
 
 	function escapeHtml(str) {
 		return ("" + (str || "")).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -106,7 +109,7 @@
 		if (win.customState.rootEl) return win.customState.rootEl;
 
 		const root = document.createElement("div");
-		root.className = "w-full h-full bg-[#0a0c12] text-white font-sans text-xs flex flex-col overflow-hidden select-none";
+		root.className = "w-full h-full bg-[#09090b] text-neutral-100 font-sans text-xs flex flex-col overflow-hidden select-none";
 
 		let cpuUsage = 8;
 		let memUsage = 280;
@@ -120,52 +123,51 @@
 		function render() {
 			updateMetrics();
 			const windows = (osInstance && osInstance.windows) ? osInstance.windows : [];
-			const otherWins = windows.filter(w => w.id !== win.id);
 
 			root.innerHTML = `
-				<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 bg-neutral-900/60 border-b border-white/10 shrink-0">
-					<div class="p-2.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-1">
+				<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 bg-[#111118]/90 border-b border-white/10 shrink-0">
+					<div class="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col gap-1">
 						<div class="flex items-center justify-between text-neutral-400 text-[10px] font-semibold uppercase tracking-wider">
 							<span>CPU Usage</span>
 							<i class="fa-solid fa-microchip text-indigo-400"></i>
 						</div>
-						<div class="text-xl font-bold font-mono text-indigo-400">${cpuUsage}%</div>
+						<div class="text-xl font-bold font-mono tabular-nums text-indigo-400">${cpuUsage}%</div>
 						<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
 							<div class="h-full bg-gradient-to-r from-indigo-500 to-sky-400 transition-all duration-500" style="width: ${cpuUsage}%"></div>
 						</div>
 					</div>
 
-					<div class="p-2.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-1">
+					<div class="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col gap-1">
 						<div class="flex items-center justify-between text-neutral-400 text-[10px] font-semibold uppercase tracking-wider">
 							<span>Memory</span>
-							<i class="fa-solid fa-memory text-sky-400"></i>
+							<i class="fa-solid fa-memory text-emerald-400"></i>
 						</div>
-						<div class="text-xl font-bold font-mono text-sky-400">${memUsage} MB</div>
+						<div class="text-xl font-bold font-mono tabular-nums text-emerald-400">${memUsage} MB</div>
 						<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-							<div class="h-full bg-gradient-to-r from-sky-500 to-emerald-400 transition-all duration-500" style="width: ${Math.round((memUsage / 4096) * 100)}%"></div>
+							<div class="h-full bg-gradient-to-r from-emerald-400 to-sky-400 transition-all duration-500" style="width: ${Math.round((memUsage / 4096) * 100)}%"></div>
 						</div>
 					</div>
 
-					<div class="p-2.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-1">
+					<div class="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col gap-1">
 						<div class="flex items-center justify-between text-neutral-400 text-[10px] font-semibold uppercase tracking-wider">
 							<span>Active Processes</span>
-							<i class="fa-solid fa-layer-group text-emerald-400"></i>
+							<i class="fa-solid fa-layer-group text-amber-400"></i>
 						</div>
-						<div class="text-xl font-bold font-mono text-emerald-400">${windows.length}</div>
+						<div class="text-xl font-bold font-mono tabular-nums text-amber-400">${windows.length}</div>
 						<span class="text-[10px] text-neutral-400 truncate">Threads active</span>
 					</div>
 
-					<div class="p-2.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-1">
+					<div class="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col gap-1">
 						<div class="flex items-center justify-between text-neutral-400 text-[10px] font-semibold uppercase tracking-wider">
 							<span>Network Gateway</span>
-							<i class="fa-solid fa-network-wired text-purple-400"></i>
+							<i class="fa-solid fa-network-wired text-sky-400"></i>
 						</div>
-						<div class="text-xl font-bold font-mono text-purple-400">${(osInstance && osInstance.pingMs) ? osInstance.pingMs : 12}ms</div>
+						<div class="text-xl font-bold font-mono tabular-nums text-white">${(osInstance && osInstance.pingMs) ? osInstance.pingMs : 12}ms</div>
 						<span class="text-[10px] text-emerald-400 font-semibold truncate">BareMux Transport OK</span>
 					</div>
 				</div>
 
-				<div class="flex items-center justify-between px-4 py-2 bg-neutral-950/80 border-b border-white/10 text-neutral-400 text-[11px] font-semibold">
+				<div class="flex items-center justify-between px-4 py-2 bg-[#09090b]/90 border-b border-white/10 text-neutral-400 text-[11px] font-semibold">
 					<div class="w-2/5">Process Name</div>
 					<div class="w-1/6 text-center">PID</div>
 					<div class="w-1/6 text-center">Status</div>
@@ -179,21 +181,21 @@
 						const isFocus = osInstance && osInstance.activeWinId === w.id;
 						const pCpu = isThis ? 1.2 : Math.max(0.5, Math.round((cpuUsage / (windows.length || 1)) * 10) / 10);
 						return `
-							<div class="flex items-center justify-between px-3 py-2 rounded-xl ${isFocus ? 'bg-indigo-600/20 border border-indigo-500/30 text-white' : 'bg-white/5 hover:bg-white/10 border border-white/5 text-neutral-200'} transition-colors">
+							<div class="flex items-center justify-between px-3 py-2 rounded-xl ${isFocus ? 'bg-indigo-500/15 border border-indigo-500/40 text-white' : 'bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 text-neutral-200'} transition-colors">
 								<div class="w-2/5 flex items-center gap-2.5 truncate">
 									<i class="${w.iconClass || 'fa-solid fa-window-maximize'} ${w.iconColor || 'text-neutral-400'} text-xs shrink-0"></i>
 									<span class="font-medium truncate text-xs">${escapeHtml(w.title)}</span>
-									${isThis ? '<span class="text-[9px] bg-white/10 text-neutral-400 px-1.5 py-0.5 rounded-md font-mono">This</span>' : ''}
+									${isThis ? '<span class="text-[9px] bg-white/10 text-neutral-300 px-1.5 py-0.5 rounded-md font-mono shrink-0">This</span>' : ''}
 								</div>
-								<div class="w-1/6 text-center font-mono text-neutral-400 text-[11px]">#${1000 + idx * 12 + 4}</div>
+								<div class="w-1/6 text-center font-mono tabular-nums text-neutral-400 text-[11px]">#${1000 + idx * 12 + 4}</div>
 								<div class="w-1/6 text-center">
-									<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${w.isMinimized ? 'bg-amber-500/20 text-amber-400' : (isFocus ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400')}">
+									<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${w.isMinimized ? 'bg-amber-500/20 text-amber-300' : (isFocus ? 'bg-indigo-500/20 text-indigo-300' : 'bg-emerald-500/20 text-emerald-300')}">
 										${w.isMinimized ? 'Minimized' : (isFocus ? 'Focused' : 'Running')}
 									</span>
 								</div>
-								<div class="w-1/6 text-center font-mono text-neutral-300 text-xs">${pCpu}%</div>
+								<div class="w-1/6 text-center font-mono tabular-nums text-neutral-100 text-xs">${pCpu}%</div>
 								<div class="w-1/6 text-right">
-									<button data-win-id="${w.id}" class="end-task-btn px-2.5 py-1 rounded-lg bg-rose-600/25 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-[11px] font-semibold transition-all cursor-pointer">
+									<button data-win-id="${w.id}" class="end-task-btn px-2.5 py-1 rounded-lg bg-rose-600/25 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0">
 										End Task
 									</button>
 								</div>
@@ -202,9 +204,9 @@
 					}).join("")}
 				</div>
 
-				<div class="p-2.5 px-4 bg-neutral-950 border-t border-white/10 flex items-center justify-between text-[11px] text-neutral-400">
-					<span>VeilOS Process Supervisor v2.5</span>
-					<button id="refresh-task-mgr" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium flex items-center gap-1.5 cursor-pointer">
+				<div class="p-2.5 px-4 bg-[#111118] border-t border-white/10 flex items-center justify-between text-[11px] text-neutral-400">
+					<span>SpadeOS Process Supervisor v3.0</span>
+					<button id="refresh-task-mgr" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0">
 						<i class="fa-solid fa-rotate-right text-[10px]"></i>
 						<span>Refresh</span>
 					</button>
@@ -217,7 +219,7 @@
 					const targetId = btn.getAttribute("data-win-id");
 					if (targetId && osInstance) {
 						osInstance.closeWindow(targetId);
-						window.VeilAudio && window.VeilAudio.playPop();
+						window.SpadeAudio && window.SpadeAudio.playPop();
 						render();
 					}
 				});
@@ -226,7 +228,7 @@
 			const refBtn = root.querySelector("#refresh-task-mgr");
 			if (refBtn) {
 				refBtn.addEventListener("click", () => {
-					window.VeilAudio && window.VeilAudio.playClick();
+					window.SpadeAudio && window.SpadeAudio.playClick();
 					render();
 				});
 			}
@@ -244,11 +246,11 @@
 		if (win.customState.rootEl) return win.customState.rootEl;
 
 		const root = document.createElement("div");
-		root.className = "w-full h-full bg-[#090b10] text-[#e2e8f0] font-mono text-xs flex flex-col overflow-hidden select-text p-3";
+		root.className = "w-full h-full bg-[#09090b] text-neutral-100 font-mono text-xs flex flex-col overflow-hidden select-text p-3";
 
 		const historyLines = [
-			{ type: "sys", text: "VeilOS Terminal v2.5.0 (x86_64-veil-web)" },
-			{ type: "sys", text: "Type 'help' for available commands or 'veilfetch' for system info.\n" }
+			{ type: "sys", text: "SpadeOS Terminal v3.0.0 (x86_64-spade-linux)" },
+			{ type: "sys", text: "Type 'help' for available commands or 'spadefetch' for system info.\n" }
 		];
 
 		const outputContainer = document.createElement("div");
@@ -259,13 +261,13 @@
 			historyLines.forEach(item => {
 				const div = document.createElement("div");
 				if (item.type === "cmd") {
-					div.className = "flex items-center gap-2 text-emerald-400 font-semibold";
-					div.innerHTML = `<span class="text-neutral-500">user@veilos:~$</span> <span>${escapeHtml(item.text)}</span>`;
+					div.className = "flex items-center gap-2 text-sky-400 font-semibold";
+					div.innerHTML = `<span class="text-indigo-400">user@spadeos:~$</span> <span>${escapeHtml(item.text)}</span>`;
 				} else if (item.type === "sys") {
 					div.className = "text-neutral-400 whitespace-pre-wrap";
 					div.textContent = item.text;
 				} else if (item.type === "success") {
-					div.className = "text-sky-300 whitespace-pre-wrap";
+					div.className = "text-emerald-400 whitespace-pre-wrap";
 					div.textContent = item.text;
 				} else if (item.type === "warn") {
 					div.className = "text-amber-400 whitespace-pre-wrap";
@@ -282,7 +284,7 @@
 		const promptRow = document.createElement("div");
 		promptRow.className = "flex items-center gap-2 pt-2 border-t border-white/10 shrink-0 font-mono";
 		promptRow.innerHTML = `
-			<span class="text-emerald-400 font-bold shrink-0">user@veilos:~$</span>
+			<span class="text-indigo-400 font-bold shrink-0">user@spadeos:~$</span>
 			<input type="text" class="flex-1 bg-transparent text-white outline-none font-mono text-xs border-0 p-0" autocomplete="off" spellcheck="false" autofocus />
 		`;
 
@@ -305,8 +307,8 @@
 				historyLines.push({
 					type: "sys",
 					text: [
-						"VeilOS Shell Built-in Commands:",
-						"  veilfetch      Display system overview and ASCII logo",
+						"SpadeOS Shell Built-in Commands:",
+						"  spadefetch     Display system overview and ASCII logo",
 						"  open <app>     Launch an application (e.g. open browser, open ai, open games)",
 						"  ps             List all running window tasks",
 						"  kill <pid>     Terminate a running window",
@@ -317,24 +319,23 @@
 						"  echo <msg>     Echo a message to terminal"
 					].join("\n")
 				});
-			} else if (cmd === "veilfetch") {
+			} else if (cmd === "spadefetch" || cmd === "veilfetch") {
 				const active = (osInstance && osInstance.windows) ? osInstance.windows.length : 1;
 				historyLines.push({
 					type: "success",
 					text: [
-						"       __      __   _ _  ____   _____ ",
-						"       \\ \\    / /  (_) |/ __ \\ / ____|",
-						"        \\ \\  / /__  _| | |  | | (___  ",
-						"         \\ \\/ / _ \\| | | |  | |\\___ \\ ",
-						"          \\  /  __/| | | |__| |____) |",
-						"           \\/ \\___||_|_|\\____/|_____/ ",
-						"  OS: VeilOS Web Desktop Environment 2.5",
+						"   ____  ____   _    ____  _____ ___  ____  ",
+						"  / ___||  _ \\ / \\  |  _ \\| ____/ _ \\/ ___| ",
+						"  \\___ \\| |_) / _ \\ | | | |  _|| | | \\___ \\ ",
+						"   ___) |  __/ ___ \\| |_| | |__| |_| |___) |",
+						"  |____/|_| /_/   \\_\\____/|_____\\___/|____/ ",
+						"  OS: SpadeOS (v0.9.1)",
 						"  Host: WebAssembly & BareMux Worker Core",
-						"  Kernel: Linux x86_64 Browser Sandboxed",
+						"  Kernel: Linux x86_64 Sandboxed",
 						"  Uptime: Active Web Session",
 						"  Resolution: " + window.innerWidth + "x" + window.innerHeight,
 						"  Active Windows: " + active,
-						"  Theme: Obsidian Glass / Plus Jakarta Sans"
+						"  Theme: Midnight Obsidian"
 					].join("\n")
 				});
 			} else if (cmd === "open") {
@@ -356,7 +357,7 @@
 					const realId = appAliases[target];
 					if (realId && osInstance) {
 						osInstance.openApp(realId);
-						historyLines.push({ type: "success", text: `[VeilOS] Launched ${realId}` });
+						historyLines.push({ type: "success", text: `[SpadeOS] Launched ${realId}` });
 					} else {
 						historyLines.push({ type: "error", text: `Unknown app: '${target}'. Type 'help' for options.` });
 					}
@@ -385,7 +386,7 @@
 			} else if (cmd === "date") {
 				historyLines.push({ type: "sys", text: new Date().toString() });
 			} else if (cmd === "whoami") {
-				historyLines.push({ type: "success", text: "veil-user (admin - wheel, audio, video, scramjet)" });
+				historyLines.push({ type: "success", text: "spade-user (admin - wheel, audio, video, scramjet)" });
 			} else if (cmd === "clear") {
 				historyLines.length = 0;
 			} else if (cmd === "echo") {
@@ -431,21 +432,21 @@
 		if (win.customState.rootEl) return win.customState.rootEl;
 
 		const root = document.createElement("div");
-		root.className = "w-full h-full bg-[#0a0c14] text-white font-sans text-xs flex flex-col overflow-hidden select-none";
+		root.className = "w-full h-full bg-[#09090b] text-neutral-100 font-sans text-xs flex flex-col overflow-hidden select-none";
 
 		const filesData = [
 			{ name: "Onyx Browser.app", type: "app", appId: "browser", icon: "fa-solid fa-bolt", color: "text-sky-400", size: "4.8 MB" },
 			{ name: "SSV Movies.app", type: "app", appId: "movies", icon: "fa-solid fa-film", color: "text-rose-400", size: "5.5 MB" },
 			{ name: "Pulse Games.app", type: "app", appId: "games", icon: "fa-solid fa-gamepad", color: "text-violet-400", size: "12.0 MB" },
 			{ name: "Sonora.app", type: "app", appId: "music", icon: "fa-solid fa-music", color: "text-rose-400", size: "7.4 MB" },
-			{ name: "Scenario.app", type: "app", appId: "ai", icon: "fa-solid fa-brain", color: "text-purple-400", size: "8.2 MB" },
+			{ name: "Scenario.app", type: "app", appId: "ai", icon: "fa-solid fa-brain", color: "text-indigo-400", size: "8.2 MB" },
 			{ name: "Onyx Chat.app", type: "app", appId: "chat", icon: "fa-solid fa-message", color: "text-emerald-400", size: "3.1 MB" },
 			{ name: "Helium Vault.app", type: "app", appId: "vault", icon: "fa-solid fa-vault", color: "text-cyan-400", size: "6.4 MB" },
 			{ name: "Cloud Gaming.app", type: "app", appId: "cloudgaming", icon: "fa-solid fa-cloud", color: "text-teal-400", size: "2.1 MB" },
 			{ name: "Task Manager.app", type: "app", appId: "activity", icon: "fa-solid fa-chart-line", color: "text-rose-400", size: "1.4 MB" },
-			{ name: "Veil Terminal.app", type: "app", appId: "terminal", icon: "fa-solid fa-terminal", color: "text-emerald-400", size: "1.2 MB" },
-			{ name: "Ampler Launcher.app", type: "app", appId: "ampler", icon: "fa-solid fa-cube", color: "text-emerald-400", size: "3.2 MB" },
-			{ name: "Changelog & Credits.app", type: "app", appId: "changelog", icon: "fa-solid fa-scroll", color: "text-emerald-400", size: "850 KB" }
+			{ name: "Spade Terminal.app", type: "app", appId: "terminal", icon: "fa-solid fa-terminal", color: "text-emerald-400", size: "1.2 MB" },
+			{ name: "Ampler Launcher.app", type: "app", appId: "ampler", icon: "fa-solid fa-cube", color: "text-amber-400", size: "3.2 MB" },
+			{ name: "Changelog & Credits.app", type: "app", appId: "changelog", icon: "fa-solid fa-scroll", color: "text-indigo-400", size: "850 KB" }
 		];
 
 		let activeCategory = "all";
@@ -458,11 +459,11 @@
 			});
 
 			root.innerHTML = `
-				<div class="h-11 bg-neutral-900/60 border-b border-white/10 flex items-center justify-between px-4 shrink-0">
+				<div class="h-11 bg-[#111118]/90 border-b border-white/10 flex items-center justify-between px-4 shrink-0">
 					<div class="flex items-center gap-2 text-neutral-300 text-xs font-semibold">
 						<i class="fa-solid fa-hard-drive text-indigo-400"></i>
-						<span>VeilOS Virtual Storage</span>
-						<span class="text-neutral-500">/</span>
+						<span>SpadeOS Virtual Storage</span>
+						<span class="text-neutral-600">/</span>
 						<span class="text-white">Applications</span>
 					</div>
 					<div class="relative w-48">
@@ -473,17 +474,17 @@
 				</div>
 
 				<div class="flex-1 flex overflow-hidden">
-					<div class="w-48 bg-neutral-950/60 border-r border-white/10 p-3 flex flex-col gap-1 shrink-0">
+					<div class="w-48 bg-[#0d0d14] border-r border-white/10 p-3 flex flex-col gap-1 shrink-0">
 						<div class="text-[10px] uppercase font-bold text-neutral-500 px-2 py-1 tracking-wider">Navigation</div>
-						<button data-cat="all" class="cat-btn flex items-center gap-2.5 px-3 py-2 rounded-xl bg-indigo-600/25 text-white border border-indigo-500/30 font-medium cursor-pointer transition-colors text-left">
-							<i class="fa-solid fa-cubes w-4 text-sky-400"></i>
+						<button data-cat="all" class="cat-btn flex items-center gap-2.5 px-3 py-2 rounded-xl bg-indigo-500/20 text-white border border-indigo-500/40 font-medium cursor-pointer transition-colors text-left">
+							<i class="fa-solid fa-cubes w-4 text-indigo-400"></i>
 							<span>Applications</span>
 						</button>
-						<div class="mt-auto p-2.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-1 text-[11px] text-neutral-400">
+						<div class="mt-auto p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col gap-1 text-[11px] text-neutral-400">
 							<span class="font-semibold text-white">Drive Health</span>
-							<span>48.6 MB / 512 MB Used</span>
+							<span class="tabular-nums">48.6 MB / 512 MB Used</span>
 							<div class="w-full h-1 bg-white/10 rounded-full overflow-hidden mt-0.5">
-								<div class="h-full bg-indigo-500 w-[10%]"></div>
+								<div class="h-full bg-gradient-to-r from-indigo-500 to-sky-400 w-[10%]"></div>
 							</div>
 						</div>
 					</div>
@@ -492,13 +493,13 @@
 						<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
 							${filtered.map(f => `
 								<div data-app-id="${f.appId || ''}" data-file-name="${f.name}"
-									class="file-item p-3 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/5 hover:border-indigo-400/40 cursor-pointer flex flex-col items-center gap-2 transition-all group">
+									class="file-item p-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.09] active:scale-95 border border-white/5 hover:border-indigo-400/40 cursor-pointer flex flex-col items-center gap-2 transition-all group">
 									<div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-2xl ${f.color} group-hover:scale-110 transition-transform">
 										<i class="${f.icon}"></i>
 									</div>
 									<div class="text-center w-full">
 										<div class="font-medium text-white text-xs truncate w-full" title="${f.name}">${escapeHtml(f.name)}</div>
-										<div class="text-[10px] text-neutral-400 font-mono mt-0.5">${f.size}</div>
+										<div class="text-[10px] text-neutral-400 font-mono tabular-nums mt-0.5">${f.size}</div>
 									</div>
 								</div>
 							`).join("")}
@@ -519,6 +520,11 @@
 				searchInput.addEventListener("input", (e) => {
 					searchQuery = e.target.value;
 					render();
+					const nextInp = root.querySelector("#files-search");
+					if (nextInp) {
+						nextInp.focus();
+						nextInp.selectionStart = nextInp.selectionEnd = nextInp.value.length;
+					}
 				});
 			}
 
@@ -527,7 +533,7 @@
 					const appId = item.getAttribute("data-app-id");
 					if (appId && osInstance) {
 						osInstance.openApp(appId);
-						window.VeilAudio && window.VeilAudio.playPop();
+						window.SpadeAudio && window.SpadeAudio.playPop();
 					} else {
 						const fileName = item.getAttribute("data-file-name");
 						osInstance && osInstance.notify("File Opened", fileName, "fa-solid fa-file");
@@ -543,8 +549,29 @@
 
 	const CHANGELOG_DATA = [
 		{
+			era: "V0.9.x",
+			badge: "Current Era",
+			badgeClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+			versions: [
+				{
+					version: "V0.9.1",
+					title: "Midnight Obsidian & Floral Theme",
+					tag: "Clean Theme",
+					tagClass: "bg-sky-500/20 text-sky-300 border-sky-500/30",
+					desc: "Restored the clean Midnight Obsidian & Midnight Floral SpadeOS aesthetic with crisp indigo and sky accents."
+				},
+				{
+					version: "V0.9.0",
+					title: "Rename VeilOS to SpadeOS",
+					tag: "SpadeOS Rebrand",
+					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+					desc: "Rebranded the web operating system to SpadeOS with a custom brushed titanium Spade emblem, dark obsidian glass surfaces, indigo & sky accents, and spadefetch terminal support."
+				}
+			]
+		},
+		{
 			era: "V0.8.x",
-			badge: "Current Release",
+			badge: "Previous Era",
 			badgeClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
 			versions: [
 				{
@@ -566,7 +593,7 @@
 					title: "remove seasonal mode fully",
 					tag: "Clean OS Theme",
 					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
-					desc: "Fully removed all seasonal and holiday modes (Christmas and Halloween). Restored classic VeilOS sleek dark glass aesthetic with high-resolution cosmic wallpaper, reset default system styling, removed seasonal widgets and badges from top bar, dock, and browser."
+					desc: "Fully removed all seasonal and holiday modes (Christmas and Halloween). Restored classic dark glass aesthetic with high-resolution cosmic wallpaper, reset default system styling, removed seasonal widgets and badges from top bar, dock, and browser."
 				},
 				{
 					version: "V0.8.1",
@@ -580,13 +607,13 @@
 					title: "remove spooky add jolly (CHRISTMAS)",
 					tag: "Jolly Christmas Theme",
 					tagClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-					desc: "Transitioned VeilOS from Halloween to the festive Jolly Christmas season! Added holiday wallpaper with illuminated snow-covered pine trees and cozy cabin glow, falling crystalline snowflakes and golden light shimmer, warm crimson red and pine emerald UI accents, holiday sound ambiance, and updated themes across Onyx Browser, Movies, and Games."
+					desc: "Transitioned the OS from Halloween to the festive Jolly Christmas season with holiday wallpaper, falling crystalline snowflakes, golden light shimmer, crimson & emerald accents, and updated themes across Onyx Browser, Movies, and Games."
 				}
 			]
 		},
 		{
 			era: "V0.7.x",
-			badge: "Previous Release",
+			badge: "Community Era",
 			badgeClass: "bg-orange-500/20 text-orange-300 border-orange-500/30",
 			versions: [
 				{
@@ -594,7 +621,7 @@
 					title: "add a halloween theme to the site, and every prompt should be a changelog update",
 					tag: "Halloween Theme",
 					tagClass: "bg-orange-500/20 text-orange-300 border-orange-500/30",
-					desc: "Introduced official Halloween Spooky theme with glowing pumpkin amber and witch violet aesthetics, cinematic haunted forest wallpaper, floating spooky spectral ambiance, theme switcher in Preferences and Top Bar widget, Halloween styling across Movies and Games apps, and synchronized all prompt history into the system changelog."
+					desc: "Introduced official Halloween Spooky theme with glowing pumpkin amber and witch violet aesthetics, haunted forest wallpaper, theme switcher in Preferences, and synchronized prompt history into the system changelog."
 				},
 				{
 					version: "V0.7.0",
@@ -622,28 +649,28 @@
 					title: "change default wisp back to wss://fern.best/wisp/",
 					tag: "Networking",
 					tagClass: "bg-teal-500/20 text-teal-300 border-teal-500/30",
-					desc: "Reverted default Wisp transport proxy endpoint back to wss://fern.best/wisp/ across store settings, Epoxy client, and Scramjet bundle."
+					desc: "Reverted default Wisp transport endpoint back to wss://fern.best/wisp/ across store settings, Epoxy client, and Scramjet bundle."
 				},
 				{
 					version: "V0.6.4",
 					title: "Print the exact source code, unmodified, of ONLY these two Express route handlers from the server file: 1. GET /api/webstore/search 2. GET /api/webstore/download",
 					tag: "API Audit",
 					tagClass: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-					desc: "Extracted and verified Fastify server routes for /api/webstore/search and /api/webstore/download with Google Chrome Web Store scraper, CORS proxy, and CRX stream buffering."
+					desc: "Extracted and verified Fastify server routes for /api/webstore/search and /api/webstore/download with Google Chrome Web Store scraper, CORS support, and CRX stream buffering."
 				},
 				{
 					version: "V0.6.3",
 					title: "extensions?",
 					tag: "Extensions",
 					tagClass: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-					desc: "Integrated Sapphire Chrome Extensions runner with in-browser CRX installation, popup injection, onyx://extensions manager, and Chrome Web Store live search / download proxy with safeApiFetch fallback."
+					desc: "Integrated Sapphire Chrome Extensions runner with in-browser CRX installation, popup injection, onyx://extensions manager, and Chrome Web Store live search / download with safeApiFetch fallback."
 				},
 				{
 					version: "V0.6.2",
 					title: "Unproxy Scenario",
 					tag: "AI & Integrations",
 					tagClass: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-					desc: "Direct, high-performance unproxied embedding for Scenario AI assistant with native browser tab passthrough and media permissions."
+					desc: "Direct, high-performance embedding for Scenario AI assistant with native browser tab passthrough and media permissions."
 				},
 				{
 					version: "V0.6.1",
@@ -664,14 +691,14 @@
 					title: "Unproxy it",
 					tag: "Audio",
 					tagClass: "bg-rose-500/20 text-rose-300 border-rose-500/30",
-					desc: "Direct unproxied embedded playback for Sonora music engine with dedicated audio navigation and playback controls."
+					desc: "Direct embedded playback for Sonora music engine with dedicated audio navigation and playback controls."
 				},
 				{
 					version: "V0.5.9",
-					title: "Add Sonora, proxy it",
+					title: "Add Sonora",
 					tag: "Audio",
 					tagClass: "bg-rose-500/20 text-rose-300 border-rose-500/30",
-					desc: "Integrated Sonora high-fidelity music streaming application with Scramjet proxy pipeline."
+					desc: "Integrated Sonora high-fidelity music streaming application with Scramjet pipeline."
 				},
 				{
 					version: "V0.5.8",
@@ -685,7 +712,7 @@
 					title: "Add task manager, terminal, files",
 					tag: "System Apps",
 					tagClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-					desc: "Built-in Veil Task Manager with live process meters, interactive Veil Terminal shell, and Veil Files storage explorer."
+					desc: "Built-in Task Manager with live process meters, interactive Terminal shell, and Files storage explorer."
 				},
 				{
 					version: "V0.5.6",
@@ -706,7 +733,7 @@
 					title: "Login Icon change",
 					tag: "Lockscreen",
 					tagClass: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-					desc: "Polished user avatar styling on the VeilOS lock and login prompt."
+					desc: "Polished user avatar styling on the SpadeOS lock and login prompt."
 				},
 				{
 					version: "V0.5.3",
@@ -773,17 +800,17 @@
 				},
 				{
 					version: "V0.4.5",
-					title: "Fix more things (Cannot exit out of VeilOS launcher, Fix the white outline on everything in VeilOS preferences, fix auto about:blank cloak, bring back apps button but make it a menu with the apps not the hamburger menu, I should not be able to get to controls from time, make onyx browser home look like this, remove password from start, make onyx browser not start on launch)",
+					title: "Fix more things (launcher exit, settings outlines, auto about:blank, apps menu, Onyx home)",
 					tag: "Major Fixes",
 					tagClass: "bg-rose-500/20 text-rose-300 border-rose-500/30",
-					desc: "VeilOS launcher exit handling, settings outline refinements, auto about:blank cloak, standalone apps menu, controls isolation from time click, Onyx Browser home page, and start screen behavior."
+					desc: "Launcher exit handling, settings outline refinements, auto about:blank cloak, standalone apps menu, controls isolation from time click, Onyx Browser home page, and start screen behavior."
 				},
 				{
 					version: "V0.4.4",
-					title: "Fix a lot of things (Clicking the app button goes to Hamburger Menu, Clicking time takes you to controls, REMOVE the Proxy Settings, Hamburger Menu is a weird font (make it a good one), On the App Dock button in the Hamburger Menu add an arrow and make sure you don't have to close the hamburger menu to see the changes, Remove Tags and Descriptions in the Hamburger Menu, There is a white outline in settings around everything fix it so it's just what you select, The auto about:blank switch is weird fix it, make the tab system in Onyx Browser better, add a home on Onyx Browser, Start with a Login Screen each time with VeilOS, Remove fake CPU and RAM usage in Controls)",
+					title: "Major UI Overhaul (App Dock toggle, tab system, login screen, clean controls)",
 					tag: "Major Overhaul",
 					tagClass: "bg-violet-500/20 text-violet-300 border-violet-500/30",
-					desc: "App button linking to Hamburger Menu, clock opens controls, removed legacy proxy settings, improved menu typography, App Dock toggle arrow, removed tags/descriptions, settings selection outlines, about:blank cloak switch, improved Onyx tab system & home screen, startup login screen, and cleaned control metrics."
+					desc: "App button linking to Hamburger Menu, improved menu typography, App Dock toggle arrow, settings selection outlines, about:blank cloak switch, improved Onyx tab system & home screen, startup login screen, and cleaned control metrics."
 				},
 				{
 					version: "V0.4.3",
@@ -794,10 +821,10 @@
 				},
 				{
 					version: "V0.4.2",
-					title: "Remove OnyxAI and add OnyxAI through 3rd-Party Site",
+					title: "Update OnyxAI integration",
 					tag: "AI",
 					tagClass: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-					desc: "Transitioned internal AI proxying to cloud hosted web application."
+					desc: "Transitioned internal AI support to cloud hosted web application."
 				},
 				{
 					version: "V0.4.1",
@@ -899,10 +926,10 @@
 				},
 				{
 					version: "V0.2.9",
-					title: "Rename OnyxOS to VeilOS",
+					title: "Early Rebrand Era",
 					tag: "Branding",
 					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
-					desc: "Rebranded system to VeilOS Web Operating System with new branding guidelines."
+					desc: "First major branding iteration establishing the Web Operating System identity."
 				},
 				{
 					version: "V0.2.8",
@@ -934,10 +961,10 @@
 				},
 				{
 					version: "V0.2.4",
-					title: "Remove fake gateway proxy stuff in SSV",
+					title: "Remove fake gateway stuff in SSV",
 					tag: "Streaming",
 					tagClass: "bg-pink-500/20 text-pink-300 border-pink-500/30",
-					desc: "Eliminated mock gateway interfaces in favor of real Scramjet proxy streaming."
+					desc: "Eliminated mock gateway interfaces in favor of real Scramjet streaming."
 				},
 				{
 					version: "V0.2.3",
@@ -955,10 +982,10 @@
 				},
 				{
 					version: "V0.2.1",
-					title: "Proxy movies",
+					title: "Stream pipeline for movies",
 					tag: "Streaming",
 					tagClass: "bg-pink-500/20 text-pink-300 border-pink-500/30",
-					desc: "Implemented Scramjet Service Worker proxying for video stream embeds."
+					desc: "Implemented Scramjet Service Worker rewriting for video stream embeds."
 				}
 			]
 		},
@@ -1061,7 +1088,7 @@
 				{
 					version: "V0.0.8",
 					title: "Make default wisp (Fern)",
-					tag: "Proxy",
+					tag: "Transport",
 					tagClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
 					desc: "Initial deployment with remote Wisp server transport."
 				},
@@ -1112,7 +1139,7 @@
 					title: "Import Onyx and zoom out as a web OS",
 					tag: "Genesis",
 					tagClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-					desc: "Initial conception and architecture of Onyx/VeilOS as a full web-based operating system."
+					desc: "Initial conception and architecture of the web-based operating system."
 				}
 			]
 		}
@@ -1140,7 +1167,7 @@
 					name: "ZXS",
 					role: "Artificial Intelligence",
 					detail: "AI engine integration and backend logic.",
-					icon: "fa-solid fa-brain text-purple-400",
+					icon: "fa-solid fa-brain text-indigo-400",
 					badge: "AI"
 				},
 				{
@@ -1168,21 +1195,21 @@
 					name: "Material",
 					role: "UI & Aesthetics",
 					detail: "Scenario UI design and presentation styling.",
-					icon: "fa-solid fa-palette text-pink-400",
+					icon: "fa-solid fa-palette text-indigo-400",
 					badge: "Scenario UI"
 				},
 				{
 					name: "viktorius",
-					role: "Branding",
-					detail: "Name of VeilOS.",
-					icon: "fa-solid fa-signature text-indigo-400",
-					badge: "Name"
+					role: "Branding Heritage",
+					detail: "Original naming heritage behind SpadeOS.",
+					icon: "fa-solid fa-signature text-amber-400",
+					badge: "Heritage"
 				},
 				{
 					name: "Frogiee's Arcade",
 					role: "Cloud Gaming",
 					detail: "Cloud gaming integration and streaming mirrors.",
-					icon: "fa-solid fa-cloud text-teal-400",
+					icon: "fa-solid fa-cloud text-sky-400",
 					badge: "Cloud Gaming"
 				}
 			]
@@ -1190,24 +1217,24 @@
 		{
 			category: "Game Libraries & Game Archives",
 			members: [
-				{ name: "GN-Math", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "CKV", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Hydra Network", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "LupineVault", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "3kh0", role: "Arcade Mirror", detail: "Legendary web game archive and library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Daknux Zones", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Frogiee's Arcade", role: "Arcade Mirror", detail: "Curated game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Alexr's Worlds", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "CCPorted", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Google Classroom Games", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Seraph", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Elite Gamez", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "UGS", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Truffled", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Bloxcraft UBG", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "PeteZah", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Shuttle", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" },
-				{ name: "Marz Library", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-violet-400", badge: "Game Library" }
+				{ name: "GN-Math", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "CKV", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Hydra Network", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "LupineVault", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "3kh0", role: "Arcade Mirror", detail: "Legendary web game archive and library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Daknux Zones", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Frogiee's Arcade", role: "Arcade Mirror", detail: "Curated game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Alexr's Worlds", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "CCPorted", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Google Classroom Games", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Seraph", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Elite Gamez", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "UGS", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Truffled", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Bloxcraft UBG", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "PeteZah", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Shuttle", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" },
+				{ name: "Marz Library", role: "Arcade Mirror", detail: "Community game library provider.", icon: "fa-solid fa-gamepad text-indigo-400", badge: "Game Library" }
 			]
 		}
 	];
@@ -1219,7 +1246,7 @@
 		if (!win.customState) win.customState = {};
 
 		const root = document.createElement("div");
-		root.className = "w-full h-full flex flex-col bg-[#07080d] text-white select-text font-sans overflow-hidden";
+		root.className = "w-full h-full flex flex-col bg-[#09090b] text-neutral-100 select-text font-sans overflow-hidden";
 
 		let currentTab = "changelog";
 		let selectedEra = "all";
@@ -1262,33 +1289,32 @@
 			const filteredEras = getFilteredEras();
 
 			root.innerHTML = `
-				<div class="h-14 bg-neutral-900/90 border-b border-white/10 px-4 flex items-center justify-between shrink-0 backdrop-blur-xl">
+				<div class="h-14 bg-[#111118]/90 border-b border-white/10 px-4 flex items-center justify-between shrink-0 backdrop-blur-xl">
 					<div class="flex items-center gap-3">
-						<div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white shadow-md">
+						<div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-sky-400 flex items-center justify-center text-white shadow-md">
 							<i class="fa-solid fa-scroll text-sm"></i>
 						</div>
 						<div class="flex flex-col">
 							<div class="flex items-center gap-2">
-								<span class="text-sm font-bold text-white tracking-tight">VeilOS Changelog & Credits</span>
-								<span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
-									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-									<span>v0.6.2</span>
+								<span class="text-sm font-bold text-white tracking-tight">SpadeOS Changelog & Credits</span>
+								<span class="px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+									v0.9.1
 								</span>
 							</div>
-							<span class="text-[10px] text-neutral-400">Complete release history from V0.0.1 to V0.6.2 &bull; ${totalVers} total versions</span>
+							<span class="text-[10px] text-neutral-400">Complete release history from V0.0.1 to V0.9.1 &bull; ${totalVers} total versions</span>
 						</div>
 					</div>
 
 					<div class="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
-						<button class="cl-nav-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${currentTab === 'changelog' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-white'}" data-tab="changelog">
+						<button class="cl-nav-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${currentTab === 'changelog' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-white'}" data-tab="changelog">
 							<i class="fa-solid fa-clock-rotate-left text-xs"></i>
 							<span>Changelog</span>
 						</button>
-						<button class="cl-nav-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${currentTab === 'credits' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-white'}" data-tab="credits">
+						<button class="cl-nav-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${currentTab === 'credits' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-white'}" data-tab="credits">
 							<i class="fa-solid fa-crown text-xs"></i>
 							<span>Credits</span>
 						</button>
-						<button class="cl-nav-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${currentTab === 'about' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-white'}" data-tab="about">
+						<button class="cl-nav-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${currentTab === 'about' ? 'bg-indigo-600 text-white shadow-sm' : 'text-neutral-400 hover:text-white'}" data-tab="about">
 							<i class="fa-solid fa-circle-info text-xs"></i>
 							<span>About</span>
 						</button>
@@ -1301,13 +1327,13 @@
 							<div class="relative flex-1">
 								<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-xs"></i>
 								<input id="cl-search" type="text" value="${escapeHtml(searchQuery)}" placeholder="Search versions, features, fixes..."
-									class="w-full pl-8 pr-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-400/50 transition-colors" />
+									class="w-full pl-8 pr-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500/60 transition-colors" />
 							</div>
 
 							<div class="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar shrink-0">
-								<button class="cl-era-btn px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-all ${selectedEra === 'all' ? 'bg-white/20 text-white border border-white/30' : 'bg-white/5 text-neutral-400 hover:text-white border border-transparent'}" data-era="all">All</button>
+								<button class="cl-era-btn px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 ${selectedEra === 'all' ? 'bg-white/20 text-white border border-white/30' : 'bg-white/5 text-neutral-400 hover:text-white border border-transparent'}" data-era="all">All</button>
 								${CHANGELOG_DATA.map(era => `
-									<button class="cl-era-btn px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-all whitespace-nowrap ${selectedEra === era.era ? 'bg-indigo-600 text-white border border-indigo-400/40 shadow-sm' : 'bg-white/5 text-neutral-400 hover:text-white border border-transparent'}" data-era="${era.era}">${era.era}</button>
+									<button class="cl-era-btn px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 ${selectedEra === era.era ? 'bg-indigo-600 text-white border border-indigo-400/40 shadow-sm' : 'bg-white/5 text-neutral-400 hover:text-white border border-transparent'}" data-era="${era.era}">${era.era}</button>
 								`).join("")}
 							</div>
 						</div>
@@ -1319,10 +1345,10 @@
 									<p class="text-sm">No updates match your search "${escapeHtml(searchQuery)}"</p>
 								</div>
 							` : filteredEras.map(era => `
-								<div class="bg-neutral-900/40 border border-white/10 rounded-3xl p-5 backdrop-blur-xl shadow-xl">
+								<div class="bg-[#111118]/80 border border-white/10 rounded-3xl p-5 backdrop-blur-xl shadow-xl">
 									<div class="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
 										<div class="flex items-center gap-2.5">
-											<div class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center font-bold text-white text-xs">
+											<div class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center font-bold text-white text-xs font-mono">
 												${era.era.replace(".x", "")}
 											</div>
 											<div>
@@ -1335,15 +1361,15 @@
 
 									<div class="space-y-3">
 										${era.versions.map(v => `
-											<div class="p-3.5 rounded-2xl bg-black/40 border border-white/5 hover:border-white/20 transition-all hover:bg-black/60 group">
+											<div class="p-3.5 rounded-2xl bg-black/40 border border-white/10 hover:border-indigo-500/40 transition-all hover:bg-black/60 group">
 												<div class="flex items-start justify-between gap-3">
 													<div class="flex items-center gap-2">
-														<span class="font-mono text-xs font-bold text-white px-2 py-0.5 rounded-md bg-white/10 border border-white/15">${v.version}</span>
+														<span class="font-mono tabular-nums text-xs font-bold text-white px-2 py-0.5 rounded-md bg-white/10 border border-white/15">${v.version}</span>
 														<h3 class="text-xs font-semibold text-neutral-100 group-hover:text-white transition-colors">${escapeHtml(v.title)}</h3>
 													</div>
 													<span class="px-2 py-0.5 rounded-full text-[9px] font-semibold border shrink-0 ${v.tagClass || 'bg-white/10 text-neutral-300 border-white/10'}">${v.tag}</span>
 												</div>
-												<p class="text-[11px] text-neutral-400 mt-2 leading-relaxed pl-1 border-l-2 border-indigo-500/40">${escapeHtml(v.desc)}</p>
+												<p class="text-[11px] text-neutral-400 mt-2 leading-relaxed">${escapeHtml(v.desc)}</p>
 											</div>
 										`).join("")}
 									</div>
@@ -1352,23 +1378,23 @@
 						</div>
 					` : currentTab === "credits" ? `
 						<div class="max-w-4xl mx-auto space-y-6">
-							<div class="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-teal-950/30 to-indigo-950/40 border border-emerald-500/25 shadow-xl text-center flex flex-col items-center gap-2">
-								<div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-2xl text-emerald-300 shadow-md">
+							<div class="p-6 rounded-3xl bg-gradient-to-r from-indigo-500/15 via-sky-500/10 to-indigo-500/15 border border-indigo-500/30 shadow-xl text-center flex flex-col items-center gap-2">
+								<div class="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-2xl text-amber-400 shadow-md">
 									<i class="fa-solid fa-crown"></i>
 								</div>
-								<h2 class="text-lg font-bold text-white tracking-tight">VeilOS Credits & Attributions</h2>
-								<p class="text-xs text-neutral-300 max-w-lg leading-relaxed">Recognizing the developers, open-source maintainers, and foundational technologies that power the VeilOS ecosystem.</p>
+								<h2 class="text-lg font-bold text-white tracking-wider uppercase">SpadeOS Credits & Attributions</h2>
+								<p class="text-xs text-neutral-300 max-w-lg leading-relaxed">Recognizing the developers, open-source maintainers, and foundational technologies that power the SpadeOS ecosystem.</p>
 							</div>
 
 							${CREDITS_DATA.map(sec => `
-								<div class="bg-neutral-900/40 border border-white/10 rounded-3xl p-5 backdrop-blur-xl shadow-xl">
+								<div class="bg-[#111118]/80 border border-white/10 rounded-3xl p-5 backdrop-blur-xl shadow-xl">
 									<div class="flex items-center gap-2 pb-3 mb-3 border-b border-white/10">
 										<span class="text-xs font-bold text-white uppercase tracking-wider">${sec.category}</span>
 										<span class="text-[10px] text-neutral-400">(${sec.members.length})</span>
 									</div>
 									<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 										${sec.members.map(m => `
-											<div class="p-4 rounded-2xl bg-black/40 border border-white/5 hover:border-white/20 transition-all flex flex-col justify-between gap-3">
+											<div class="p-4 rounded-2xl bg-black/40 border border-white/10 hover:border-indigo-500/35 transition-all flex flex-col justify-between gap-3">
 												<div class="flex items-start gap-3">
 													<div class="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-lg shrink-0">
 														<i class="${m.icon}"></i>
@@ -1376,7 +1402,7 @@
 													<div class="flex-1 min-w-0">
 														<div class="flex items-center justify-between gap-2">
 															<span class="text-xs font-bold text-white truncate">${m.name}</span>
-															<span class="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-white/10 text-neutral-300 border border-white/10">${m.badge}</span>
+															<span class="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-white/10 text-neutral-300 border border-white/10 shrink-0">${m.badge}</span>
 														</div>
 														<div class="text-[10px] text-indigo-400 font-medium">${m.role}</div>
 													</div>
@@ -1390,16 +1416,16 @@
 						</div>
 					` : `
 						<div class="max-w-2xl mx-auto space-y-4">
-							<div class="p-6 rounded-3xl bg-neutral-900/60 border border-white/10 shadow-2xl flex flex-col items-center text-center gap-3">
-								<div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-3xl text-white shadow-xl">
-									<i class="fa-solid fa-shapes"></i>
+							<div class="p-6 rounded-3xl bg-[#111118]/90 border border-white/10 shadow-2xl flex flex-col items-center text-center gap-3">
+								<div class="w-16 h-16 rounded-2xl overflow-hidden border border-indigo-400/40 shadow-xl">
+									<img src="assets/spadeos-emblem.jpg" alt="SpadeOS" class="w-full h-full object-cover" referrerpolicy="no-referrer" />
 								</div>
-								<h2 class="text-xl font-bold text-white">VeilOS Web Operating System</h2>
-								<p class="text-xs text-neutral-400 max-w-md leading-relaxed">
-									A privacy-focused web desktop operating system featuring an in-OS tabbed web browser, high-speed web engine, media vaults, games arcade, and Google disguise & cloaking.
+								<h2 class="text-2xl font-bold text-white uppercase tracking-wider">SpadeOS</h2>
+								<p class="text-xs text-neutral-300 max-w-md leading-relaxed">
+									A modern web desktop operating system featuring an in-OS tabbed web browser, high-speed web engine, media vaults, games arcade, and Google disguise &amp; cloaking.
 								</p>
 								<div class="flex items-center gap-2 mt-1">
-									<span class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Release v0.8.4</span>
+									<span class="px-3 py-1 rounded-full text-xs font-mono tabular-nums font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">Release v0.9.1</span>
 									<span class="px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-neutral-300 border border-white/10">MIT License</span>
 								</div>
 							</div>
@@ -1407,11 +1433,11 @@
 							<div class="p-5 rounded-3xl bg-black/40 border border-white/10 divide-y divide-white/5 text-xs">
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Operating System</span>
-									<span class="font-semibold text-white">VeilOS Web OS</span>
+									<span class="font-semibold text-white">SpadeOS</span>
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Current Build</span>
-									<span class="font-mono text-white">v0.8.4 (Preference Outlines)</span>
+									<span class="font-mono tabular-nums text-white">v0.9.1 (Midnight Obsidian)</span>
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Default Web Browser</span>
@@ -1427,11 +1453,11 @@
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Tab Cloaking</span>
-									<span class="font-semibold text-purple-400">Google, Classroom, Drive, Canvas, Desmos, Custom</span>
+									<span class="font-semibold text-amber-400">SpadeOS, Google, Classroom, Drive, Canvas, Desmos, Custom</span>
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Stealth Modes</span>
-									<span class="font-semibold text-teal-400">Disguised About:Blank & Blob Cloaks</span>
+									<span class="font-semibold text-sky-400">Disguised About:Blank &amp; Blob Cloaks</span>
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Developer</span>

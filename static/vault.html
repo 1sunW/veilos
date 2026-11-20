@@ -50,45 +50,45 @@
         }
     </style>
 </head>
-<body class="bg-[#090a12] text-slate-100 min-h-screen selection:bg-indigo-500 selection:text-white flex flex-col antialiased">
+<body class="bg-[#09090b] text-slate-100 min-h-screen selection:bg-indigo-500 selection:text-white flex flex-col antialiased">
 
-    <header class="sticky top-0 z-30 bg-[#0c0e18]/90 backdrop-blur-xl border-b border-white/10 px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xl">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500 via-indigo-600 to-cyan-400 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20 shrink-0">
+    <header class="sticky top-0 z-30 bg-[#111118]/90 backdrop-blur-xl border-b border-white/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+        <div class="flex items-center gap-3 shrink-0">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-sky-400 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20 shrink-0">
                 📺
             </div>
             <div>
                 <div class="flex items-center gap-2">
                     <h1 class="text-base font-bold text-white tracking-tight">Helium Vault</h1>
-                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Direct Stream</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-500/35">Direct Stream</span>
                 </div>
                 <p class="text-xs text-slate-400">Curated Movies, TV Shows, Anime & Direct Streams</p>
             </div>
         </div>
 
-        <div class="flex items-center gap-2 flex-1 max-w-xl">
-            <div class="relative flex-1">
+        <div class="flex items-center gap-2 flex-1 min-w-[260px] max-w-xl">
+            <div class="relative flex-1 min-w-[180px]">
                 <span class="absolute left-3.5 top-2.5 text-slate-400 text-sm">🔍</span>
                 <input id="searchInput" type="text" placeholder="Search by title, genre, synopsis..."
-                    class="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all">
+                    class="w-full min-w-[180px] bg-black/45 border border-white/10 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all">
                 <button id="clearSearchBtn" class="hidden absolute right-2.5 top-2.5 text-slate-400 hover:text-white text-xs w-4 h-4 rounded-full bg-white/10 items-center justify-center">✕</button>
             </div>
 
-            <select id="sortSelect" class="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer shrink-0">
+            <select id="sortSelect" class="bg-black/45 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer shrink-0 max-w-[130px] sm:max-w-[150px] truncate" title="Sort media library">
                 <option value="featured">✨ Featured</option>
-                <option value="rating">⭐ Highest Rated</option>
-                <option value="year-desc">📅 Newest Year</option>
+                <option value="rating">⭐ Top Rated</option>
+                <option value="year-desc">📅 Newest</option>
                 <option value="title">🔤 Title A-Z</option>
             </select>
         </div>
     </header>
 
-    <div class="bg-[#0e101c] border-b border-white/5 px-4 py-2.5 flex items-center justify-between gap-4 overflow-x-auto">
+    <div class="bg-[#14141d] border-b border-white/5 px-4 py-2.5 flex items-center justify-between gap-4 overflow-x-auto">
         <div class="flex items-center gap-1.5 shrink-0" id="categoryTabs">
-            <button data-cat="movies" class="cat-btn flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white shadow-md shadow-indigo-600/30 transition-all cursor-pointer">
+            <button data-cat="movies" class="cat-btn flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-md shadow-indigo-500/30 transition-all cursor-pointer">
                 <span>🎬</span>
                 <span>Movies</span>
-                <span id="badge-movies" class="px-1.5 py-0.2 rounded-full bg-black/30 text-[10px]">0</span>
+                <span id="badge-movies" class="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px]">0</span>
             </button>
             <button data-cat="tv" class="cat-btn flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer">
                 <span>📺</span>
@@ -122,7 +122,7 @@
         </div>
     </div>
 
-    <div class="px-4 py-2 bg-[#090a12]/60 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto text-xs" id="genreContainer">
+    <div class="px-4 py-2 bg-[#09090b]/70 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto text-xs" id="genreContainer">
         <span class="text-slate-500 font-medium shrink-0 mr-1">Filter:</span>
         <button data-genre="all" class="genre-btn px-2.5 py-1 rounded-lg font-medium bg-white/10 text-white cursor-pointer hover:bg-white/20 transition-all shrink-0">All</button>
     </div>
@@ -144,18 +144,18 @@
     </main>
 
     <div id="playerModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex flex-col p-2 md:p-6 items-center justify-center animate-in fade-in duration-200">
-        <div class="w-full max-w-6xl h-full max-h-[92vh] bg-[#0d0e19] border border-white/15 rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
+        <div class="w-full max-w-6xl h-full max-h-[92vh] bg-[#111118] border border-white/15 rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
             
-            <div class="px-4 py-3 bg-[#111322] border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
+            <div class="px-4 py-3 bg-[#14141d] border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
                 <div class="flex items-center gap-3 min-w-0">
-                    <div class="w-8 h-8 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-sm shrink-0">
+                    <div class="w-8 h-8 rounded-xl bg-indigo-500/25 border border-indigo-500/40 flex items-center justify-center text-sm shrink-0">
                         🎬
                     </div>
                     <div class="min-w-0">
                         <div class="flex items-center gap-2">
                             <h2 id="modalTitle" class="text-sm font-bold text-white truncate">Movie Title</h2>
                             <span id="modalYearBadge" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/10 text-slate-300">2024</span>
-                            <span id="modalPartBadge" class="hidden text-[10px] font-semibold px-2 py-0.2 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">Season 1</span>
+                            <span id="modalPartBadge" class="hidden text-[10px] font-semibold px-2 py-0.2 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-500/35">Season 1</span>
                         </div>
                         <p id="modalGenreText" class="text-[11px] text-slate-400 truncate">Action • Adventure</p>
                     </div>
@@ -163,7 +163,7 @@
 
                 <div class="flex items-center gap-2 shrink-0">
                     <div class="flex items-center bg-black/50 border border-white/10 rounded-lg p-0.5 text-[11px]">
-                        <button id="proxyDirectBtn" class="px-2.5 py-1 rounded font-medium bg-indigo-600 text-white transition-all">Direct</button>
+                        <button id="proxyDirectBtn" class="px-2.5 py-1 rounded font-bold bg-indigo-600 text-white transition-all">Direct</button>
                         <button id="proxyScramjetBtn" class="px-2.5 py-1 rounded font-medium text-slate-400 hover:text-white transition-all" title="Route via Scramjet Proxy">Proxy SW</button>
                     </div>
 
@@ -218,7 +218,7 @@
                     <p id="modalDescription" class="text-xs text-slate-300 line-clamp-2">Detailed synopsis of the movie...</p>
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
-                    <button id="launchFullBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-xs font-bold text-white shadow-md transition-all">
+                    <button id="launchFullBtn" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-md transition-all">
                         Fullscreen Player
                     </button>
                 </div>
@@ -336,14 +336,14 @@
             const genreContainer = document.getElementById('genreContainer');
             genreContainer.innerHTML = `
                 <span class="text-slate-500 font-medium shrink-0 mr-1">Filter:</span>
-                <button data-genre="all" class="genre-btn px-2.5 py-1 rounded-lg font-medium ${currentGenre === 'all' ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'} cursor-pointer transition-all shrink-0">All</button>
+                <button data-genre="all" class="genre-btn px-2.5 py-1 rounded-lg font-medium ${currentGenre === 'all' ? 'bg-indigo-600 text-white font-bold' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'} cursor-pointer transition-all shrink-0">All</button>
             `;
 
             Array.from(genresSet).sort().forEach(genre => {
                 const btn = document.createElement('button');
                 btn.dataset.genre = genre;
                 const isActive = currentGenre === genre;
-                btn.className = `genre-btn px-2.5 py-1 rounded-lg font-medium cursor-pointer transition-all shrink-0 ${isActive ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`;
+                btn.className = `genre-btn px-2.5 py-1 rounded-lg font-medium cursor-pointer transition-all shrink-0 ${isActive ? 'bg-indigo-600 text-white font-bold' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`;
                 btn.textContent = genre;
                 btn.onclick = () => {
                     currentGenre = genre;
@@ -630,9 +630,9 @@
                 b.className = 'px-2.5 py-1 rounded font-medium text-slate-400 hover:text-white transition-all';
             });
             if (currentProxyMode === 'direct') {
-                proxyDirectBtn.className = 'px-2.5 py-1 rounded font-medium bg-indigo-600 text-white transition-all';
+                proxyDirectBtn.className = 'px-2.5 py-1 rounded font-bold bg-indigo-600 text-white transition-all';
             } else if (currentProxyMode === 'scramjet') {
-                proxyScramjetBtn.className = 'px-2.5 py-1 rounded font-medium bg-indigo-600 text-white transition-all';
+                proxyScramjetBtn.className = 'px-2.5 py-1 rounded font-bold bg-indigo-600 text-white transition-all';
             }
         }
 
@@ -721,7 +721,7 @@
                 document.querySelectorAll('.cat-btn').forEach(b => {
                     b.className = 'cat-btn flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer';
                 });
-                btn.className = 'cat-btn flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white shadow-md shadow-indigo-600/30 transition-all cursor-pointer';
+                btn.className = 'cat-btn flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-md shadow-indigo-500/30 transition-all cursor-pointer';
 
                 updateGenrePills();
                 renderGrid();

@@ -15,4 +15,4 @@ Any static assets placed in `onyx-chat/` or `static/onyx-chat/` will automatical
 ```
 /onyx-chat/<filename>
 ```
-For example, if you upload `index.html` here, it can be viewed directly in VeilOS or in the browser at `/onyx-chat/` or `/onyx-chat/index.html`.
+For example, if you upload `index.html` here, it can be viewed directly in SpadeOS or in the browser at `/onyx-chat/` or `/onyx-chat/index.html`.

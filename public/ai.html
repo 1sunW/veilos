@@ -25,8 +25,8 @@
       font-family: 'JetBrains Mono', monospace !important;
     }
     body {
-      background-color: #09090d;
-      color: #e2e8f0;
+      background-color: #09090b;
+      color: #f8fafc;
       margin: 0;
       padding: 0;
       overflow: hidden;
@@ -41,14 +41,14 @@
       background: transparent;
     }
     ::-webkit-scrollbar-thumb {
-      background: #27272a;
+      background: #27273a;
       border-radius: 4px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: #3f3f46;
+      background: #6366f1;
     }
     .prose-dark {
-      color: #e2e8f0;
+      color: #f8f4f9;
       line-height: 1.65;
       font-size: 0.925rem;
     }
@@ -59,8 +59,8 @@
       margin-bottom: 0;
     }
     .prose-dark pre {
-      background: #0e0e13;
-      border: 1px solid #27272a;
+      background: #111118;
+      border: 1px solid #27273a;
       border-radius: 0.75rem;
       padding: 1rem;
       margin: 0.75rem 0;
@@ -68,8 +68,8 @@
       position: relative;
     }
     .prose-dark code:not(pre code) {
-      background: #1f1f26;
-      border: 1px solid #2e2e38;
+      background: #181825;
+      border: 1px solid #2e2e44;
       color: #38bdf8;
       padding: 0.15rem 0.4rem;
       border-radius: 0.375rem;
@@ -104,27 +104,27 @@
       margin: 0.75rem 0;
     }
     .prose-dark th, .prose-dark td {
-      border: 1px solid #27272a;
+      border: 1px solid #27273a;
       padding: 0.5rem 0.75rem;
       text-align: left;
     }
     .prose-dark th {
-      background: #18181f;
+      background: #14141d;
       font-weight: 600;
     }
   </style>
 </head>
-<body class="flex flex-col h-screen w-screen bg-[#09090d] text-slate-100 select-none">
+<body class="flex flex-col h-screen w-screen bg-[#09090b] text-slate-100 select-none">
 
-  <header class="h-14 bg-[#101017] border-b border-white/10 px-4 flex items-center justify-between shrink-0 shadow-md z-20">
+  <header class="h-14 bg-[#111118] border-b border-white/10 px-4 flex items-center justify-between shrink-0 shadow-md z-20">
     <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 text-sm">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-sky-400 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 text-sm">
         ✨
       </div>
       <div class="flex flex-col">
         <div class="flex items-center gap-2">
           <span class="font-bold text-sm text-white tracking-tight">Scenario</span>
-          <button id="openModelModalBtn" class="flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer group shadow-sm">
+          <button id="openModelModalBtn" class="flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/35 transition-all cursor-pointer group shadow-sm">
             <span id="headerModelBadge">GLM 5.3</span>
             <span class="text-[9px] text-indigo-400 group-hover:translate-y-0.5 transition-transform">▼</span>
           </button>
@@ -166,12 +166,12 @@
   <main id="chatContainer" class="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-5 max-w-4xl w-full mx-auto select-text">
     
     <div id="heroWelcome" class="flex flex-col items-center justify-center my-auto py-6 text-center select-none">
-      <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white text-3xl shadow-2xl shadow-indigo-500/30 mb-4 animate-bounce">
+      <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-500 to-sky-400 flex items-center justify-center text-white text-3xl shadow-2xl shadow-indigo-500/30 mb-4">
         🧠
       </div>
       <h2 class="text-2xl font-bold text-white mb-2">How can I assist you today?</h2>
-      <p class="text-xs text-neutral-400 max-w-md mb-6">
-        Connected to <span class="font-mono text-indigo-300">https://emis.zxs-is-very.cool/v1</span> • Active model: <span id="welcomeModelBadge" class="font-bold text-white bg-indigo-950/60 border border-indigo-500/40 px-2 py-0.5 rounded-md font-mono">GLM 5.3</span>
+      <p class="text-xs text-slate-400 max-w-md mb-6">
+        Connected to <span class="font-mono text-sky-400">https://emis.zxs-is-very.cool/v1</span> • Active model: <span id="welcomeModelBadge" class="font-bold text-white bg-indigo-500/20 border border-indigo-500/40 px-2 py-0.5 rounded-md font-mono">GLM 5.3</span>
       </p>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl text-left">
@@ -199,7 +199,7 @@
           <p class="text-[11px] text-neutral-400 group-hover:text-neutral-300">Analyze benchmarks, context limits, and coding strength.</p>
         </button>
 
-        <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Create a high-performance modern web application architecture for VeilOS.">
+        <button class="prompt-card p-3.5 rounded-2xl bg-[#14141d] hover:bg-[#1c1c28] border border-white/10 hover:border-indigo-500/50 transition-all group cursor-pointer" data-prompt="Create a high-performance modern web application architecture for SpadeOS.">
           <div class="flex items-center gap-2 text-xs font-bold text-white mb-1">
             <span>💡</span>
             <span>WebOS Architecture</span>
@@ -212,19 +212,19 @@
     <div id="messagesList" class="flex flex-col gap-4"></div>
 
     <div id="loadingIndicator" class="hidden flex items-start gap-3 mt-2">
-      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shrink-0 text-xs shadow-md">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-sky-400 flex items-center justify-center text-white shrink-0 text-xs shadow-md">
         🧠
       </div>
-      <div class="bg-[#14141d] border border-white/10 rounded-2xl p-4 flex items-center gap-2 text-xs text-neutral-300 shadow-md">
-        <span class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+      <div class="bg-[#14141d] border border-indigo-500/25 rounded-2xl p-4 flex items-center gap-2 text-xs text-neutral-200 shadow-md">
+        <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
         <span class="font-medium"><span id="generatingModelName">GLM 5.3</span> is generating response...</span>
       </div>
     </div>
   </main>
 
-  <footer class="p-4 bg-[#101017] border-t border-white/10 shrink-0">
+  <footer class="p-4 bg-[#111118] border-t border-white/10 shrink-0">
     <div class="max-w-4xl mx-auto flex flex-col gap-2">
-      <form id="chatForm" class="flex items-end gap-2 bg-[#161622] border border-white/10 focus-within:border-indigo-500/60 rounded-2xl p-2 transition-all shadow-xl">
+      <form id="chatForm" class="flex items-end gap-2 bg-[#181822] border border-white/10 focus-within:border-indigo-500/60 rounded-2xl p-2 transition-all shadow-xl">
         <textarea
           id="messageInput"
           rows="1"
@@ -235,17 +235,17 @@
         <button
           type="submit"
           id="sendBtn"
-          class="w-9 h-9 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white flex items-center justify-center text-sm font-bold shadow-md transition-transform hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none shrink-0"
+          class="w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center text-sm font-bold shadow-md transition-transform hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none shrink-0"
         >
           ▲
         </button>
       </form>
 
-      <div class="flex items-center justify-between text-[11px] text-neutral-400 px-2">
+      <div class="flex items-center justify-between text-[11px] text-slate-400 px-2">
         <div class="flex items-center gap-2">
-          <span>Active Model: <b id="activeModelLabel" class="text-white font-mono cursor-pointer hover:underline text-indigo-300" onclick="openModelCatalog()">glm-5.3</b></span>
+          <span>Active Model: <b id="activeModelLabel" class="font-mono cursor-pointer hover:underline text-indigo-400" onclick="openModelCatalog()">glm-5.3</b></span>
           <span>•</span>
-          <span>Base URL: <code class="text-indigo-400">https://emis.zxs-is-very.cool/v1</code></span>
+          <span>Base URL: <code class="text-sky-400">https://emis.zxs-is-very.cool/v1</code></span>
         </div>
         <div>
           <span>Press <b>Enter</b> to send, <b>Shift + Enter</b> for new line</span>
@@ -472,7 +472,7 @@
     });
 
     const PERSONA_PROMPTS = {
-      general: "You are Scenario, an intelligent, fast, and helpful assistant built into VeilOS. You assist with coding, web navigation, research, creative writing, and problem solving. Provide accurate, clear markdown formatted responses.",
+      general: "You are Scenario, an intelligent, fast, and helpful assistant built into SpadeOS. You assist with coding, web navigation, research, creative writing, and problem solving. Provide accurate, clear markdown formatted responses.",
       code: "You are an elite software engineer and coding assistant. Provide clean, secure, production-ready code with concise explanations, types, error handling, and best practices.",
       research: "You are an academic researcher and fact-based analyst. Break down complex topics into clear executive summaries, detailed analysis, and key takeaways with rigorous clarity.",
       creative: "You are a creative writer and storytelling companion. Write engaging, vivid, expressive, and compelling prose."

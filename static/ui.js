@@ -36,7 +36,7 @@ var store = (typeof window !== "undefined" && window.store) ||
 	(typeof store !== "undefined" ? store : null);
 
 if (!store) {
-	console.warn("[VeilOS UI] Global store not found, initializing fallback store");
+	console.warn("[SpadeOS UI] Global store not found, initializing fallback store");
 	var fallbackInitial = {
 		url: "https://google.com",
 		wispurl: (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.wispurl) ||
@@ -48,7 +48,7 @@ if (!store) {
 		proxy: "",
 		transport: "/epoxy/index.mjs",
 		searchEngine: "google",
-		tabCloak: "google",
+		tabCloak: "spade",
 		customCloakTitle: "",
 		customCloakIcon: "",
 		autoAboutBlank: false,
@@ -63,12 +63,13 @@ if (!store) {
 		history: [
 			{ id: "h1", name: "Google", url: "https://google.com", visitedAt: Date.now() - 3600000 }
 		],
+		theme: "default",
 		wallpaper: "assets/background.jpg",
 		accentColor: "indigo",
 		notes: [
-			{ id: "note_1", title: "Welcome to VeilOS", content: "# VeilOS Web Operating System\n\nWelcome to your new Web OS!", updatedAt: Date.now() }
+			{ id: "note_1", title: "Welcome to SpadeOS", content: "# SpadeOS\n\nWelcome to SpadeOS Web Operating System!", updatedAt: Date.now() }
 		],
-		osUsername: "Veil User",
+		osUsername: "Spade User",
 		dockPosition: "bottom"
 	};
 
@@ -130,30 +131,161 @@ const handleModalClose = (dialogEl) => {
 	window.closeSettingsModal();
 };
 
+const UI_SPADE_VERSION = (typeof window !== "undefined" && (window.SPADE_VERSION || window.VEIL_VERSION)) ||
+	(typeof SPADE_VERSION !== "undefined" ? SPADE_VERSION : "v0.9.1");
+if (typeof window !== "undefined") {
+	if (!window.SPADE_VERSION) window.SPADE_VERSION = UI_SPADE_VERSION;
+	if (!window.VEIL_VERSION) window.VEIL_VERSION = UI_SPADE_VERSION;
+}
+
+const DEFAULT_WISP_URL = (typeof _CONFIG !== "undefined" && _CONFIG && _CONFIG.wispurl) ||
+	(typeof window !== "undefined" && window._CONFIG && window._CONFIG.wispurl) ||
+	(typeof WISP_URL !== "undefined" ? WISP_URL : ((typeof window !== "undefined" && window.WISP_URL) || "wss://fern.best/wisp/"));
+
+const getLocalWispUrl = () => {
+	if (typeof location !== "undefined" && location.host) {
+		return (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wisp/";
+	}
+	return null;
+};
+
+const ensureTrailingSlash = (u) => {
+	if (!u) return u;
+	return u.endsWith("/") ? u : (u + "/");
+};
+
+let _localWispProbeCache = null;
+
+const probeWispEndpoint = (wsUrl, timeoutMs = 1500) => {
+	return new Promise((resolve) => {
+		if (typeof WebSocket === "undefined" || !wsUrl) return resolve(false);
+		let settled = false;
+		let ws = null;
+		const finish = (ok) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			try { if (ws) ws.close(); } catch (e) {}
+			resolve(ok);
+		};
+		const timer = setTimeout(() => finish(false), timeoutMs);
+		try {
+			ws = new WebSocket(wsUrl);
+			ws.binaryType = "arraybuffer";
+			ws.onmessage = (ev) => {
+				try {
+					if (ev.data && typeof ev.data.byteLength === "number" && ev.data.byteLength >= 5) {
+						const view = new Uint8Array(ev.data);
+						if ((view[0] === 0x03 || view[0] === 0x05) &&
+							view[1] === 0 && view[2] === 0 && view[3] === 0 && view[4] === 0) {
+							return finish(true);
+						}
+					}
+				} catch (e) {}
+				finish(false);
+			};
+			ws.onerror = () => finish(false);
+			ws.onclose = () => finish(false);
+		} catch (e) {
+			finish(false);
+		}
+	});
+};
+
+const checkLocalWispAvailable = async (forceProbe = false) => {
+	const localWisp = getLocalWispUrl();
+	if (!localWisp) return null;
+	if (forceProbe || !_localWispProbeCache || _localWispProbeCache.url !== localWisp) {
+		const okPromise = probeWispEndpoint(localWisp);
+		_localWispProbeCache = { url: localWisp, promise: okPromise };
+	}
+	const ok = await _localWispProbeCache.promise;
+	return ok ? localWisp : null;
+};
+
+const resolveWispUrl = async (preferredWisp, { forceProbe = false } = {}) => {
+	const fallback = ensureTrailingSlash(DEFAULT_WISP_URL || "wss://fern.best/wisp/");
+	const raw = preferredWisp || (typeof store !== "undefined" && store.wispurl) || fallback;
+	const normalizedRaw = ensureTrailingSlash(raw);
+	const localWisp = getLocalWispUrl();
+	const isDefaultFern = normalizedRaw === fallback || normalizedRaw === "wss://fern.best/wisp/";
+	const isLocalCandidate = Boolean(localWisp && normalizedRaw === localWisp);
+
+	if (isDefaultFern || isLocalCandidate) {
+		const answeringLocal = await checkLocalWispAvailable(forceProbe);
+		if (answeringLocal) {
+			return answeringLocal;
+		}
+		if (isLocalCandidate && typeof store !== "undefined" && store.wispurl && ensureTrailingSlash(store.wispurl) === localWisp) {
+			store.wispurl = fallback;
+		}
+		return fallback;
+	}
+	return normalizedRaw;
+};
+
+const getEffectiveBareUrl = () => {
+	if (typeof location !== "undefined" && location.host) {
+		return location.origin + "/bare/";
+	}
+	return "/bare/";
+};
+
 const applyTransport = async (transport, wispurl, bareurl) => {
 	if (!connection) return;
 	try {
 		if (transport === "/baremod/index.mjs") {
-			const bUrl = bareurl || store.bareurl || ((typeof location !== "undefined" && location.origin) ? (location.origin + "/bare/") : "/bare/");
+			const bUrl = bareurl || (typeof store !== "undefined" && store.bareurl) || getEffectiveBareUrl();
 			await connection.setTransport("/baremod/index.mjs", [bUrl]);
 		} else {
-			let targetWisp = wispurl || store.wispurl || (typeof WISP_URL !== "undefined" ? WISP_URL : ((typeof window !== "undefined" && window.WISP_URL) || "wss://fern.best/wisp/"));
-			if (targetWisp && !targetWisp.endsWith("/")) {
-				targetWisp += "/";
-			}
+			const targetWisp = await resolveWispUrl(wispurl);
 			await connection.setTransport(transport || "/epoxy/index.mjs", [{ wisp: targetWisp }]);
 		}
 	} catch (err) {
 		console.warn("Failed to set transport " + transport + ", falling back to Bare 3:", err);
 		try {
-			const fallbackBare = bareurl || store.bareurl || ((typeof location !== "undefined" && location.origin) ? (location.origin + "/bare/") : "/bare/");
+			const fallbackBare = bareurl || (typeof store !== "undefined" && store.bareurl) || getEffectiveBareUrl();
 			await connection.setTransport("/baremod/index.mjs", [fallbackBare]);
-			store.transport = "/baremod/index.mjs";
+			if (typeof store !== "undefined") {
+				store.transport = "/baremod/index.mjs";
+			}
 		} catch (fallbackErr) {
 			console.error("Fallback transport also failed:", fallbackErr);
 		}
 	}
 };
+
+const reconnectWispTransport = async (overrideWisp) => {
+	if (!connection) return false;
+	const targetWisp = overrideWisp
+		? ensureTrailingSlash(overrideWisp)
+		: await resolveWispUrl(typeof store !== "undefined" ? store.wispurl : null, { forceProbe: true });
+	try {
+		console.log("[Wisp] Reconnecting transport with target:", targetWisp);
+		await connection.setTransport("/epoxy/index.mjs", [{ wisp: targetWisp }]);
+		if (typeof store !== "undefined") {
+			store.transport = "/epoxy/index.mjs";
+		}
+		return true;
+	} catch (err) {
+		console.warn("[Wisp] Reconnection failed, falling back to Bare:", err);
+		try {
+			const fallbackBare = (typeof store !== "undefined" && store.bareurl) || getEffectiveBareUrl();
+			await connection.setTransport("/baremod/index.mjs", [fallbackBare]);
+			if (typeof store !== "undefined") {
+				store.transport = "/baremod/index.mjs";
+			}
+			return true;
+		} catch (fallbackErr) {
+			console.error("[Wisp] Reconnect fallback failed:", fallbackErr);
+			return false;
+		}
+	}
+};
+if (typeof window !== "undefined") {
+	window.applyTransport = applyTransport;
+	window.reconnectWispTransport = reconnectWispTransport;
+}
 
 function Config() {
 	this.cfgTab = "search";
@@ -163,11 +295,11 @@ function Config() {
     opacity: 1;
     
     &.cfg {
-      background: rgba(12, 14, 20, 0.96) !important;
-      color: #f1f5f9;
-      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      background: rgba(15, 15, 22, 0.96) !important;
+      color: #f4f4f5;
+      border: 1px solid rgba(99, 102, 241, 0.25) !important;
       border-radius: 24px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 36px rgba(99, 102, 241, 0.14);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
       padding: 24px;
@@ -193,10 +325,10 @@ function Config() {
     .selected-item, &.cfg .selected-item, dialog .selected-item, dialog button.selected-item {
       outline: 2px solid #ffffff !important;
       outline-offset: 2px !important;
-      border: 2px solid #ffffff !important;
-      background-color: rgba(255, 255, 255, 0.2) !important;
+      border: 2px solid #6366f1 !important;
+      background-color: rgba(99, 102, 241, 0.22) !important;
       color: #ffffff !important;
-      box-shadow: 0 0 16px rgba(255, 255, 255, 0.45) !important;
+      box-shadow: 0 0 18px rgba(99, 102, 241, 0.35) !important;
     }
 
     &::backdrop {
@@ -210,7 +342,7 @@ function Config() {
       justify-content: space-between;
       align-items: center;
       margin-bottom: 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       padding-bottom: 12px;
     }
 
@@ -218,8 +350,8 @@ function Config() {
       font-size: 1.15rem;
       font-weight: 700;
       letter-spacing: -0.025em;
-      color: #f8fafc;
-      font-family: "Inter", sans-serif;
+      color: #f4f4f5;
+      font-family: "Plus Jakarta Sans", sans-serif;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -242,7 +374,7 @@ function Config() {
       border-radius: 10px;
       font-size: 0.8rem;
       font-weight: 600;
-      color: #94a3b8;
+      color: #a1a1aa;
       background: transparent;
       border: none !important;
       outline: none !important;
@@ -255,9 +387,9 @@ function Config() {
     }
 
     .tab-pills button.active {
-      background: rgba(255, 255, 255, 0.12) !important;
+      background: rgba(99, 102, 241, 0.22) !important;
       outline: none !important;
-      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(99, 102, 241, 0.4) !important;
       color: #ffffff !important;
       box-shadow: none !important;
     }
@@ -279,7 +411,7 @@ function Config() {
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #94a3b8;
+      color: #a1a1aa;
       margin-bottom: 8px;
       font-weight: 700;
     }
@@ -296,7 +428,7 @@ function Config() {
       outline: none !important;
       background-color: rgba(255, 255, 255, 0.04);
       border-radius: 12px;
-      color: #cbd5e1;
+      color: #a1a1aa;
       padding: 10px 14px;
       font-size: 0.85rem;
       cursor: pointer;
@@ -309,16 +441,16 @@ function Config() {
     }
 
     .buttons button.active {
-      background-color: rgba(99, 102, 241, 0.25);
-      border: 1px solid rgba(129, 140, 248, 0.6) !important;
+      background-color: rgba(99, 102, 241, 0.24);
+      border: 1px solid rgba(99, 102, 241, 0.65) !important;
       outline: none !important;
       color: #ffffff;
-      box-shadow: 0 0 16px rgba(99, 102, 241, 0.2);
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.25);
     }
 
     .buttons button:hover:not(.active) {
       background-color: rgba(255, 255, 255, 0.08);
-      color: #f1f5f9;
+      color: #f4f4f5;
     }
 
     .input_row {
@@ -331,14 +463,14 @@ function Config() {
     .input_row label {
       font-size: 0.8rem;
       font-weight: 600;
-      color: #94a3b8;
+      color: #a1a1aa;
     }
 
     .input_row input {
-      background-color: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background-color: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 12px;
-      color: #f1f5f9;
+      color: #f4f4f5;
       outline: none !important;
       padding: 10px 12px;
       font-size: 0.85rem;
@@ -347,9 +479,9 @@ function Config() {
     }
 
     .input_row input:focus {
-      border-color: rgba(129, 140, 248, 0.5) !important;
-      box-shadow: 0 0 12px rgba(99, 102, 241, 0.2) !important;
-      background-color: rgba(0, 0, 0, 0.6);
+      border-color: rgba(99, 102, 241, 0.65) !important;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.25) !important;
+      background-color: rgba(0, 0, 0, 0.65);
       outline: none !important;
     }
 
@@ -358,7 +490,7 @@ function Config() {
       font-size: 0.75rem;
       color: #38bdf8;
       background-color: rgba(56, 189, 248, 0.08);
-      border: 1px solid rgba(56, 189, 248, 0.2);
+      border: 1px solid rgba(56, 189, 248, 0.25);
       padding: 10px 14px;
       border-radius: 12px;
       text-align: center;
@@ -366,13 +498,13 @@ function Config() {
     }
 
     .close-btn {
-      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      background: linear-gradient(135deg, #6366f1, #38bdf8);
       color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
       outline: none !important;
       border-radius: 12px;
       padding: 12px 24px;
-      font-weight: 600;
+      font-weight: 700;
       font-size: 0.9rem;
       cursor: pointer;
       transition: all 0.2s;
@@ -381,13 +513,13 @@ function Config() {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
     }
 
     .close-btn:hover {
-      background: linear-gradient(135deg, #4338ca, #4f46e5);
+      background: linear-gradient(135deg, #818cf8, #38bdf8);
       transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+      box-shadow: 0 6px 22px rgba(99, 102, 241, 0.45);
     }
 
     .close-btn:active {
@@ -408,15 +540,11 @@ function Config() {
         <div class="modal-header">
           <div class="modal-title">
             <i class="fa-solid fa-gear text-indigo-400"></i>
-            <span>VeilOS Preferences & Cloak</span>
+            <span>SpadeOS Preferences & Cloak</span>
           </div>
         </div>
 
         <div class="tab-pills">
-          <button class=${use(this.cfgTab, (t) => t === "theme" ? "active" : "")} on:click=${() => { this.cfgTab = "theme"; }}>
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
-            <span>Theme & Style</span>
-          </button>
           <button class=${use(this.cfgTab, (t) => t === "search" ? "active" : "")} on:click=${() => { this.cfgTab = "search"; }}>
             <i class="fa-solid fa-magnifying-glass"></i>
             <span>Search Engine</span>
@@ -428,60 +556,12 @@ function Config() {
         </div>
 
         ${use(this.cfgTab, (tab) => {
-					if (tab === "theme") {
-						const curTheme = (store.theme || "default").toLowerCase();
-						const themesList = [
-							{ id: "default", name: "Midnight Dark", icon: "🌌", wp: "assets/background.jpg", accent: "indigo", desc: "Classic sleek dark mode with high-resolution aesthetic floral wallpaper." },
-							{ id: "cyber", name: "Cyber Matrix", icon: "⚡", wp: "gradient", accent: "emerald", desc: "High-tech emerald neon gradients and terminal aesthetic." },
-							{ id: "crimson", name: "Deep Crimson", icon: "💎", wp: "gradient", accent: "rose", desc: "Refined frosted crimson red and obsidian styling." }
-						];
-						return html`
-              <div class="flex flex-col gap-3 mb-4 animate-fade">
-                <div class="flex items-center justify-between">
-                  <div class="section-title">System Theme & Appearance</div>
-                  <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-neutral-300">
-                    Active
-                  </span>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-                  ${themesList.map(th => {
-										const isSel = curTheme === th.id;
-										return html`
-                      <button
-                        class:selected-item=${isSel}
-                        class=${isSel
-                          ? "selected-item p-3 rounded-2xl border-2 border-white text-left flex flex-col gap-1.5 cursor-pointer transition-all bg-white/20 text-white shadow-lg ring-2 ring-white ring-offset-2 ring-offset-[#0c0e14]"
-                          : "p-3 rounded-2xl border border-white/10 text-left flex flex-col gap-1.5 cursor-pointer transition-all bg-white/5 text-neutral-300 hover:bg-white/10 hover:text-white"
-                        }
-                        on:click=${() => {
-													store.theme = th.id;
-													store.wallpaper = th.wp;
-													store.accentColor = th.accent;
-													try { localStorage.setItem("veil_user_theme", th.id); } catch(e){}
-													this.notify("Theme Changed", `Applied ${th.name}`, "fa-solid fa-wand-magic-sparkles");
-													this.windows = [...this.windows];
-													this.cfgTab = "theme";
-												}}>
-                        <div class="flex items-center justify-between">
-                          <div class="flex items-center gap-2">
-                            <span class="text-base">${th.icon}</span>
-                            <span class="text-xs font-bold text-white">${th.name}</span>
-                          </div>
-                          ${isSel ? html`<i class="fa-solid fa-circle-check text-white text-xs"></i>` : null}
-                        </div>
-                        <p class="text-[11px] text-neutral-400 leading-snug">${th.desc}</p>
-                      </button>
-                    `;
-									})}
-                </div>
-              </div>
-            `;
-					} else if (tab === "search") {
+					if (tab === "search") {
 						const curEng = (store.searchEngine || "google").toLowerCase();
 						const engines = [
-							{ id: "google", name: "Google", icon: "fa-brands fa-google text-blue-400" },
+							{ id: "google", name: "Google", icon: "fa-brands fa-google text-emerald-400" },
 							{ id: "duckduckgo", name: "DuckDuckGo", icon: "fa-solid fa-shield-halved text-amber-400" },
-							{ id: "bing", name: "Bing", icon: "fa-brands fa-microsoft text-cyan-400" },
+							{ id: "bing", name: "Bing", icon: "fa-brands fa-microsoft text-sky-400" },
 							{ id: "brave", name: "Brave Search", icon: "fa-solid fa-fire text-orange-400" }
 						];
 						return html`
@@ -494,19 +574,19 @@ function Config() {
                       <button
                         class:selected-item=${isSel}
                         class=${isSel
-                          ? "selected-item p-3 rounded-xl transition-all flex items-center justify-between cursor-pointer text-xs font-semibold bg-white/20 border-2 border-white text-white shadow-lg ring-2 ring-white ring-offset-2 ring-offset-[#0c0e14]"
+                          ? "selected-item p-3 rounded-xl transition-all flex items-center justify-between cursor-pointer text-xs font-semibold bg-indigo-500/20 border-2 border-indigo-400 text-white shadow-lg"
                           : "p-3 rounded-xl transition-all flex items-center justify-between cursor-pointer text-xs font-semibold bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white"
                         }
                         on:click=${() => {
 													store.searchEngine = eng.id;
-													try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){}
+													try { localStorage.setItem("spade_user_picked_engine", "true"); } catch(e){}
 													this.cfgTab = "search";
 												}}>
                         <div class="flex items-center gap-2.5">
                           <i class="${eng.icon} text-sm"></i>
                           <span>${eng.name}</span>
                         </div>
-                        ${isSel ? html`<i class="fa-solid fa-circle-check text-white text-xs"></i>` : null}
+                        ${isSel ? html`<i class="fa-solid fa-circle-check text-indigo-300 text-xs"></i>` : null}
                       </button>
                     `;
 									})}
@@ -518,25 +598,26 @@ function Config() {
             `;
 					} else {
 						const presets = window.TAB_CLOAK_PRESETS || [
-							{ id: "default", name: "Google (Default)", title: "Google", icon: "https://www.google.com/favicon.ico" },
+							{ id: "spade", name: "SpadeOS (Default)", title: "SpadeOS", icon: "assets/spadeos-emblem.jpg" },
+							{ id: "google", name: "Google", title: "Google", icon: "https://www.google.com/favicon.ico" },
 							{ id: "classroom", name: "Google Classroom", title: "Classes", icon: "https://ssl.gstatic.com/classroom/favicon.png" },
 							{ id: "drive", name: "Google Drive", title: "My Drive - Google Drive", icon: "https://ssl.gstatic.com/docs/doclist/images/drive_2022q3_32dp.png" },
 							{ id: "docs", name: "Google Docs", title: "Google Docs", icon: "https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico" },
-							{ id: "google", name: "Google Search", title: "Google", icon: "https://www.google.com/favicon.ico" },
 							{ id: "canvas", name: "Canvas LMS", title: "Canvas", icon: "https://du11hjcvx0uqb.cloudfront.net/dist/images/favicon-e10d657a73.ico" },
 							{ id: "desmos", name: "Desmos Calculator", title: "Desmos | Graphing Calculator", icon: "https://www.desmos.com/favicon.ico" }
 						];
+						const curCloak = (!store.tabCloak || store.tabCloak === "default") ? "spade" : store.tabCloak;
 						return html`
               <div class="flex flex-col gap-3 mb-4 animate-fade">
                 <div class="section-title">Tab Cloak Presets</div>
                 <div class="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto custom-scrollbar p-1">
                   ${presets.map(p => {
-										const isSel = (store.tabCloak || "google") === p.id || (p.id === "default" && (store.tabCloak === "google" || !store.tabCloak));
+										const isSel = curCloak === p.id;
 										return html`
                     <button
                       class:selected-item=${isSel}
                       class=${isSel
-                        ? "selected-item p-2 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer text-xs bg-white/20 border-2 border-white text-white font-semibold shadow-lg ring-2 ring-white ring-offset-2 ring-offset-[#0c0e14]"
+                        ? "selected-item p-2 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer text-xs bg-indigo-500/20 border-2 border-indigo-400 text-white font-semibold shadow-lg"
                         : "p-2 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer text-xs bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white"
                       }
                       on:click=${() => {
@@ -545,10 +626,10 @@ function Config() {
 												this.cfgTab = "cloak";
 											}}>
                       <div class="flex items-center gap-2 truncate">
-                        <img src="${p.icon || 'https://www.google.com/favicon.ico'}" class="w-4 h-4 rounded object-contain shrink-0" onerror="this.src='https://www.google.com/favicon.ico'" />
+                        <img src="${p.icon || 'assets/spadeos-emblem.jpg'}" class="w-4 h-4 rounded object-contain shrink-0" onerror="this.src='assets/spadeos-emblem.jpg'" />
                         <span class="truncate">${p.name}</span>
                       </div>
-                      ${isSel ? html`<i class="fa-solid fa-circle-check text-white text-xs shrink-0"></i>` : null}
+                      ${isSel ? html`<i class="fa-solid fa-circle-check text-indigo-300 text-xs shrink-0"></i>` : null}
                     </button>
                   `;
 									})}
@@ -556,12 +637,12 @@ function Config() {
 
                 <div class="section-title mt-2">Stealth Launchers</div>
                 <div class="grid grid-cols-2 gap-2">
-                  <button class="p-2.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/20 text-purple-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
+                  <button class="p-2.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-500/30 text-indigo-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
                     on:click=${() => { if (window.openAboutBlankCloak) window.openAboutBlankCloak(); }}>
                     <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     <span>About:Blank Cloak</span>
                   </button>
-                  <button class="p-2.5 rounded-xl bg-teal-950/40 hover:bg-teal-900/60 border border-teal-500/20 text-teal-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
+                  <button class="p-2.5 rounded-xl bg-sky-950/40 hover:bg-sky-900/60 border border-sky-500/30 text-sky-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
                     on:click=${() => { if (window.openBlobCloak) window.openBlobCloak(); }}>
                     <i class="fa-solid fa-cube"></i>
                     <span>Blob Cloak</span>
@@ -579,11 +660,11 @@ function Config() {
 												const checked = Boolean(e.target.checked);
 												store.autoAboutBlank = checked;
 												try {
-													localStorage.setItem("veil_auto_about_blank", checked ? "true" : "false");
+													localStorage.setItem("spade_auto_about_blank", checked ? "true" : "false");
 												} catch(err) {}
 												this.cfgTab = "cloak";
 											}}>
-                    <div class="w-9 h-5 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                    <div class="w-9 h-5 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
                   </label>
                 </div>
               </div>
@@ -600,10 +681,10 @@ function Config() {
 							}
 						}}>
             <div class="flex items-center gap-2">
-              <i class="fa-solid fa-scroll text-emerald-400"></i>
-              <span>View VeilOS Changelog & Credits</span>
+              <i class="fa-solid fa-scroll text-sky-400"></i>
+              <span>View SpadeOS Changelog & Credits</span>
             </div>
-            <span class="text-[10px] text-emerald-400 font-mono">v0.8.4 &rarr;</span>
+            <span class="text-[10px] text-sky-400 font-mono tabular-nums">${UI_SPADE_VERSION} &rarr;</span>
           </button>
 
           <button class="close-btn" on:click=${() => {
@@ -709,14 +790,14 @@ window.addEventListener("load", async () => {
 		},
 		{
 			author: "Obamamegagon",
-			quote: "VeilOS is tuff like me",
+			quote: "SpadeOS is tuff like me",
 			role: "Owner of Potatoland and Black Hat",
 			icon: "fa-solid fa-hat-cowboy",
-			avatarBg: "bg-gradient-to-br from-blue-600 to-indigo-800"
+			avatarBg: "bg-gradient-to-br from-indigo-500 to-purple-700"
 		},
 		{
 			author: "hvtrs",
-			quote: "veilos mogs figure",
+			quote: "spadeos mogs figure",
 			role: "Ex-Owner of Cherri",
 			icon: "fa-solid fa-crown",
 			avatarBg: "bg-gradient-to-br from-rose-600 to-pink-700"
@@ -733,11 +814,11 @@ window.addEventListener("load", async () => {
 			quote: "faiz basha faiz basha blue bands 🩵",
 			role: "Owner of Novene",
 			icon: "fa-solid fa-gem",
-			avatarBg: "bg-gradient-to-br from-cyan-600 to-blue-800"
+			avatarBg: "bg-gradient-to-br from-sky-500 to-cyan-700"
 		},
 		{
 			author: "Rasha",
-			quote: "veil os is very niche and very veil 👌",
+			quote: "spade os is so clean and fast 👌",
 			role: "Owner of Niche and T9 Network",
 			icon: "fa-solid fa-fingerprint",
 			avatarBg: "bg-gradient-to-br from-emerald-600 to-teal-800"
@@ -747,7 +828,7 @@ window.addEventListener("load", async () => {
 			quote: "Site so good even the femboys couldnt resist",
 			role: "Owner of Dominum Network",
 			icon: "fa-solid fa-bolt",
-			avatarBg: "bg-gradient-to-br from-purple-600 to-violet-900"
+			avatarBg: "bg-gradient-to-br from-purple-600 to-indigo-700"
 		},
 		{
 			author: "zxs",
@@ -758,17 +839,17 @@ window.addEventListener("load", async () => {
 		},
 		{
 			author: "Suki",
-			quote: "If you use Veil you have aura",
+			quote: "If you use Spade you have aura",
 			role: "Owner of Celsius",
 			icon: "fa-solid fa-sun",
-			avatarBg: "bg-gradient-to-br from-sky-500 to-indigo-700"
+			avatarBg: "bg-gradient-to-br from-amber-500 to-orange-600"
 		},
 		{
 			author: "midnight",
-			quote: "VeilOS make me cream",
+			quote: "SpadeOS runs the web desktop",
 			role: "Owner of Nocturne",
 			icon: "fa-solid fa-moon",
-			avatarBg: "bg-gradient-to-br from-indigo-900 to-purple-950"
+			avatarBg: "bg-gradient-to-br from-slate-700 to-indigo-900"
 		},
 		{
 			author: "bestspark",
@@ -779,7 +860,7 @@ window.addEventListener("load", async () => {
 		},
 		{
 			author: "taii",
-			quote: "veilos is amazing i love it",
+			quote: "spadeos is amazing i love it",
 			role: "Owner of Mizumath",
 			icon: "fa-solid fa-heart",
 			avatarBg: "bg-gradient-to-br from-teal-500 to-emerald-700"
@@ -833,7 +914,7 @@ window.addEventListener("load", async () => {
 			iconClass: "fa-solid fa-music", 
 			iconColor: "text-rose-400", 
 			dockGradient: "from-rose-500 via-fuchsia-600 to-indigo-600", 
-			desc: "Lossless music streaming (Music unavailable until VPS)", 
+			desc: "High-fidelity music streaming proxied via cherrion.top/music", 
 			category: "Entertainment", 
 			defaultW: 1060, 
 			defaultH: 700, 
@@ -919,11 +1000,11 @@ window.addEventListener("load", async () => {
 		},
 		{ 
 			id: "terminal", 
-			name: "Veil Terminal", 
+			name: "Spade Terminal", 
 			logoUrl: null, 
 			iconClass: "fa-solid fa-terminal", 
 			iconColor: "text-emerald-400", 
-			dockGradient: "from-emerald-600 to-slate-900", 
+			dockGradient: "from-emerald-500 to-slate-900", 
 			desc: "Developer console & system shell", 
 			category: "System", 
 			defaultW: 840, 
@@ -932,11 +1013,11 @@ window.addEventListener("load", async () => {
 		},
 		{ 
 			id: "files", 
-			name: "Veil Files", 
+			name: "Spade Files", 
 			logoUrl: null, 
 			iconClass: "fa-solid fa-folder-open", 
-			iconColor: "text-amber-300", 
-			dockGradient: "from-amber-600 to-yellow-700", 
+			iconColor: "text-amber-400", 
+			dockGradient: "from-amber-500 to-indigo-600", 
 			desc: "Storage explorer, application vault & files", 
 			category: "System", 
 			defaultW: 880, 
@@ -948,8 +1029,8 @@ window.addEventListener("load", async () => {
 			name: "Changelog & Credits", 
 			logoUrl: null, 
 			iconClass: "fa-solid fa-scroll", 
-			iconColor: "text-emerald-400", 
-			dockGradient: "from-emerald-500 via-teal-600 to-cyan-700", 
+			iconColor: "text-indigo-400", 
+			dockGradient: "from-indigo-500 via-sky-500 to-emerald-500", 
 			desc: "Version release history, features & project credits", 
 			category: "System", 
 			defaultW: 940, 
@@ -958,7 +1039,7 @@ window.addEventListener("load", async () => {
 		}
 	];
 
-	function VeilOS() {
+	function SpadeOS() {
 		window.osGlobalInstance = this;
 		this.appsList = APPS;
 		this.windows = [];
@@ -975,10 +1056,10 @@ window.addEventListener("load", async () => {
 		this.notifications = [];
 		this.soundEffects = (store && store.soundEffects !== undefined) ? store.soundEffects : true;
 		this.desktopWidgetsOpen = (store && store.desktopWidgets !== undefined) ? store.desktopWidgets : true;
-		if (!store.wallpaper || store.wallpaper === "assets/christmas.jpg" || store.wallpaper === "assets/halloween.jpg") {
+		if (!store.wallpaper || store.wallpaper === "assets/christmas.jpg" || store.wallpaper === "assets/halloween.jpg" || store.wallpaper === "assets/spadeos-gta6-wallpaper.jpg" || store.wallpaper === "assets/spadeos-lock-backdrop.jpg") {
 			store.wallpaper = "assets/background.jpg";
 		}
-		if (!store.theme || store.theme === "halloween" || store.theme === "christmas" || store.theme === "jolly") {
+		if (!store.theme || store.theme === "halloween" || store.theme === "christmas" || store.theme === "jolly" || store.theme === "vice" || store.theme === "leonida") {
 			store.theme = "default";
 		}
 		this.batteryLevel = 100;
@@ -1006,13 +1087,15 @@ window.addEventListener("load", async () => {
 		this.notify = (title, message, icon = "fa-solid fa-bell", type = "info") => {
 			const id = "notif_" + Date.now();
 			this.notifications.push({ id, title, message, icon, type });
-			window.VeilAudio && window.VeilAudio.playPop();
+			const audioApi = window.SpadeAudio || window.VeilAudio;
+			audioApi && audioApi.playPop();
 			this.windows = [...this.windows];
 			setTimeout(() => {
 				this.notifications = this.notifications.filter(n => n.id !== id);
 				this.windows = [...this.windows];
 			}, 3800);
 		};
+		window.spadeNotify = this.notify;
 		window.veilNotify = this.notify;
 
 		this.spotlightOpen = false;
@@ -1021,7 +1104,8 @@ window.addEventListener("load", async () => {
 
 		const spotlightOverlay = document.createElement("div");
 		spotlightOverlay.id = "os-spotlight-overlay";
-		spotlightOverlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-md p-4 transition-all duration-150 pointer-events-auto hidden";
+		spotlightOverlay.className = "fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-md p-4 transition-all duration-150 pointer-events-auto hidden";
+		spotlightOverlay.style.zIndex = "9999";
 		this.spotlightOverlay = spotlightOverlay;
 
 		spotlightOverlay.onclick = (e) => {
@@ -1031,7 +1115,7 @@ window.addEventListener("load", async () => {
 		};
 
 		const spotlightCard = document.createElement("div");
-		spotlightCard.className = "w-full max-w-xl bg-neutral-900/98 border border-white/20 rounded-3xl shadow-2xl backdrop-blur-3xl overflow-hidden flex flex-col m-auto animate-spotlight text-white font-sans";
+		spotlightCard.className = "w-full max-w-xl bg-[#111118]/98 border border-white/15 rounded-3xl shadow-2xl backdrop-blur-3xl overflow-hidden flex flex-col m-auto animate-spotlight text-white font-sans";
 		spotlightOverlay.appendChild(spotlightCard);
 
 		const searchHeader = document.createElement("div");
@@ -1047,11 +1131,11 @@ window.addEventListener("load", async () => {
 		searchInput.autocomplete = "off";
 		searchInput.spellcheck = false;
 		searchInput.className = "flex-1 bg-transparent text-white placeholder-neutral-400 outline-none text-sm font-sans";
-		searchInput.placeholder = "Search apps or type a web address...";
+		searchInput.placeholder = "Search SpadeOS apps or type a web address...";
 		searchHeader.appendChild(searchInput);
 
 		const escBadge = document.createElement("span");
-		escBadge.className = "text-[10px] text-neutral-400 font-mono bg-white/10 px-2 py-1 rounded-md shrink-0 select-none cursor-pointer hover:bg-white/15";
+		escBadge.className = "text-[10px] text-neutral-300 font-mono bg-white/10 px-2 py-1 rounded-md shrink-0 select-none cursor-pointer hover:bg-white/15";
 		escBadge.textContent = "ESC to close";
 		escBadge.onclick = () => this.closeSpotlight();
 		searchHeader.appendChild(escBadge);
@@ -1076,11 +1160,11 @@ window.addEventListener("load", async () => {
 				mathCard.className = "m-3 p-3 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-between";
 				mathCard.innerHTML = `
 					<div class="flex items-center gap-2.5">
-						<i class="fa-solid fa-calculator text-indigo-300"></i>
+						<i class="fa-solid fa-calculator text-sky-400"></i>
 						<span class="text-xs text-neutral-300 font-mono">${escapeHtml(rawQ)} =</span>
-						<span class="text-base font-bold font-mono text-white">${mathVal}</span>
+						<span class="text-base font-bold font-mono tabular-nums text-white">${mathVal}</span>
 					</div>
-					<button class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer">
+					<button class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer">
 						Copy
 					</button>
 				`;
@@ -1236,18 +1320,11 @@ window.addEventListener("load", async () => {
 		};
 
 		this.openSpotlight = () => {
-			if (this.windows && Array.isArray(this.windows)) {
-				this.windows.forEach(w => {
-					w.isMinimized = true;
-					updateWindowStyle(w, false);
-				});
-			}
-			this.activeWinId = null;
 			this.spotlightOpen = true;
 			this.appsMenuOpen = false;
 			this.startMenuOpen = false;
-			this.controlCenterOpen = false;
-			window.VeilAudio && window.VeilAudio.playClick();
+			(window.SpadeAudio || window.VeilAudio) && (window.SpadeAudio || window.VeilAudio).playClick();
+			spotlightOverlay.style.zIndex = String(Math.max(9999, (this.topZIndex || 100) + 10));
 			spotlightOverlay.classList.remove("hidden");
 			searchInput.value = "";
 			this.spotlightSelectedIdx = 0;
@@ -1255,14 +1332,12 @@ window.addEventListener("load", async () => {
 			setTimeout(() => {
 				searchInput.focus();
 			}, 20);
-			this.windows = [...this.windows];
 		};
 
 		this.closeSpotlight = () => {
 			this.spotlightOpen = false;
 			spotlightOverlay.classList.add("hidden");
 			searchInput.value = "";
-			this.windows = [...this.windows];
 		};
 
 		this.snapWindow = (winId, snapType) => {
@@ -1292,7 +1367,7 @@ window.addEventListener("load", async () => {
 			} else if (snapType === "maximize") {
 				win.isMaximized = true;
 			}
-			window.VeilAudio && window.VeilAudio.playSnap();
+			(window.SpadeAudio || window.VeilAudio) && (window.SpadeAudio || window.VeilAudio).playSnap();
 			this.focusWindow(winId);
 			this.windows.forEach(w => updateWindowStyle(w, this.activeWinId === w.id));
 			this.windows = [...this.windows];
@@ -1346,8 +1421,8 @@ window.addEventListener("load", async () => {
 		this.unlockOS = () => {
 			if (this.isUnlocking) return;
 			this.isUnlocking = true;
-			window.VeilAudio && window.VeilAudio.playChime();
-			const lockEl = document.getElementById("veil-lock-screen");
+			(window.SpadeAudio || window.VeilAudio) && (window.SpadeAudio || window.VeilAudio).playChime();
+			const lockEl = document.getElementById("spade-lock-screen") || document.getElementById("veil-lock-screen");
 			if (lockEl) {
 				lockEl.classList.add("animate-lock-unlock");
 				setTimeout(() => {
@@ -1412,10 +1487,9 @@ window.addEventListener("load", async () => {
 					this.windows = [...this.windows];
 					return;
 				}
-				if (this.appsMenuOpen || this.startMenuOpen || this.controlCenterOpen) {
+				if (this.appsMenuOpen || this.startMenuOpen) {
 					this.appsMenuOpen = false;
 					this.startMenuOpen = false;
-					this.controlCenterOpen = false;
 					this.windows = [...this.windows];
 				}
 			}
@@ -1678,7 +1752,7 @@ window.addEventListener("load", async () => {
 		};
 
 		return html`
-			<div class="relative w-screen h-screen overflow-hidden select-none font-sans text-white bg-black">
+			<div class="relative w-screen h-screen overflow-hidden select-none font-sans text-white bg-[#09090b]">
 				
 				<div class="absolute inset-0 z-0 overflow-hidden"
 					on:contextmenu=${(e) => {
@@ -1700,23 +1774,23 @@ window.addEventListener("load", async () => {
 					${use(this.windows, () => {
 						const wp = (store && store.wallpaper) || "assets/background.jpg";
 						if (wp === "gradient") {
-							return html`<div class="w-full h-full bg-gradient-to-br from-indigo-950 via-slate-950 to-black"></div>`;
+							return html`<div class="w-full h-full bg-gradient-to-br from-slate-900 via-[#09090b] to-black"></div>`;
 						}
 						return html`
 							<img 
 								src="${wp}"
-								alt="Desktop Background"
+								alt="SpadeOS Wallpaper"
 								onerror="this.src='assets/background.jpg'"
 								class="w-full h-full object-cover pointer-events-none select-none" />
 						`;
 					})}
-					<div class="absolute inset-0 bg-black/25 pointer-events-none"></div>
+					<div class="absolute inset-0 bg-[#09090b]/20 pointer-events-none"></div>
 				</div>
 
-				<div class="absolute inset-0 bg-radial from-transparent via-black/20 to-black/60 pointer-events-none"></div>
+				<div class="absolute inset-0 bg-gradient-to-b from-[#09090b]/45 via-transparent to-[#09090b]/65 pointer-events-none"></div>
 
 				<div class="absolute top-10 sm:top-12 left-1/2 -translate-x-1/2 z-10 text-center select-none w-full px-4 pointer-events-none">
-					<h1 class="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extralight tracking-[0.35em] text-white/90 drop-shadow-[0_12px_24px_rgba(0,0,0,0.85)] font-sans uppercase">
+					<h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-[0.28em] text-white/95 drop-shadow-[0_12px_28px_rgba(0,0,0,0.65)] uppercase">
 						${use(this.daySpacedStr)}
 					</h1>
 				</div>
@@ -1724,20 +1798,20 @@ window.addEventListener("load", async () => {
 				${use(this.desktopWidgetsOpen, (isOpen) => {
 					if (!isOpen) return null;
 					return html`
-						<div class="fixed top-4 right-4 z-20 hidden md:flex items-center gap-3 px-3.5 py-2 rounded-2xl bg-black/55 border border-white/10 backdrop-blur-xl shadow-xl text-neutral-300 font-sans pointer-events-auto">
-							<div class="flex items-center gap-1.5 text-xs font-mono" title="Battery: ${this.batteryLevel}% ${this.isCharging ? '(Charging)' : ''}">
-								<i class="fa-solid ${this.isCharging ? 'fa-battery-bolt text-emerald-400' : (this.batteryLevel < 20 ? 'fa-battery-quarter text-rose-400' : 'fa-battery-three-quarters text-neutral-300')} text-xs"></i>
+						<div class="fixed top-4 right-4 z-20 hidden md:flex items-center gap-3 px-3.5 py-2 rounded-2xl bg-[#111118]/85 border border-white/15 backdrop-blur-xl shadow-xl text-neutral-200 font-sans pointer-events-auto">
+							<div class="flex items-center gap-1.5 text-xs font-mono tabular-nums" title="Battery: ${this.batteryLevel}% ${this.isCharging ? '(Charging)' : ''}">
+								<i class="fa-solid ${this.isCharging ? 'fa-battery-bolt text-emerald-400' : (this.batteryLevel < 20 ? 'fa-battery-quarter text-rose-400' : 'fa-battery-three-quarters text-amber-400')} text-xs"></i>
 								<span>${this.batteryLevel}%</span>
 							</div>
 							<div class="w-px h-3.5 bg-white/15"></div>
-							<div class="flex items-center gap-1.5 text-xs font-mono text-emerald-400" title="Network Latency: ${this.pingMs}ms">
-								<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+							<div class="flex items-center gap-1.5 text-xs font-mono tabular-nums text-sky-400" title="Network Latency: ${this.pingMs}ms">
+								<i class="fa-solid fa-signal text-[10px]"></i>
 								<span>${this.pingMs}ms</span>
 							</div>
 							<div class="w-px h-3.5 bg-white/15"></div>
-							<button class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-white flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+							<button class="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/35 border border-indigo-400/30 text-[11px] font-semibold text-white flex items-center gap-1 transition-all cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
 								on:click=${() => this.openSpotlight()} title="Quick Search (⌘K)">
-								<i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+								<i class="fa-solid fa-magnifying-glass text-[10px] text-indigo-300"></i>
 								<span class="font-mono text-[10px]">⌘K</span>
 							</button>
 						</div>
@@ -1747,8 +1821,8 @@ window.addEventListener("load", async () => {
 				<div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full">
 					${use(this.windows, () => {
 						return this.notifications.map(notif => html`
-							<div class="pointer-events-auto p-3.5 rounded-2xl bg-neutral-900/95 border border-white/20 backdrop-blur-2xl shadow-2xl text-white flex items-center gap-3 animate-toast">
-								<div class="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-sm shrink-0">
+							<div class="pointer-events-auto p-3.5 rounded-2xl bg-[#111118]/95 border border-indigo-500/30 backdrop-blur-2xl shadow-2xl text-white flex items-center gap-3 animate-toast">
+								<div class="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 text-sm shrink-0">
 									<i class="${notif.icon || 'fa-solid fa-bell'}"></i>
 								</div>
 								<div class="flex-1 min-w-0">
@@ -1769,17 +1843,16 @@ window.addEventListener("load", async () => {
 
 				${this.windowsContainer}
 
-				<div class="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px]"
-					style=${use(this.windows, () => (this.appsMenuOpen || this.startMenuOpen || this.controlCenterOpen) ? "display: block;" : "display: none;")}
+				<div class="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]"
+					style=${use(this.windows, () => (this.appsMenuOpen || this.startMenuOpen) ? "display: block;" : "display: none;")}
 					on:click=${(e) => {
 						e.stopPropagation();
 						this.appsMenuOpen = false;
 						this.startMenuOpen = false;
-						this.controlCenterOpen = false;
 						this.windows = [...this.windows];
 					}}></div>
 
-				<button class="fixed bottom-4 left-4 z-50 w-11 h-11 rounded-full bg-black/75 hover:bg-black/90 border border-white/20 backdrop-blur-2xl text-white flex items-center justify-center text-lg shadow-2xl cursor-pointer hover:scale-105 active:scale-95 transition-all"
+				<button class="fixed bottom-4 left-4 z-50 w-11 h-11 rounded-full bg-[#111118]/85 hover:bg-[#181822] border border-white/15 backdrop-blur-2xl text-white flex items-center justify-center text-lg shadow-2xl cursor-pointer hover:scale-105 active:scale-95 transition-all"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						return (active && active.isMaximized && !active.isMinimized) ? "display: none !important;" : "";
@@ -1789,27 +1862,26 @@ window.addEventListener("load", async () => {
 						this.startMenuOpen = !this.startMenuOpen;
 						if (this.startMenuOpen) {
 							this.appsMenuOpen = false;
-							this.controlCenterOpen = false;
 						}
 						this.windows = [...this.windows];
-					}} title="Toggle Hamburger Menu">
-					<i class="fa-solid fa-bars text-base"></i>
+					}} title="Toggle SpadeOS Menu">
+					<i class="fa-solid fa-bars text-base text-indigo-400"></i>
 				</button>
 
-				<div class="fixed bottom-16 left-4 z-50 w-72 max-h-[80vh] bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu overflow-hidden"
+				<div class="fixed bottom-16 left-4 z-50 w-72 max-h-[80vh] bg-[#111118]/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu overflow-hidden"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
 						const disp = this.startMenuOpen ? "display: flex;" : "display: none;";
-						return `${disp} font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;`;
+						return `${disp} font-family: 'Plus Jakarta Sans', system-ui, sans-serif;`;
 					})}>
 
 					<div class="flex items-center justify-between px-1 pb-1 border-b border-white/10">
 						<div class="flex items-center gap-2">
-							<div class="w-6 h-6 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs text-indigo-300">
-								<i class="fa-solid fa-bars"></i>
+							<div class="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-xs text-indigo-400">
+								<i class="fa-solid fa-spade"></i>
 							</div>
-							<span class="text-xs font-bold text-white tracking-tight uppercase">VeilOS Menu</span>
+							<span class="text-sm font-bold text-white tracking-wider uppercase">SpadeOS Menu</span>
 						</div>
 						<button class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-400 hover:text-white text-xs flex items-center justify-center cursor-pointer transition-colors"
 							on:click=${(e) => { e.stopPropagation(); this.startMenuOpen = false; this.windows = [...this.windows]; }} title="Close">
@@ -1819,11 +1891,11 @@ window.addEventListener("load", async () => {
 
 					${use(this.windows, () => html`
 						<div class="flex items-center justify-between px-2 py-1.5 rounded-xl bg-white/5 border border-white/10">
-							<div class="flex items-center gap-2 text-xs font-medium text-neutral-300">
+							<div class="flex items-center gap-2 text-xs font-medium text-neutral-200">
 								<i class="fa-solid fa-table-columns text-sky-400 text-xs"></i>
 								<span>App Dock</span>
 							</div>
-							<button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${this.dockOpen ? 'bg-sky-500/25 text-sky-300 border border-sky-400/40' : 'bg-white/10 text-neutral-400 hover:text-white border border-transparent'}"
+							<button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${this.dockOpen ? 'bg-sky-500/20 text-sky-300 border border-sky-400/40' : 'bg-white/10 text-neutral-400 hover:text-white border border-transparent'}"
 								on:click=${(e) => {
 									e.stopPropagation();
 									this.dockOpen = !this.dockOpen;
@@ -1835,54 +1907,83 @@ window.addEventListener("load", async () => {
 						</div>
 					`)}
 
-					<div class="grid grid-cols-2 gap-2 pt-1">
-						<button class="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
-							on:click=${() => {
-								this.controlCenterOpen = !this.controlCenterOpen;
-								this.startMenuOpen = false;
+					<div class="flex items-center justify-between px-2 py-1.5 rounded-xl bg-white/5 border border-white/10">
+						<div class="flex items-center gap-2 text-xs font-medium text-neutral-200">
+							<i class="fa-solid ${this.soundEffects ? 'fa-volume-high text-amber-400' : 'fa-volume-xmark text-neutral-400'} text-xs"></i>
+							<span>Sound Effects</span>
+						</div>
+						<button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${this.soundEffects ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40' : 'bg-white/10 text-neutral-400 hover:text-white border border-transparent'}"
+							on:click=${(e) => {
+								e.stopPropagation();
+								this.soundEffects = !this.soundEffects;
+								store.soundEffects = this.soundEffects;
+								const audioApi = window.SpadeAudio || window.VeilAudio;
+								if (this.soundEffects && audioApi) audioApi.playClick();
 								this.windows = [...this.windows];
-							}} title="Control Center">
-							<i class="fa-solid fa-sliders text-amber-400 text-sm"></i>
-							<span class="text-xs font-medium">Controls</span>
-						</button>
-
-						<button class="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
-							on:click=${() => {
-								this.startMenuOpen = false;
-								this.windows = [...this.windows];
-								window.openSettingsModal();
-							}} title="Cloak & System Settings">
-							<i class="fa-solid fa-gear text-indigo-400 text-sm"></i>
-							<span class="text-xs font-medium">Preferences</span>
+							}}>
+							<span>${this.soundEffects ? 'Active' : 'Muted'}</span>
 						</button>
 					</div>
 
-					<button class="w-full flex items-center justify-between p-2.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-teal-950/40 to-indigo-950/40 hover:from-emerald-900/60 hover:to-teal-900/60 border border-emerald-500/25 text-xs text-emerald-200 hover:text-white cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] shadow-sm"
+					<div class="flex items-center justify-between px-2 py-1.5 rounded-xl bg-white/5 border border-white/10">
+						<div class="flex items-center gap-2 text-xs font-medium text-neutral-200">
+							<i class="fa-solid fa-cubes text-indigo-400 text-xs"></i>
+							<span>Desktop Widgets</span>
+						</div>
+						<button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${this.desktopWidgetsOpen ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40' : 'bg-white/10 text-neutral-400 hover:text-white border border-transparent'}"
+							on:click=${(e) => {
+								e.stopPropagation();
+								this.desktopWidgetsOpen = !this.desktopWidgetsOpen;
+								store.desktopWidgets = this.desktopWidgetsOpen;
+								const audioApi = window.SpadeAudio || window.VeilAudio;
+								if (this.soundEffects && audioApi) audioApi.playClick();
+								this.windows = [...this.windows];
+							}}>
+							<span>${this.desktopWidgetsOpen ? 'Visible' : 'Hidden'}</span>
+						</button>
+					</div>
+
+					<button class="w-full flex items-center justify-between p-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-neutral-200 hover:text-white cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99]"
+						on:click=${() => {
+							this.startMenuOpen = false;
+							this.windows = [...this.windows];
+							window.openSettingsModal();
+						}} title="Cloak & System Settings">
+						<div class="flex items-center gap-2.5">
+							<div class="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-400/35 flex items-center justify-center text-indigo-400">
+								<i class="fa-solid fa-gear text-xs"></i>
+							</div>
+							<span class="text-xs font-semibold">SpadeOS Preferences & Cloak</span>
+						</div>
+						<i class="fa-solid fa-chevron-right text-[10px] text-neutral-400"></i>
+					</button>
+
+					<button class="w-full flex items-center justify-between p-2.5 rounded-2xl bg-gradient-to-r from-indigo-500/15 via-sky-500/10 to-emerald-500/15 hover:from-indigo-500/25 hover:to-emerald-500/25 border border-indigo-500/30 text-xs text-indigo-100 hover:text-white cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] shadow-sm"
 						on:click=${() => {
 							this.startMenuOpen = false;
 							this.windows = [...this.windows];
 							this.openApp("changelog");
 						}} title="View Version History & Project Credits">
 						<div class="flex items-center gap-2.5">
-							<div class="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+							<div class="w-6 h-6 rounded-lg bg-sky-500/20 border border-sky-400/35 flex items-center justify-center text-sky-400">
 								<i class="fa-solid fa-scroll text-xs"></i>
 							</div>
 							<div class="flex flex-col text-left">
 								<span class="font-bold text-white text-[11px]">Changelog & Credits</span>
-								<span class="text-[9px] text-emerald-300/80">v0.7.1 &bull; 65+ updates & attributions</span>
+								<span class="text-[9px] text-neutral-400 tabular-nums">${UI_SPADE_VERSION} &bull; 65+ updates & attributions</span>
 							</div>
 						</div>
-						<i class="fa-solid fa-chevron-right text-[10px] text-emerald-400/60"></i>
+						<i class="fa-solid fa-chevron-right text-[10px] text-indigo-400"></i>
 					</button>
 
 					<div class="text-[10px] uppercase font-bold text-neutral-400 tracking-wider px-1 pt-1">Cloak Launchers</div>
 					<div class="grid grid-cols-2 gap-1.5">
-						<button class="py-2 px-2 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
+						<button class="py-2 px-2 bg-indigo-950/50 hover:bg-indigo-900/70 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm whitespace-nowrap shrink-0"
 							on:click=${() => { if (window.openAboutBlankCloak) window.openAboutBlankCloak(); }}>
 							<i class="fa-solid fa-arrow-up-right-from-square"></i>
 							<span>About:Blank</span>
 						</button>
-						<button class="py-2 px-2 bg-teal-950/60 hover:bg-teal-900/80 border border-teal-500/40 rounded-xl text-teal-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
+						<button class="py-2 px-2 bg-sky-950/50 hover:bg-sky-900/70 border border-sky-500/40 rounded-xl text-sky-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm whitespace-nowrap shrink-0"
 							on:click=${() => { if (window.openBlobCloak) window.openBlobCloak(); }}>
 							<i class="fa-solid fa-cube"></i>
 							<span>Blob Cloak</span>
@@ -1898,7 +1999,7 @@ window.addEventListener("load", async () => {
 								this.startMenuOpen = false;
 								this.windows = [...this.windows];
 							}}>
-							<i class="fa-solid fa-lock text-rose-400"></i>
+							<i class="fa-solid fa-lock text-indigo-400"></i>
 							<span>Lock</span>
 						</button>
 						<button class="py-2 px-2 bg-rose-950/50 hover:bg-rose-900/70 border border-rose-800/40 rounded-xl text-rose-300 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
@@ -1909,14 +2010,14 @@ window.addEventListener("load", async () => {
 					</div>
 				</div>
 
-				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-2 bg-black/75 border border-white/15 shadow-2xl rounded-3xl backdrop-blur-2xl text-white max-w-[96vw] overflow-visible transition-all"
+				<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-2 bg-[#111118]/85 border border-white/15 shadow-2xl rounded-3xl backdrop-blur-2xl text-white max-w-[96vw] overflow-visible transition-all"
 					style=${use(this.windows, () => {
 						const active = this.windows.find(w => w.id === this.activeWinId);
 						if (active && active.isMaximized && !active.isMinimized) return "display: none !important;";
 						return this.dockOpen ? "display: flex;" : "display: none;";
 					})}>
 
-					<button class="w-9 h-9 rounded-2xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/30 active:scale-95 transition-all flex items-center justify-center text-indigo-300 hover:text-white cursor-pointer shrink-0 dock-icon-anim"
+					<button class="w-9 h-9 rounded-2xl bg-indigo-500/20 hover:bg-indigo-500/35 border border-indigo-400/35 active:scale-95 transition-all flex items-center justify-center text-indigo-300 hover:text-white cursor-pointer shrink-0 dock-icon-anim"
 						on:click=${(e) => {
 							e.stopPropagation();
 							this.openSpotlight();
@@ -1930,14 +2031,14 @@ window.addEventListener("load", async () => {
 						${APPS.filter(app => app.inDock).map(app => {
 							const iconCls = `${app.iconClass || 'fa-solid fa-shapes'} text-lg ${app.iconColor || 'text-white'} drop-shadow-md`;
 							return html`
-								<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/20 transition-all hover:scale-105"
+								<div class="relative group flex items-center justify-center w-10 h-10 rounded-2xl bg-white/10 hover:bg-indigo-500/20 active:scale-95 dock-icon-anim cursor-pointer shadow-md shrink-0 border border-white/15 hover:border-indigo-400/45 transition-all hover:scale-105"
 									on:click=${() => this.openApp(app.id)}>
 									
 									<div class="absolute -top-11 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center pointer-events-none z-50 animate-fade">
-										<div class="px-2.5 py-1 rounded-xl bg-neutral-900/98 border border-white/20 backdrop-blur-2xl shadow-2xl text-white text-xs font-semibold whitespace-nowrap flex items-center gap-1.5">
+										<div class="px-2.5 py-1 rounded-xl bg-[#111118]/98 border border-white/15 backdrop-blur-2xl shadow-2xl text-white text-xs font-semibold whitespace-nowrap flex items-center gap-1.5">
 											<span>${app.name}</span>
 										</div>
-										<div class="w-2 h-2 bg-neutral-900 border-b border-r border-white/20 rotate-45 -mt-1"></div>
+										<div class="w-2 h-2 bg-[#111118] border-b border-r border-white/15 rotate-45 -mt-1"></div>
 									</div>
 
 									${app.logoUrl ? html`
@@ -1950,7 +2051,7 @@ window.addEventListener("load", async () => {
 										const isOpen = winList.some(w => w.appId === app.id);
 										const isActive = winList.some(w => w.appId === app.id && w.id === this.activeWinId);
 										if (!isOpen) return null;
-										return html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-sky-400 shadow-[0_0_8px_#38bdf8]' : 'bg-white/80'} shadow-sm"></div>`;
+										return html`<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-indigo-400 shadow-[0_0_8px_#818cf8]' : 'bg-white/60'} shadow-sm"></div>`;
 									})}
 								</div>
 							`;
@@ -1959,143 +2060,15 @@ window.addEventListener("load", async () => {
 
 					<div class="w-px h-6 bg-white/15 shrink-0 mx-0.5"></div>
 
-					<div class="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-white font-sans select-none cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group/time shrink-0"
-						on:click=${() => {
-							this.controlCenterOpen = !this.controlCenterOpen;
-							this.startMenuOpen = false;
-							this.appsMenuOpen = false;
-							this.windows = [...this.windows];
-						}} title="Control Center & System Settings">
-						<div class="w-6 h-6 rounded-lg bg-indigo-500/25 border border-indigo-400/30 flex items-center justify-center text-indigo-300 group-hover/time:text-white transition-colors">
+					<div class="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white/10 border border-white/10 text-white font-sans select-none shrink-0">
+						<div class="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-400/35 flex items-center justify-center text-indigo-300">
 							<i class="fa-regular fa-clock text-xs"></i>
 						</div>
-						<div class="flex flex-col items-start leading-tight">
+						<div class="flex flex-col items-start leading-tight tabular-nums">
 							<span class="text-xs sm:text-sm font-bold tracking-tight text-white leading-none">${use(this.dockTimeStr)}</span>
-							<span class="text-[10px] text-neutral-400 font-medium leading-tight mt-0.5">${use(this.dockDateStr)}</span>
+							<span class="text-[10px] text-neutral-300 font-medium leading-tight mt-0.5">${use(this.dockDateStr)}</span>
 						</div>
-						<i class="fa-solid fa-sliders text-[10px] text-neutral-400 group-hover/time:text-indigo-400 transition-colors ml-0.5"></i>
 					</div>
-				</div>
-
-				<div class="fixed bottom-16 right-6 z-50 w-80 bg-neutral-950/95 border border-white/15 rounded-3xl p-4 backdrop-blur-2xl text-white shadow-2xl flex flex-col gap-3 font-sans animate-start-menu"
-					style=${use(this.controlCenterOpen, (open) => open ? "display: flex;" : "display: none;")}>
-					<div class="flex items-center justify-between">
-						<div class="text-xs font-bold text-neutral-200 uppercase tracking-wider flex items-center gap-1.5">
-							<i class="fa-solid fa-sliders text-indigo-400"></i>
-							<span>Control Center</span>
-						</div>
-						<button class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-neutral-400 hover:text-white text-xs flex items-center justify-center cursor-pointer transition-colors"
-							on:click=${() => { this.controlCenterOpen = false; this.windows = [...this.windows]; }}>
-							<i class="fa-solid fa-xmark"></i>
-						</button>
-					</div>
-
-					<div class="flex flex-col gap-2">
-						${use(this.soundEffects, (on) => {
-							return html`
-								<button class="w-full p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${on ? 'bg-emerald-500/15 border-emerald-500/40 text-white shadow-[0_0_12px_rgba(16,185,129,0.15)]' : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'}"
-									on:click=${() => {
-										this.soundEffects = !this.soundEffects;
-										store.soundEffects = this.soundEffects;
-										if (this.soundEffects && window.VeilAudio) window.VeilAudio.playClick();
-										this.windows = [...this.windows];
-									}}>
-									<div class="flex items-center gap-2.5">
-										<div class="w-8 h-8 rounded-xl ${on ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-neutral-400'} flex items-center justify-center">
-											<i class="fa-solid ${on ? 'fa-volume-high' : 'fa-volume-xmark'} text-sm"></i>
-										</div>
-										<div class="flex flex-col text-left">
-											<span class="text-xs font-semibold text-white">Sound Effects</span>
-											<span class="text-[10px] ${on ? 'text-emerald-400 font-bold' : 'text-neutral-400 font-medium'}">${on ? 'System Audio Active' : 'Muted'}</span>
-										</div>
-									</div>
-									<div class="flex items-center gap-2">
-										<span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${on ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}">${on ? 'ON' : 'OFF'}</span>
-										<div class="w-9 h-5 rounded-full p-0.5 transition-colors duration-200 flex items-center ${on ? 'bg-emerald-500 justify-end' : 'bg-neutral-700 justify-start'}">
-											<div class="w-4 h-4 rounded-full bg-white shadow-md"></div>
-										</div>
-									</div>
-								</button>
-							`;
-						})}
-
-						${use(this.desktopWidgetsOpen, (on) => {
-							return html`
-								<button class="w-full p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${on ? 'bg-sky-500/15 border-sky-500/40 text-white shadow-[0_0_12px_rgba(14,165,233,0.15)]' : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'}"
-									on:click=${() => {
-										this.desktopWidgetsOpen = !this.desktopWidgetsOpen;
-										store.desktopWidgets = this.desktopWidgetsOpen;
-										if (this.soundEffects && window.VeilAudio) window.VeilAudio.playClick();
-										this.windows = [...this.windows];
-									}}>
-									<div class="flex items-center gap-2.5">
-										<div class="w-8 h-8 rounded-xl ${on ? 'bg-sky-500/20 text-sky-400' : 'bg-white/10 text-neutral-400'} flex items-center justify-center">
-											<i class="fa-solid fa-cubes text-sm"></i>
-										</div>
-										<div class="flex flex-col text-left">
-											<span class="text-xs font-semibold text-white">Desktop Widget</span>
-											<span class="text-[10px] ${on ? 'text-sky-400 font-bold' : 'text-neutral-400 font-medium'}">${on ? 'Battery & Ping Visible' : 'Hidden'}</span>
-										</div>
-									</div>
-									<div class="flex items-center gap-2">
-										<span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${on ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}">${on ? 'ON' : 'OFF'}</span>
-										<div class="w-9 h-5 rounded-full p-0.5 transition-colors duration-200 flex items-center ${on ? 'bg-sky-500 justify-end' : 'bg-neutral-700 justify-start'}">
-											<div class="w-4 h-4 rounded-full bg-white shadow-md"></div>
-										</div>
-									</div>
-								</button>
-							`;
-						})}
-					</div>
-
-					<div class="h-px bg-white/10 my-0.5"></div>
-
-					<div class="flex flex-col gap-1.5">
-						<button class="flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors cursor-pointer text-left"
-							on:click=${() => {
-								this.controlCenterOpen = false;
-								this.windows = [...this.windows];
-								window.openSettingsModal();
-							}}>
-							<div class="flex items-center gap-2">
-								<i class="fa-solid fa-gear text-indigo-400 text-xs"></i>
-								<span class="font-medium text-xs">System Preferences</span>
-							</div>
-							<i class="fa-solid fa-chevron-right text-[10px] text-neutral-400"></i>
-						</button>
-
-						<button class="flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors cursor-pointer text-left"
-							on:click=${() => {
-								this.isLocked = true;
-								this.controlCenterOpen = false;
-								this.windows = [...this.windows];
-							}}>
-							<div class="flex items-center gap-2">
-								<i class="fa-solid fa-lock text-amber-400 text-xs"></i>
-								<span class="font-medium text-xs">Lock Screen</span>
-							</div>
-							<i class="fa-solid fa-chevron-right text-[10px] text-neutral-400"></i>
-						</button>
-					</div>
-
-					<div class="grid grid-cols-2 gap-1.5">
-						<button class="py-1.5 px-2 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 rounded-xl text-indigo-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-							on:click=${() => { if (window.openAboutBlankCloak) window.openAboutBlankCloak(); }}>
-							<i class="fa-solid fa-arrow-up-right-from-square"></i>
-							<span>About:Blank</span>
-						</button>
-						<button class="py-1.5 px-2 bg-teal-950/60 hover:bg-teal-900/80 border border-teal-500/40 rounded-xl text-teal-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-							on:click=${() => { if (window.openBlobCloak) window.openBlobCloak(); }}>
-							<i class="fa-solid fa-cube"></i>
-							<span>Blob Cloak</span>
-						</button>
-					</div>
-
-					<button class="w-full py-2 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/50 rounded-2xl text-rose-300 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm mt-1"
-						on:click=${() => location.reload()}>
-						<i class="fa-solid fa-rotate-right"></i>
-						<span>Restart VeilOS</span>
-					</button>
 				</div>
 
 				${this.spotlightOverlay}
@@ -2103,7 +2076,7 @@ window.addEventListener("load", async () => {
 				${use(this.windows, () => {
 					if (!this.contextMenu.open) return null;
 					return html`
-						<div class="fixed z-50 w-52 bg-neutral-900/95 border border-white/20 rounded-2xl p-1.5 shadow-2xl backdrop-blur-2xl text-white font-sans text-xs flex flex-col gap-0.5 animate-context-menu"
+						<div class="fixed z-50 w-52 bg-[#111118]/95 border border-white/15 rounded-2xl p-1.5 shadow-2xl backdrop-blur-2xl text-white font-sans text-xs flex flex-col gap-0.5 animate-context-menu"
 							style="top: ${this.contextMenu.y}px; left: ${this.contextMenu.x}px;"
 							on:click=${(e) => e.stopPropagation()}>
 							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
@@ -2124,12 +2097,12 @@ window.addEventListener("load", async () => {
 							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
 								on:click=${() => { this.contextMenu.open = false; this.openApp("terminal"); }}>
 								<i class="fa-solid fa-terminal text-emerald-400 w-4"></i>
-								<span>Veil Terminal</span>
+								<span>Spade Terminal</span>
 							</button>
 							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
 								on:click=${() => { this.contextMenu.open = false; this.openApp("files"); }}>
 								<i class="fa-solid fa-folder-open text-amber-400 w-4"></i>
-								<span>Veil Files</span>
+								<span>Spade Files</span>
 							</button>
 							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-neutral-200 hover:text-white transition-colors cursor-pointer text-left"
 								on:click=${() => { this.contextMenu.open = false; this.openApp("ai"); }}>
@@ -2151,9 +2124,9 @@ window.addEventListener("load", async () => {
 								<i class="fa-solid fa-cube text-emerald-400 w-4"></i>
 								<span>Ampler Launcher</span>
 							</button>
-							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-emerald-300 hover:text-white transition-colors cursor-pointer text-left"
+							<button class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 text-indigo-300 hover:text-white transition-colors cursor-pointer text-left"
 								on:click=${() => { this.contextMenu.open = false; this.openApp("changelog"); }}>
-								<i class="fa-solid fa-scroll text-emerald-400 w-4"></i>
+								<i class="fa-solid fa-scroll text-sky-400 w-4"></i>
 								<span>Changelog & Credits</span>
 							</button>
 							<div class="h-px bg-white/10 my-1"></div>
@@ -2171,43 +2144,51 @@ window.addEventListener("load", async () => {
 					`;
 				})}
 
-				<div id="veil-lock-screen" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-between p-6 sm:p-8 text-white font-sans animate-fade select-none overflow-y-auto custom-scrollbar"
+				<div id="spade-lock-screen" class="fixed inset-0 z-50 bg-[#09090b] flex flex-col items-center justify-between p-6 sm:p-8 text-white font-sans animate-fade select-none overflow-y-auto custom-scrollbar"
 					style=${use(this.isLocked, (locked) => locked ? "display: flex;" : "display: none;")}>
 
-					<div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none animate-orb-1"></div>
-					<div class="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-purple-600/20 blur-3xl pointer-events-none animate-orb-2"></div>
-					<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-pink-600/10 blur-[120px] pointer-events-none"></div>
+					<img src="assets/background.jpg" alt="" class="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none select-none" />
+					<div class="absolute inset-0 bg-gradient-to-b from-[#09090b]/80 via-[#0f1018]/75 to-[#09090b]/95 backdrop-blur-sm pointer-events-none"></div>
+
+					<div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none animate-orb-1"></div>
+					<div class="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-sky-500/15 blur-3xl pointer-events-none animate-orb-2"></div>
+					<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none"></div>
 
 					<div class="w-full flex-1 flex flex-col items-center justify-center relative z-10 py-2">
 						<div class="flex flex-col items-center gap-3 sm:gap-4 max-w-sm w-full animate-card-entrance mb-4 sm:mb-6">
 							<div class="text-center">
-								<div class="text-5xl sm:text-6xl font-extralight tracking-[0.15em] text-white/95 uppercase font-sans drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]">
+								<div class="text-5xl sm:text-6xl font-extrabold tracking-[0.12em] text-white uppercase drop-shadow-[0_10px_24px_rgba(0,0,0,0.65)] tabular-nums">
 									${use(this.dockTimeStr)}
 								</div>
-								<div class="text-xs sm:text-sm text-neutral-400 font-medium mt-1 tracking-wide">
+								<div class="text-xs sm:text-sm text-neutral-300 font-medium mt-1 tracking-wide">
 									${use(this.dockDateStr)}
 								</div>
 							</div>
 
-							<div class="w-full bg-white/[0.05] border border-white/15 p-5 sm:p-6 rounded-3xl backdrop-blur-2xl shadow-2xl flex flex-col items-center gap-3.5 transition-all duration-300 hover:border-indigo-500/40 hover:shadow-indigo-500/10">
+							<div class="w-full bg-[#111118]/85 border border-white/15 p-5 sm:p-6 rounded-3xl backdrop-blur-2xl shadow-2xl flex flex-col items-center gap-3.5 transition-all duration-300 hover:border-indigo-400/40">
 								<div class="relative group">
-									<div class="absolute -inset-1.5 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-75 blur-md animate-veil-glow"></div>
-									<div class="relative w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center shadow-xl border-2 border-white/40 overflow-hidden animate-veil-float p-1 shrink-0">
-										<img src="https://raw.githubusercontent.com/1sunW/ICONS-FOR-LINKS/refs/heads/main/the-veil-icon-1024.png" alt="Veil OS" class="w-full h-full object-contain rounded-full transition-transform duration-500 group-hover:scale-110 drop-shadow-md" />
-									</div>
-									<div class="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 border-2 border-black flex items-center justify-center text-[9px] text-white shadow-md animate-pulse" title="Online">
-										<i class="fa-solid fa-check"></i>
+									<div class="absolute -inset-1.5 rounded-full bg-gradient-to-r from-indigo-500 via-sky-400 to-indigo-500 opacity-65 blur-md animate-veil-glow"></div>
+									<div class="relative w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500/20 via-[#111118] to-sky-500/20 flex items-center justify-center shadow-xl border-2 border-indigo-400/45 overflow-hidden animate-veil-float p-1 shrink-0">
+										<img src="assets/spadeos-emblem.jpg" alt="SpadeOS" referrerpolicy="no-referrer"
+											onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';"
+											class="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-110 drop-shadow-md" />
+										<div class="hidden w-full h-full items-center justify-center text-indigo-400 text-3xl">
+											<svg viewBox="0 0 24 24" class="w-10 h-10 fill-current" aria-hidden="true"><path d="M12 2C9 6.5 4 10 4 14.2c0 2.5 2 4.3 4.4 4.3 1.3 0 2.4-.6 3.1-1.5-.2 1.8-.9 3.4-2.2 4.5h5.4c-1.3-1.1-2-2.7-2.2-4.5.7.9 1.8 1.5 3.1 1.5 2.4 0 4.4-1.8 4.4-4.3C20 10 15 6.5 12 2z"/></svg>
+										</div>
 									</div>
 								</div>
 
 								<div class="flex flex-col items-center gap-0.5 text-center">
-									<h2 class="text-base sm:text-lg font-bold tracking-tight text-white">${use(this.windows, () => (store && store.osUsername) ? store.osUsername : "Veil User")}</h2>
-									<span class="text-xs text-neutral-400 font-medium">VeilOS Web Operating System</span>
+									<h2 class="text-base sm:text-lg font-bold tracking-tight text-white">${use(this.windows, () => (store && store.osUsername) ? store.osUsername : "Spade User")}</h2>
+									<div class="flex items-center gap-2">
+										<span class="tracking-[0.22em] font-bold uppercase text-sm text-indigo-400">SPADEOS</span>
+										<span class="text-[11px] text-neutral-400 font-medium">Web Desktop OS</span>
+									</div>
 								</div>
 
 								<div class="w-full mt-0.5">
 									<button type="button"
-										class="group relative w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs tracking-wide transition-all duration-300 shadow-xl hover:shadow-indigo-500/35 active:scale-95 cursor-pointer flex items-center justify-center gap-2.5 overflow-hidden shimmer-btn"
+										class="group relative w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-sky-500 hover:from-indigo-500 hover:to-sky-400 text-white font-bold text-xs tracking-wider uppercase transition-all duration-300 shadow-xl hover:shadow-indigo-500/35 active:scale-95 cursor-pointer flex items-center justify-center gap-2.5 overflow-hidden shimmer-btn"
 										on:click=${() => this.unlockOS()}>
 										<span class="relative z-10">Sign In</span>
 										<i class="fa-solid fa-arrow-right text-xs relative z-10 transition-transform duration-300 group-hover:translate-x-1.5"></i>
@@ -2220,15 +2201,15 @@ window.addEventListener("load", async () => {
 							style="mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);">
 							<div class="lock-quotes-track px-4 py-1">
 								${[...LOCKSCREEN_QUOTES, ...LOCKSCREEN_QUOTES].map(q => html`
-									<div class="bg-[#120e17]/85 hover:bg-[#191321]/95 border border-white/[0.08] hover:border-white/20 transition-all duration-200 rounded-2xl p-4 shadow-2xl flex flex-col justify-start w-[290px] sm:w-[310px] shrink-0 text-left backdrop-blur-md cursor-default select-none group/card">
+									<div class="bg-[#111118]/85 hover:bg-[#181822]/95 border border-white/10 hover:border-indigo-400/35 transition-all duration-200 rounded-2xl p-4 shadow-2xl flex flex-col justify-start w-[290px] sm:w-[310px] shrink-0 text-left backdrop-blur-md cursor-default select-none group/card">
 										<div class="flex items-center gap-2.5 mb-2">
 											<div class="w-8 h-8 rounded-xl ${q.avatarBg} flex items-center justify-center text-white shrink-0 shadow-inner group-hover/card:scale-105 transition-transform">
 												<i class="${q.icon} text-xs"></i>
 											</div>
 											<div class="flex items-center gap-1.5 text-xs truncate leading-none min-w-0">
 												<span class="font-bold text-white tracking-wide shrink-0">${q.author}</span>
-												<span class="text-neutral-500 font-bold shrink-0">•</span>
-												<span class="text-[#aa9cb3] font-normal truncate">${q.role}</span>
+												<span class="text-indigo-400 font-bold shrink-0">•</span>
+												<span class="text-neutral-400 font-normal truncate">${q.role}</span>
 											</div>
 										</div>
 										<p class="text-xs sm:text-[13px] text-neutral-200 font-normal leading-relaxed line-clamp-3 select-text">
@@ -2241,10 +2222,10 @@ window.addEventListener("load", async () => {
 					</div>
 
 					<div class="w-full flex items-center justify-center gap-6 pb-2 text-xs text-neutral-400 max-w-4xl shrink-0 relative z-10">
-						<button class="flex items-center gap-2 hover:text-white transition-colors cursor-pointer text-xs group"
+						<button class="flex items-center gap-2 hover:text-indigo-400 transition-colors cursor-pointer text-xs group"
 							on:click=${() => location.reload()}>
 							<i class="fa-solid fa-rotate-right text-xs transition-transform duration-500 group-hover:rotate-180"></i>
-							<span>Restart VeilOS</span>
+							<span>Restart SpadeOS</span>
 						</button>
 					</div>
 				</div>
@@ -2347,7 +2328,7 @@ window.addEventListener("load", async () => {
 								<div class="p-2 bg-neutral-900/98 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-2xl flex flex-col gap-1.5">
 									<div class="flex items-center justify-between px-1">
 										<span class="text-[9px] uppercase font-bold text-neutral-400 tracking-wider">Snap Layout</span>
-										<span class="text-[9px] text-emerald-400 font-semibold">VeilOS Snap</span>
+										<span class="text-[9px] text-indigo-400 font-semibold">SpadeOS Snap</span>
 									</div>
 									<div class="grid grid-cols-2 gap-1.5">
 										<button class="flex items-center gap-2 p-2 rounded-xl bg-white/5 hover:bg-emerald-600/30 hover:border-emerald-500/50 border border-white/10 text-neutral-200 hover:text-white text-xs font-medium transition-all cursor-pointer group/btn"
@@ -2422,13 +2403,13 @@ window.addEventListener("load", async () => {
 		} else if (appId === "files") {
 			el = window.renderFilesApp ? window.renderFilesApp(win, scramjet, osInstance) : html`<div>Loading Files...</div>`;
 		} else if (appId === "vault") {
-			el = html`<iframe src="/vault.html" class="w-full h-full border-0 outline-none bg-[#090a12]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>`;
+			el = html`<iframe src="/vault.html" class="w-full h-full border-0 outline-none bg-[#09090b]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>`;
 		} else if (appId === "movies") {
-			el = html`<iframe src="/movies.html" class="w-full h-full border-0 outline-none bg-[#0e001a]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>`;
+			el = html`<iframe src="/movies.html" class="w-full h-full border-0 outline-none bg-[#09090b]" allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>`;
 		} else if (appId === "games") {
-			el = html`<iframe src="/games.html" class="w-full h-full border-0 outline-none bg-[#090814]"></iframe>`;
+			el = html`<iframe src="/games.html" class="w-full h-full border-0 outline-none bg-[#09090b]"></iframe>`;
 		} else if (appId === "chat") {
-			el = html`<iframe src="/chat.html" class="w-full h-full border-0 outline-none bg-[#0b0b0e]"></iframe>`;
+			el = html`<iframe src="/chat.html" class="w-full h-full border-0 outline-none bg-[#09090b]"></iframe>`;
 		} else if (appId === "cloudgaming") {
 			el = renderCloudGamingApp(win, scramjet, osInstance);
 		} else if (appId === "music") {
@@ -2445,58 +2426,94 @@ window.addEventListener("load", async () => {
 	}
 
 	function renderMusicApp(win, scramjet, osInstance) {
+		const SONORA_TARGET_URL = "https://cherrion.top/music";
+		const getProxiedSonoraUrl = () => {
+			try {
+				if (scramjet && typeof scramjet.encodeUrl === "function") {
+					return scramjet.encodeUrl(SONORA_TARGET_URL);
+				}
+			} catch (e) {}
+			return "/scramjet/" + encodeURIComponent(SONORA_TARGET_URL);
+		};
+
 		if (!win.customState) {
 			win.customState = {};
 		}
 
-		if (!win.customState.iframe) {
-			const iframe = document.createElement("iframe");
+		if (!win.customState.frameObj && !win.customState.iframe) {
+			const frameObj = (scramjet && typeof scramjet.createFrame === "function")
+				? scramjet.createFrame()
+				: null;
+			const iframe = frameObj ? frameObj.frame : document.createElement("iframe");
 			iframe.className = "w-full h-full border-0 outline-none bg-[#09090b] block";
 			iframe.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; microphone";
-			iframe.src = "https://musicv-production.up.railway.app/";
+
+			const navigateSonora = () => {
+				if (frameObj && typeof frameObj.go === "function") {
+					frameObj.go(SONORA_TARGET_URL);
+				} else {
+					iframe.src = getProxiedSonoraUrl();
+				}
+			};
+
+			if ("serviceWorker" in navigator && !navigator.serviceWorker.controller) {
+				Promise.race([
+					navigator.serviceWorker.ready,
+					new Promise((resolve) => setTimeout(resolve, 3000))
+				]).then(() => {
+					navigateSonora();
+				}).catch(() => {
+					navigateSonora();
+				});
+			} else {
+				navigateSonora();
+			}
+
+			win.customState.frameObj = frameObj;
 			win.customState.iframe = iframe;
+			win.customState.navigateSonora = navigateSonora;
 		}
 
+		const frameObj = win.customState.frameObj;
 		const iframe = win.customState.iframe;
+		const navigateSonora = win.customState.navigateSonora || (() => {
+			if (frameObj && typeof frameObj.go === "function") {
+				frameObj.go(SONORA_TARGET_URL);
+			} else {
+				iframe.src = getProxiedSonoraUrl();
+			}
+		});
 
 		return html`
 			<div class="w-full h-full relative bg-[#09090b] overflow-hidden select-text flex flex-col">
 				<div class="h-8 bg-neutral-900/90 border-b border-white/10 px-3 flex items-center justify-between text-xs text-neutral-300 shrink-0">
 					<div class="flex items-center gap-2">
 						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
-							on:click=${() => { try { iframe.contentWindow.history.back(); } catch(e){} }} title="Back">
+							on:click=${() => { try { if (frameObj && typeof frameObj.back === "function") frameObj.back(); else iframe.contentWindow.history.back(); } catch(e){} }} title="Back">
 							<i class="fa-solid fa-arrow-left text-[10px]"></i>
 						</button>
 						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
-							on:click=${() => { try { iframe.contentWindow.history.forward(); } catch(e){} }} title="Forward">
+							on:click=${() => { try { if (frameObj && typeof frameObj.forward === "function") frameObj.forward(); else iframe.contentWindow.history.forward(); } catch(e){} }} title="Forward">
 							<i class="fa-solid fa-arrow-right text-[10px]"></i>
 						</button>
 						<button class="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors text-neutral-400 hover:text-white"
-							on:click=${() => { iframe.src = "https://musicv-production.up.railway.app/"; }} title="Reload Home">
+							on:click=${() => { navigateSonora(); }} title="Reload Home">
 							<i class="fa-solid fa-rotate-right text-[10px]"></i>
 						</button>
 						<span class="text-[11px] text-neutral-300 font-semibold ml-1 flex items-center gap-1.5">
 							<i class="fa-solid fa-music text-rose-400 text-[10px]"></i>
 							<span>Sonora</span>
 						</span>
-						<span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono font-medium flex items-center gap-1 ml-1 select-none">
-							<i class="fa-solid fa-triangle-exclamation text-[9px] text-amber-400"></i>
-							<span>Music unavailable until VPS</span>
-						</span>
 					</div>
 					<div class="flex items-center gap-2">
 						<button class="text-[10px] text-neutral-400 hover:text-white px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
 							on:click=${() => {
-								osInstance.openApp("browser", "Sonora", { url: "https://musicv-production.up.railway.app/" });
+								osInstance.openApp("browser", "Sonora", { url: SONORA_TARGET_URL });
 							}} title="Open in Onyx Browser">
 							<i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
 							<span>Open in Browser</span>
 						</button>
 					</div>
-				</div>
-				<div class="bg-amber-950/90 border-b border-amber-500/40 text-amber-300 text-xs px-3 py-1.5 flex items-center justify-center gap-2 font-medium shrink-0 shadow-sm select-none">
-					<i class="fa-solid fa-triangle-exclamation text-amber-400 text-xs"></i>
-					<span>Music unavailable until VPS</span>
 				</div>
 				<div class="flex-1 w-full h-full relative overflow-hidden">
 					${iframe}
@@ -2686,27 +2703,27 @@ window.addEventListener("load", async () => {
 			clean = normalizeBrowserUrl(clean);
 			const lower = clean.toLowerCase();
 
-			if (lower === "onyx://chat" || lower === "veil://chat" || lower === "chrome://chat" || lower === "about:chat" || lower === "onyx:chat" || lower === "veil:chat" || lower === "chrome:chat") {
+			if (lower === "onyx://chat" || lower === "spade://chat" || lower === "veil://chat" || lower === "chrome://chat" || lower === "about:chat" || lower === "onyx:chat" || lower === "spade:chat" || lower === "veil:chat" || lower === "chrome:chat") {
 				return "onyx://chat";
 			}
-			if (lower === "onyx://bookmarks" || lower === "veil://bookmarks" || lower === "chrome://bookmarks" || lower === "about:bookmarks" || lower === "onyx:bookmarks" || lower === "veil:bookmarks" || lower === "chrome:bookmarks") {
+			if (lower === "onyx://bookmarks" || lower === "spade://bookmarks" || lower === "veil://bookmarks" || lower === "chrome://bookmarks" || lower === "about:bookmarks" || lower === "onyx:bookmarks" || lower === "spade:bookmarks" || lower === "veil:bookmarks" || lower === "chrome:bookmarks") {
 				return "onyx://bookmarks";
 			}
-			if (lower === "onyx://history" || lower === "veil://history" || lower === "chrome://history" || lower === "about:history" || lower === "onyx:history" || lower === "veil:history" || lower === "chrome:history") {
+			if (lower === "onyx://history" || lower === "spade://history" || lower === "veil://history" || lower === "chrome://history" || lower === "about:history" || lower === "onyx:history" || lower === "spade:history" || lower === "veil:history" || lower === "chrome:history") {
 				return "onyx://history";
 			}
-			if (lower === "onyx://extensions" || lower === "veil://extensions" || lower === "chrome://extensions" || lower === "about:extensions" || lower === "onyx:extensions" || lower === "veil:extensions" || lower === "chrome:extensions") {
+			if (lower === "onyx://extensions" || lower === "spade://extensions" || lower === "veil://extensions" || lower === "chrome://extensions" || lower === "about:extensions" || lower === "onyx:extensions" || lower === "spade:extensions" || lower === "veil:extensions" || lower === "chrome:extensions") {
 				return "onyx://newtab";
 			}
-			if (lower === "onyx://settings" || lower === "veil://settings" || lower === "chrome://settings" || lower === "about:settings" || lower === "onyx:settings" || lower === "veil:settings" || lower === "chrome:settings") {
+			if (lower === "onyx://settings" || lower === "spade://settings" || lower === "veil://settings" || lower === "chrome://settings" || lower === "about:settings" || lower === "onyx:settings" || lower === "spade:settings" || lower === "veil:settings" || lower === "chrome:settings") {
 				return "onyx://settings";
 			}
-			if (lower === "onyx://newtab" || lower === "veil://newtab" || lower === "chrome://newtab" || lower === "about:newtab" || lower === "onyx:newtab" || lower === "veil:newtab" || lower === "chrome:newtab") {
+			if (lower === "onyx://newtab" || lower === "spade://newtab" || lower === "veil://newtab" || lower === "chrome://newtab" || lower === "about:newtab" || lower === "onyx:newtab" || lower === "spade:newtab" || lower === "veil:newtab" || lower === "chrome:newtab") {
 				return "onyx://newtab";
 			}
 
-			if (clean.startsWith("onyx://") || clean.startsWith("veil://")) {
-				return clean.replace(/^veil:\/\//i, "onyx://");
+			if (clean.startsWith("onyx://") || clean.startsWith("spade://") || clean.startsWith("veil://")) {
+				return clean.replace(/^(veil|spade):\/\//i, "onyx://");
 			}
 			if (clean.startsWith("http://") || clean.startsWith("https://") || clean.startsWith("about:") || clean.startsWith("data:") || clean.startsWith("blob:")) {
 				return clean;
@@ -2735,14 +2752,14 @@ window.addEventListener("load", async () => {
 		const getTitleFromUrl = (urlStr) => {
 			if (!urlStr) return "New Tab";
 			const clean = normalizeBrowserUrl(urlStr);
-			if (clean === "veil://chat" || clean === "onyx://chat") return "Onyx Chat";
-			if (clean === "veil://bookmarks" || clean === "onyx://bookmarks") return "Bookmarks";
-			if (clean === "veil://history" || clean === "onyx://history") return "History";
-			if (clean === "veil://extensions" || clean === "onyx://extensions") return "Extensions";
-			if (clean === "veil://settings" || clean === "onyx://settings") return "Settings";
-			if (clean === "veil://newtab" || clean === "onyx://newtab") return "New Tab";
-			if (clean.startsWith("veil://") || clean.startsWith("onyx://")) {
-				const prefix = clean.startsWith("veil://") ? "veil://" : "onyx://";
+			if (clean === "spade://chat" || clean === "veil://chat" || clean === "onyx://chat") return "Onyx Chat";
+			if (clean === "spade://bookmarks" || clean === "veil://bookmarks" || clean === "onyx://bookmarks") return "Bookmarks";
+			if (clean === "spade://history" || clean === "veil://history" || clean === "onyx://history") return "History";
+			if (clean === "spade://extensions" || clean === "veil://extensions" || clean === "onyx://extensions") return "Extensions";
+			if (clean === "spade://settings" || clean === "veil://settings" || clean === "onyx://settings") return "Settings";
+			if (clean === "spade://newtab" || clean === "veil://newtab" || clean === "onyx://newtab") return "New Tab";
+			if (clean.startsWith("spade://") || clean.startsWith("veil://") || clean.startsWith("onyx://")) {
+				const prefix = clean.startsWith("spade://") ? "spade://" : (clean.startsWith("veil://") ? "veil://" : "onyx://");
 				const part = clean.slice(prefix.length).replace(/\/$/, "");
 				return part.charAt(0).toUpperCase() + part.slice(1);
 			}
@@ -2808,7 +2825,7 @@ window.addEventListener("load", async () => {
 		}
 
 		const tabStrip = document.createElement("div");
-		tabStrip.className = "flex items-center justify-between bg-neutral-900 border-b border-white/10 px-2 pt-1.5 gap-2 shrink-0 overflow-x-auto custom-scrollbar";
+		tabStrip.className = "flex items-center justify-between bg-[#111118] border-b border-white/10 px-2 pt-1.5 gap-2 shrink-0 overflow-x-auto custom-scrollbar";
 
 		const tabsListContainer = document.createElement("div");
 		tabsListContainer.className = "flex items-center gap-1 overflow-x-auto min-w-0";
@@ -2826,7 +2843,7 @@ window.addEventListener("load", async () => {
 		tabStrip.appendChild(panelToggles);
 
 		const urlBar = document.createElement("div");
-		urlBar.className = "flex items-center p-2 gap-2 bg-neutral-900 border-b border-white/10 shrink-0 relative";
+		urlBar.className = "flex items-center p-2 gap-2 bg-[#111118] border-b border-white/10 shrink-0 relative";
 
 		const backBtn = document.createElement("button");
 		backBtn.className = "w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white flex items-center justify-center text-xs cursor-pointer";
@@ -2849,7 +2866,7 @@ window.addEventListener("load", async () => {
 		homeBtn.title = "Home (New Tab)";
 
 		const urlInputBox = document.createElement("div");
-		urlInputBox.className = "flex-1 flex items-center bg-black/60 border border-white/10 focus-within:border-purple-400 rounded-xl px-3 py-1 gap-2";
+		urlInputBox.className = "flex-1 flex items-center bg-black/60 border border-white/10 focus-within:border-indigo-400 rounded-xl px-3 py-1 gap-2";
 
 		const lockSpan = document.createElement("span");
 		lockSpan.className = "text-xs text-emerald-400 flex items-center";
@@ -2868,7 +2885,7 @@ window.addEventListener("load", async () => {
 		urlInputBox.appendChild(starBtn);
 
 		const goBtn = document.createElement("button");
-		goBtn.className = "px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center";
+		goBtn.className = "px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all cursor-pointer flex items-center justify-center";
 		goBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i>';
 		goBtn.title = "Go to URL";
 
@@ -2884,7 +2901,7 @@ window.addEventListener("load", async () => {
 		urlBar.appendChild(goBtn);
 
 		const quickBmBar = document.createElement("div");
-		quickBmBar.className = "flex items-center gap-1.5 px-3 py-1.5 bg-neutral-950 border-b border-white/10 overflow-x-auto text-xs shrink-0 custom-scrollbar";
+		quickBmBar.className = "flex items-center gap-1.5 px-3 py-1.5 bg-[#09090b] border-b border-white/10 overflow-x-auto text-xs shrink-0 custom-scrollbar";
 
 		const mainContent = document.createElement("div");
 		mainContent.className = "flex-1 w-full h-full relative flex overflow-hidden";
@@ -2938,7 +2955,7 @@ window.addEventListener("load", async () => {
 
 			if (currentSection === "chat") {
 				const chatFrame = document.createElement("iframe");
-				chatFrame.className = "w-full h-full border-0 outline-none bg-black";
+				chatFrame.className = "w-full h-full border-0 outline-none bg-[#09090b]";
 				chatFrame.src = "/chat.html";
 				container.appendChild(chatFrame);
 				return;
@@ -2946,18 +2963,18 @@ window.addEventListener("load", async () => {
 
 			if (currentSection === "newtab") {
 				const homeContainer = document.createElement("div");
-				homeContainer.className = "w-full h-full flex flex-col items-center justify-center bg-[#070709] select-none p-6 text-white min-h-[65vh]";
+				homeContainer.className = "w-full h-full flex flex-col items-center justify-center bg-[#09090b] bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.14),transparent_60%)] select-none p-6 text-white min-h-[65vh]";
 
 				const homeWrap = document.createElement("div");
 				homeWrap.className = "flex flex-col items-center justify-center max-w-xl w-full gap-7";
 
 				const titleEl = document.createElement("h1");
-				titleEl.className = "text-5xl font-bold tracking-tight text-white font-sans lowercase select-none";
-				titleEl.textContent = "onyx";
+				titleEl.className = "text-6xl font-extrabold tracking-[0.16em] uppercase bg-gradient-to-r from-indigo-400 via-sky-300 to-indigo-400 bg-clip-text text-transparent select-none";
+				titleEl.textContent = "SPADEOS";
 				homeWrap.appendChild(titleEl);
 
 				const searchCard = document.createElement("div");
-				searchCard.className = "w-full flex items-center bg-[#13141b] border border-white/10 hover:border-white/20 focus-within:border-white/25 rounded-full px-4 py-2.5 gap-3 shadow-2xl transition-all";
+				searchCard.className = "w-full flex items-center bg-[#111118] border border-white/15 hover:border-white/25 focus-within:border-indigo-400 rounded-full px-4 py-2.5 gap-3 shadow-2xl transition-all";
 
 				const searchIcon = document.createElement("span");
 				searchIcon.className = "text-neutral-400 text-sm pl-1";
@@ -3065,7 +3082,7 @@ window.addEventListener("load", async () => {
 			}
 
 			titleBox.innerHTML = `
-				<div class="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shadow-inner">${pageIcon}</div>
+				<div class="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-xl shadow-inner">${pageIcon}</div>
 				<div>
 					<div class="flex items-center gap-2">
 						<span class="text-xs font-bold uppercase tracking-wider text-indigo-400 font-mono">onyx://${currentSection}</span>
@@ -3089,7 +3106,7 @@ window.addEventListener("load", async () => {
 				const isCurrent = currentSection === it.id;
 				const tabBtn = document.createElement("button");
 				tabBtn.className = `px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-					isCurrent ? 'bg-indigo-600 text-white shadow-md' : 'text-neutral-400 hover:text-white hover:bg-white/5'
+					isCurrent ? 'bg-indigo-600 text-white font-bold shadow-md' : 'text-neutral-400 hover:text-white hover:bg-white/5'
 				}`;
 				tabBtn.innerHTML = `<span>${it.icon}</span><span>${it.label}</span>`;
 				tabBtn.onclick = () => handleNav(it.url);
@@ -3968,7 +3985,7 @@ window.addEventListener("load", async () => {
 				settingsWrap.className = "flex flex-col gap-6 max-w-3xl";
 
 				const themeSec = document.createElement("div");
-				themeSec.className = "p-5 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-4";
+				themeSec.className = "p-5 rounded-2xl bg-[#111118]/90 border border-white/15 flex flex-col gap-4";
 				const curTheme = (store.theme || "default").toLowerCase();
 				themeSec.innerHTML = `
 					<div class="flex items-center justify-between">
@@ -3976,10 +3993,10 @@ window.addEventListener("load", async () => {
 							<span class="text-lg">🎨</span>
 							<div>
 								<h3 class="text-sm font-bold text-white">Theme & Desktop Style</h3>
-								<p class="text-xs text-neutral-400">Select your active aesthetic theme for VeilOS and Onyx Browser.</p>
+								<p class="text-xs text-neutral-400">Select your active aesthetic theme for SpadeOS and Onyx Browser.</p>
 							</div>
 						</div>
-						<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-neutral-300">
+						<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
 							Active
 						</span>
 					</div>
@@ -3987,7 +4004,8 @@ window.addEventListener("load", async () => {
 				const themesGrid = document.createElement("div");
 				themesGrid.className = "grid grid-cols-1 sm:grid-cols-2 gap-2.5";
 				const themeOptions = [
-					{ id: "default", label: "Midnight Dark", icon: "🌌", wp: "assets/background.jpg", accent: "indigo", desc: "Classic sleek dark mode with high-resolution floral aesthetic wallpaper." },
+					{ id: "default", label: "Midnight Classic", icon: "🌌", wp: "assets/background.jpg", accent: "indigo", desc: "Classic sleek dark mode with high-resolution floral aesthetic wallpaper." },
+					{ id: "midnight", label: "Obsidian Slate", icon: "🌑", wp: "gradient", accent: "sky", desc: "Minimalist obsidian slate surface with cool sapphire-indigo accents." },
 					{ id: "cyber", label: "Cyber Matrix", icon: "⚡", wp: "gradient", accent: "emerald", desc: "High-tech emerald neon gradients and terminal aesthetic." },
 					{ id: "crimson", label: "Deep Crimson", icon: "💎", wp: "gradient", accent: "rose", desc: "Refined frosted crimson red and obsidian styling." }
 				];
@@ -3995,7 +4013,7 @@ window.addEventListener("load", async () => {
 					const btn = document.createElement("button");
 					const isSel = curTheme === th.id;
 					btn.className = `p-3 rounded-xl border text-left flex flex-col gap-1 cursor-pointer transition-all ${
-						isSel ? 'selected-item bg-indigo-500/15 border-indigo-500/50 text-white shadow-lg shadow-indigo-950/40' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
+						isSel ? 'selected-item bg-indigo-500/15 border-indigo-400/60 text-white shadow-lg' : 'bg-white/5 border-transparent text-neutral-300 hover:bg-white/10'
 					}`;
 					btn.innerHTML = `
 						<div class="flex items-center justify-between">
@@ -4003,7 +4021,7 @@ window.addEventListener("load", async () => {
 								<span>${th.icon}</span>
 								<span class="text-xs font-bold text-white">${th.label}</span>
 							</div>
-							${isSel ? '<span class="text-xs text-indigo-400 font-bold">✓</span>' : ''}
+							${isSel ? '<span class="text-xs text-indigo-300 font-bold">✓</span>' : ''}
 						</div>
 						<p class="text-[10px] text-neutral-400 leading-snug">${th.desc}</p>
 					`;
@@ -4011,7 +4029,10 @@ window.addEventListener("load", async () => {
 						store.theme = th.id;
 						store.wallpaper = th.wp;
 						store.accentColor = th.accent;
-						try { localStorage.setItem("veil_user_theme", th.id); } catch(e){}
+						try {
+							localStorage.setItem("spade_user_theme", th.id);
+							localStorage.setItem("veil_user_theme", th.id);
+						} catch(e){}
 						if (osInstance && osInstance.notify) {
 							osInstance.notify("Theme Updated", `Switched to ${th.label}`, "fa-solid fa-wand-magic-sparkles");
 							osInstance.windows = [...osInstance.windows];
@@ -4024,7 +4045,7 @@ window.addEventListener("load", async () => {
 				settingsWrap.appendChild(themeSec);
 
 				const searchSec = document.createElement("div");
-				searchSec.className = "p-5 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-4";
+				searchSec.className = "p-5 rounded-2xl bg-[#111118]/90 border border-white/10 flex flex-col gap-4";
 				searchSec.innerHTML = `
 					<div class="flex items-center gap-2.5">
 						<span class="text-lg">🔍</span>
@@ -4046,12 +4067,15 @@ window.addEventListener("load", async () => {
 					const btn = document.createElement("button");
 					const isSel = (store.searchEngine || "google") === eng.id;
 					btn.className = `p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer transition-all ${
-						isSel ? 'selected-item bg-white/20 border-2 border-white text-white shadow-lg ring-2 ring-white ring-offset-2 ring-offset-neutral-900 font-bold' : 'bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white'
+						isSel ? 'selected-item bg-indigo-500/20 border-2 border-indigo-400 text-white shadow-lg font-bold' : 'bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white'
 					}`;
-					btn.innerHTML = `<div class="flex items-center gap-2"><span>${eng.icon}</span><span>${eng.label}</span></div>${isSel ? '<i class="fa-solid fa-circle-check text-white text-xs"></i>' : ''}`;
+					btn.innerHTML = `<div class="flex items-center gap-2"><span>${eng.icon}</span><span>${eng.label}</span></div>${isSel ? '<i class="fa-solid fa-circle-check text-indigo-300 text-xs"></i>' : ''}`;
 					btn.onclick = () => {
 						store.searchEngine = eng.id;
-						try { localStorage.setItem("veil_user_picked_engine", "true"); } catch(e){}
+						try {
+							localStorage.setItem("spade_user_picked_engine", "true");
+							localStorage.setItem("veil_user_picked_engine", "true");
+						} catch(e){}
 						renderInternalPageView(tabObj, targetUrl);
 					};
 					enginesGrid.appendChild(btn);
@@ -4060,7 +4084,7 @@ window.addEventListener("load", async () => {
 				settingsWrap.appendChild(searchSec);
 
 				const cloakSec = document.createElement("div");
-				cloakSec.className = "p-5 rounded-2xl bg-neutral-900/60 border border-white/10 flex flex-col gap-4";
+				cloakSec.className = "p-5 rounded-2xl bg-[#111118]/90 border border-white/10 flex flex-col gap-4";
 				cloakSec.innerHTML = `
 					<div class="flex items-center gap-2.5">
 						<span class="text-lg">🎭</span>
@@ -4073,20 +4097,21 @@ window.addEventListener("load", async () => {
 				const cloaksGrid = document.createElement("div");
 				cloaksGrid.className = "grid grid-cols-2 sm:grid-cols-3 gap-2.5";
 				const cloaks = [
-					{ id: "default", label: "Google (Default)" },
-					{ id: "google", label: "Google Search" },
+					{ id: "spade", label: "SpadeOS" },
+					{ id: "google", label: "Google" },
 					{ id: "classroom", label: "Google Classroom" },
 					{ id: "drive", label: "Google Drive" },
 					{ id: "canvas", label: "Canvas LMS" },
 					{ id: "schoology", label: "Schoology" }
 				];
+				const curCloak = (!store.tabCloak || store.tabCloak === "default") ? "spade" : store.tabCloak;
 				cloaks.forEach(clk => {
 					const btn = document.createElement("button");
-					const isSel = (store.tabCloak || "google") === clk.id || (clk.id === "default" && (store.tabCloak === "google" || !store.tabCloak));
+					const isSel = curCloak === clk.id;
 					btn.className = `p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer transition-all ${
-						isSel ? 'selected-item bg-white/20 border-2 border-white text-white shadow-lg ring-2 ring-white ring-offset-2 ring-offset-neutral-900 font-bold' : 'bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white'
+						isSel ? 'selected-item bg-indigo-500/20 border-2 border-indigo-400 text-white shadow-lg font-bold' : 'bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white'
 					}`;
-					btn.innerHTML = `<div class="flex items-center gap-2"><span>🎭</span><span>${clk.label}</span></div>${isSel ? '<i class="fa-solid fa-circle-check text-white text-xs"></i>' : ''}`;
+					btn.innerHTML = `<div class="flex items-center gap-2"><span>🎭</span><span>${clk.label}</span></div>${isSel ? '<i class="fa-solid fa-circle-check text-indigo-300 text-xs"></i>' : ''}`;
 					btn.onclick = () => {
 						store.tabCloak = clk.id;
 						if (window.applyTabCloak) window.applyTabCloak(clk.id, store.customCloakTitle, store.customCloakIcon);
@@ -4099,10 +4124,10 @@ window.addEventListener("load", async () => {
 				const cloakActions = document.createElement("div");
 				cloakActions.className = "flex items-center gap-3 pt-2 border-t border-white/10 flex-wrap";
 				cloakActions.innerHTML = `
-					<button id="about_blank_btn" class="px-4 py-2 rounded-xl bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-500/40 text-indigo-200 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors">
+					<button id="about_blank_btn" class="px-4 py-2 rounded-xl bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-500/40 text-indigo-200 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors">
 						<span>↗️</span><span>Open in About:Blank</span>
 					</button>
-					<button id="blob_cloak_btn" class="px-4 py-2 rounded-xl bg-teal-950/70 hover:bg-teal-900 border border-teal-500/40 text-teal-200 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors">
+					<button id="blob_cloak_btn" class="px-4 py-2 rounded-xl bg-sky-950/60 hover:bg-sky-900 border border-sky-500/40 text-sky-200 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors">
 						<span>🧊</span><span>Open in Blob Cloak</span>
 					</button>
 				`;
@@ -4116,8 +4141,8 @@ window.addEventListener("load", async () => {
 				settingsWrap.appendChild(cloakSec);
 
 				const systemModalBtn = document.createElement("button");
-				systemModalBtn.className = "w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer";
-				systemModalBtn.innerHTML = `<span>⚙️</span><span>Open VeilOS System Settings Dialog</span>`;
+				systemModalBtn.className = "w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 hover:opacity-90 text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer";
+				systemModalBtn.innerHTML = `<span>⚙️</span><span>Open SpadeOS System Settings Dialog</span>`;
 				systemModalBtn.onclick = () => {
 					window.openSettingsModal();
 				};
@@ -4131,7 +4156,7 @@ window.addEventListener("load", async () => {
 
 		const loadTabUrl = (tabObj, rawTarget) => {
 			let target = formatUrl(rawTarget || "https://google.com");
-			if (target === "onyx://changelog" || target === "veil://changelog") {
+			if (target === "onyx://changelog" || target === "spade://changelog" || target === "veil://changelog") {
 				if (osInstance && osInstance.openApp) {
 					osInstance.openApp("changelog");
 				}
@@ -4140,7 +4165,7 @@ window.addEventListener("load", async () => {
 			tabObj.url = target;
 			tabObj.title = getTitleFromUrl(target);
 
-			if (target.startsWith("onyx://") || target.startsWith("veil://")) {
+			if (target.startsWith("onyx://") || target.startsWith("spade://") || target.startsWith("veil://")) {
 				if (tabObj.frameObj && tabObj.frameObj.frame) {
 					tabObj.frameObj.frame.style.visibility = "hidden";
 					tabObj.frameObj.frame.style.pointerEvents = "none";
@@ -4148,7 +4173,7 @@ window.addEventListener("load", async () => {
 				}
 				if (!tabObj.internalEl) {
 					tabObj.internalEl = document.createElement("div");
-					tabObj.internalEl.className = "w-full h-full bg-[#0d0e15] text-white overflow-y-auto custom-scrollbar select-text";
+					tabObj.internalEl.className = "w-full h-full bg-[#09090b] text-white overflow-y-auto custom-scrollbar select-text";
 					tabObj.tabEl.appendChild(tabObj.internalEl);
 				}
 				tabObj.internalEl.style.display = "block";
@@ -4163,6 +4188,9 @@ window.addEventListener("load", async () => {
 
 			if (tabObj.internalEl) {
 				tabObj.internalEl.style.display = "none";
+			}
+			if (tabObj.errorEl) {
+				tabObj.errorEl.style.display = "none";
 			}
 			if (tabObj.frameObj && tabObj.frameObj.frame) {
 				tabObj.frameObj.frame.style.visibility = "visible";
@@ -4214,18 +4242,94 @@ window.addEventListener("load", async () => {
 				}
 			}
 
-			if (target.includes("musicv-production.up.railway.app") || target.includes("onyxai-fornow-ochre.vercel.app")) {
+			if (target.includes("onyxai-fornow-ochre.vercel.app")) {
 				tabObj.frameObj.frame.src = target;
 			} else {
 				tabObj.frameObj.go(target);
 			}
 			const cleanTarget = normalizeBrowserUrl(target);
+			tabObj.attemptedUrl = cleanTarget;
 			tabObj.url = cleanTarget;
+			tabObj.title = getTitleFromUrl(cleanTarget);
 			addHistory(tabObj.title, cleanTarget);
 			if (win.customState.activeTabId === tabObj.id) {
 				syncActiveTabUrl(cleanTarget);
 			}
 			renderTabStrip();
+		};
+
+		const showTabError = (tabObj, message, attemptedUrl) => {
+			if (!tabObj || !tabObj.errorEl) return;
+			const targetUrl = attemptedUrl || tabObj.attemptedUrl || tabObj.url || "https://google.com";
+			tabObj.url = targetUrl;
+			tabObj.title = getTitleFromUrl(targetUrl);
+			if (win.customState.activeTabId === tabObj.id) {
+				syncActiveTabUrl(targetUrl);
+			}
+			renderTabStrip();
+
+			const errorText = message || "Multiplexor task ended: Wisp(MuxTaskEnded). Connection stream terminated.";
+			tabObj.errorEl.innerHTML = `
+				<div class="max-w-md w-full bg-[#11131c] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center gap-4 animate-fade">
+					<div class="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 text-2xl shadow-inner">
+						<i class="fa-solid fa-triangle-exclamation"></i>
+					</div>
+					<div class="flex flex-col gap-1">
+						<h3 class="text-base font-bold text-white tracking-tight">Navigation Failed</h3>
+						<p class="text-xs text-neutral-400">The proxy stream closed unexpectedly or could not reach destination.</p>
+					</div>
+					<div class="w-full p-2.5 rounded-xl bg-black/50 border border-white/10 text-xs font-mono text-neutral-300 break-all select-all text-left">
+						${escapeHtml(targetUrl)}
+					</div>
+					<div class="w-full p-2.5 rounded-xl bg-rose-950/30 border border-rose-500/20 text-[11px] font-mono text-rose-300 text-left leading-relaxed">
+						${escapeHtml(errorText)}
+					</div>
+					<div class="flex flex-col sm:flex-row gap-2 w-full pt-1">
+						<button class="retry-reconnect-btn flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md active:scale-95">
+							<i class="fa-solid fa-rotate"></i>
+							<span>Reconnect & Retry</span>
+						</button>
+						<button class="retry-bare-btn py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-neutral-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
+							<i class="fa-solid fa-shield"></i>
+							<span>Bare Fallback</span>
+						</button>
+					</div>
+				</div>
+			`;
+			const retryBtn = tabObj.errorEl.querySelector(".retry-reconnect-btn");
+			if (retryBtn) {
+				retryBtn.onclick = async () => {
+					retryBtn.disabled = true;
+					retryBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>Reconnecting...</span>`;
+					if (window.reconnectWispTransport) {
+						await window.reconnectWispTransport();
+					}
+					tabObj.errorEl.style.display = "none";
+					if (tabObj.frameObj && tabObj.frameObj.frame) {
+						tabObj.frameObj.frame.style.visibility = "visible";
+					}
+					loadTabUrl(tabObj, targetUrl);
+				};
+			}
+			const bareBtn = tabObj.errorEl.querySelector(".retry-bare-btn");
+			if (bareBtn) {
+				bareBtn.onclick = async () => {
+					bareBtn.disabled = true;
+					bareBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>Switching...</span>`;
+					if (window.applyTransport) {
+						await window.applyTransport("/baremod/index.mjs");
+					}
+					tabObj.errorEl.style.display = "none";
+					if (tabObj.frameObj && tabObj.frameObj.frame) {
+						tabObj.frameObj.frame.style.visibility = "visible";
+					}
+					loadTabUrl(tabObj, targetUrl);
+				};
+			}
+			tabObj.errorEl.style.display = "flex";
+			if (tabObj.frameObj && tabObj.frameObj.frame) {
+				tabObj.frameObj.frame.style.visibility = "hidden";
+			}
 		};
 
 		const createTab = (rawUrl, customTitle) => {
@@ -4258,20 +4362,31 @@ window.addEventListener("load", async () => {
 			tabEl.style.zIndex = "0";
 			tabEl.appendChild(frame.frame);
 
+			const errorEl = document.createElement("div");
+			errorEl.className = "w-full h-full absolute inset-0 bg-[#090a0f] text-white flex flex-col items-center justify-center p-6 z-20 select-none";
+			errorEl.style.display = "none";
+			tabEl.appendChild(errorEl);
+
 			const tabObj = {
 				id: "tab_" + Date.now() + "_" + Math.floor(Math.random() * 10000),
 				numericId: tabNumericId,
 				title: customTitle || getTitleFromUrl(cleanInitial),
 				url: cleanInitial,
+				attemptedUrl: cleanInitial,
 				frameObj: frame,
 				tabEl: tabEl,
 				internalEl: null,
+				errorEl: errorEl,
 			};
 
 			const handleUrlUpdate = (newUrl) => {
 				if (!newUrl || newUrl === "about:blank" || newUrl.startsWith("blob:")) return;
 				const cleanUrl = normalizeBrowserUrl(newUrl);
-				if ((tabObj.url.startsWith("onyx://") || tabObj.url.startsWith("veil://")) && !cleanUrl.startsWith("http")) return;
+				if ((tabObj.url.startsWith("onyx://") || tabObj.url.startsWith("spade://") || tabObj.url.startsWith("veil://")) && !cleanUrl.startsWith("http")) return;
+				if (tabObj.errorEl && tabObj.errorEl.style.display === "flex") return;
+				if (tabObj.attemptedUrl && cleanUrl !== tabObj.attemptedUrl && (cleanUrl.includes("google.com") && !tabObj.attemptedUrl.includes("google.com"))) {
+					return;
+				}
 				tabObj.url = cleanUrl;
 				tabObj.title = getTitleFromUrl(cleanUrl);
 				addHistory(tabObj.title, cleanUrl);
@@ -4281,6 +4396,21 @@ window.addEventListener("load", async () => {
 				renderTabStrip();
 			};
 
+			const checkFrameForError = () => {
+				try {
+					const doc = frame.frame.contentDocument;
+					if (doc) {
+						const title = (doc.title || "").toLowerCase();
+						const text = (doc.body ? doc.body.innerText : "") || "";
+						if (text.includes("MuxTaskEnded") || text.includes("Multiplexor task ended") || text.includes("Multiplexor closed") || title.includes("scramjet error") || text.includes("Scramjet Error") || text.includes("Failed to fetch") || text.includes("502 Bad Gateway") || text.includes("500 Internal Server Error")) {
+							showTabError(tabObj, text.includes("MuxTaskEnded") ? "Wisp(MuxTaskEnded): Multiplexor task ended. Stream disconnected." : "Scramjet failed to retrieve the requested URL.", tabObj.attemptedUrl);
+							return true;
+						}
+					}
+				} catch (err) {}
+				return false;
+			};
+
 			frame.addEventListener("urlchange", (e) => {
 				if (e && e.url) handleUrlUpdate(e.url);
 			});
@@ -4288,6 +4418,7 @@ window.addEventListener("load", async () => {
 				if (e && e.url) handleUrlUpdate(e.url);
 			});
 			frame.frame.addEventListener("load", () => {
+				if (checkFrameForError()) return;
 				try {
 					const curr = frame.url ? frame.url.href : (frame.client && frame.client.url ? frame.client.url.href : null);
 					if (curr) handleUrlUpdate(curr);
@@ -4468,7 +4599,7 @@ window.addEventListener("load", async () => {
 		const updateTopRightButtonsState = () => {
 			const activeTab = getActiveTab();
 			const activeUrl = (activeTab?.url || "").toLowerCase();
-			const isHistory = activeUrl.startsWith("veil://history") || activeUrl.startsWith("onyx://history");
+			const isHistory = activeUrl.startsWith("spade://history") || activeUrl.startsWith("veil://history") || activeUrl.startsWith("onyx://history");
 
 			historyToggleBtn.className = `w-7 h-7 rounded-lg text-xs font-medium transition-colors flex items-center justify-center cursor-pointer ${
 				isHistory ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm' : 'bg-white/5 hover:bg-white/15 text-neutral-300 hover:text-white border border-transparent'
@@ -5264,10 +5395,14 @@ window.addEventListener("load", async () => {
 			win.customState.urlPollTimer = setInterval(() => {
 				const active = win.customState.tabs ? win.customState.tabs.find(t => t.id === win.customState.activeTabId) : null;
 				if (!active || !active.frameObj) return;
+				if (active.errorEl && active.errorEl.style.display === "flex") return;
 				try {
 					const curr = active.frameObj.url?.href;
 					if (curr && curr !== "about:blank" && !curr.startsWith("blob:")) {
 						const cleanCurr = normalizeBrowserUrl(curr);
+						if (active.attemptedUrl && cleanCurr !== active.attemptedUrl && (cleanCurr.includes("google.com") && !active.attemptedUrl.includes("google.com"))) {
+							return;
+						}
 						if (cleanCurr && cleanCurr !== active.url) {
 							active.url = cleanCurr;
 							active.title = getTitleFromUrl(cleanCurr);
@@ -5302,7 +5437,7 @@ window.addEventListener("load", async () => {
 
 	const appRoot = document.getElementById("app");
 	try {
-		appRoot.replaceWith(h(VeilOS));
+		appRoot.replaceWith(h(SpadeOS));
 	} catch (e) {
 		appRoot.replaceWith(document.createTextNode("" + e));
 		throw e;

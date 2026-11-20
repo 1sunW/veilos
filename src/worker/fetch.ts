@@ -611,24 +611,32 @@ async function handleResponse(
 		}
 	}
 
-	const maybeHeaders = responseHeaders["set-cookie"] || [];
-	for (const cookie in maybeHeaders) {
-		if (client) {
+	const rawSetCookie = responseHeaders["set-cookie"];
+	const setCookies = Array.isArray(rawSetCookie)
+		? rawSetCookie
+		: rawSetCookie
+			? [rawSetCookie]
+			: [];
+	const prefix = swtarget.config?.prefix || config.prefix;
+	for (const cookie of setCookies) {
+		if (client && client.url?.includes(prefix)) {
 			const promise = swtarget.dispatch(client, {
 				scramjet$type: "cookie",
 				cookie,
 				url: url.href,
 			});
 			if (destination !== "document" && destination !== "iframe") {
-				await promise;
+				await Promise.race([
+					promise,
+					new Promise((resolve) => setTimeout(resolve, 1500)),
+				]);
 			}
 		}
 	}
 
-	await cookieStore.setCookies(
-		maybeHeaders instanceof Array ? maybeHeaders : [maybeHeaders],
-		url
-	);
+	if (setCookies.length) {
+		await cookieStore.setCookies(setCookies, url);
+	}
 
 	for (const header in responseHeaders) {
 		if (Array.isArray(responseHeaders[header]))
