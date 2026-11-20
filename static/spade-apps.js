@@ -163,7 +163,7 @@
 							<i class="fa-solid fa-network-wired text-sky-400"></i>
 						</div>
 						<div class="text-xl font-bold font-mono tabular-nums text-white">${(osInstance && osInstance.pingMs) ? osInstance.pingMs : 12}ms</div>
-						<span class="text-[10px] text-emerald-400 font-semibold truncate">BareMux Transport OK</span>
+						<span class="text-[10px] text-emerald-400 font-semibold truncate">Wisp Transport OK</span>
 					</div>
 				</div>
 
@@ -330,7 +330,7 @@
 						"   ___) |  __/ ___ \\| |_| | |__| |_| |___) |",
 						"  |____/|_| /_/   \\_\\____/|_____\\___/|____/ ",
 						"  OS: SpadeOS (v0.9.1)",
-						"  Host: WebAssembly & BareMux Worker Core",
+						"  Host: WebAssembly & Scramjet Controller Core",
 						"  Kernel: Linux x86_64 Sandboxed",
 						"  Uptime: Active Web Session",
 						"  Resolution: " + window.innerWidth + "x" + window.innerHeight,
@@ -382,7 +382,7 @@
 					historyLines.push({ type: "error", text: `Process #${args[0]} not found. Run 'ps' to list running processes.` });
 				}
 			} else if (cmd === "ping") {
-				historyLines.push({ type: "sys", text: `PING /baremux/worker.js: 64 bytes, latency = ${(osInstance && osInstance.pingMs) ? osInstance.pingMs : 12}ms` });
+				historyLines.push({ type: "sys", text: `PING /controller/controller.sw.js: 64 bytes, latency = ${(osInstance && osInstance.pingMs) ? osInstance.pingMs : 12}ms` });
 			} else if (cmd === "date") {
 				historyLines.push({ type: "sys", text: new Date().toString() });
 			} else if (cmd === "whoami") {
@@ -1445,7 +1445,7 @@
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Web Engine</span>
-									<span class="font-semibold text-indigo-400">Scramjet Service Worker + BareMux</span>
+									<span class="font-semibold text-indigo-400">Scramjet 2.x Controller</span>
 								</div>
 								<div class="py-2.5 flex items-center justify-between">
 									<span class="text-neutral-400">Transport Layer</span>

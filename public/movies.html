@@ -11,8 +11,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="/safe-postmessage.js"></script>
-    <script src="/baremux/index.js"></script>
-    <script src="/scram/scramjet.all.js"></script>
+    <script src="/scramjet/scramjet.js"></script>
+		<script src="/controller/controller.api.js"></script>
+		<script src="/host/host.js"></script>
+		<script src="/scram-host.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -1253,35 +1255,11 @@
         let localScramjet = null;
         async function initLocalScramjet() {
             try {
-                if ("serviceWorker" in navigator) {
-                    await navigator.serviceWorker.register("./sw.js");
-                }
-                if (window.BareMux) {
-                    const conn = new BareMux.BareMuxConnection("/baremux/worker.js");
-                    await conn.setTransport("/baremod/index.mjs", [{ wisp: WISP_URL }]);
-                }
-                if (window.$scramjetLoadController) {
-                    const { ScramjetController } = window.$scramjetLoadController();
-                    localScramjet = new ScramjetController({
-                        files: {
-                            wasm: "/scram/scramjet.wasm.wasm",
-                            all: "/scram/scramjet.all.js",
-                            sync: "/scram/scramjet.sync.js"
-                        },
-                        flags: {
-                            rewriterLogs: false,
-                            scramitize: false,
-                            cleanErrors: true,
-                            sourcemaps: false
-                        }
+                if (window.ScramjetHost) {
+                    localScramjet = await window.ScramjetHost.boot({
+                        transport: "/epoxy/index.mjs",
+                        wisp: WISP_URL
                     });
-                    await localScramjet.init();
-                    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({
-                            scramjet$type: "loadConfig",
-                            config: localScramjet.config,
-                        });
-                    }
                 }
             } catch (err) {
                 console.warn("Proxy initialization note:", err);
@@ -1304,9 +1282,6 @@
                 if (window.top && typeof window.top.encodeProxyUrl === "function") {
                     return window.top.encodeProxyUrl(targetUrl);
                 }
-                if (window.$scramjet && typeof window.$scramjet.encodeUrl === "function") {
-                    return window.$scramjet.encodeUrl(targetUrl);
-                }
                 if (localScramjet && typeof localScramjet.encodeUrl === "function") {
                     return localScramjet.encodeUrl(targetUrl);
                 }
@@ -1314,14 +1289,7 @@
                 console.warn("Parent proxy access note:", e);
             }
 
-            try {
-                const u = new URL(targetUrl, window.location.href);
-                const hash = u.hash ? "#" + encodeURIComponent(u.hash.slice(1)) : "";
-                u.hash = "";
-                return "/scramjet/" + encodeURIComponent(u.href) + hash;
-            } catch (err) {
-                return "/scramjet/" + encodeURIComponent(targetUrl);
-            }
+            return targetUrl;
         }
 
         $("#splash").textContent = splashes[Math.floor(Math.random() * splashes.length)];
@@ -1937,10 +1905,10 @@
 
                     <div>
                         <div class="settings-section-title">Stream Routing Engine</div>
-                        <p style="font-size:12px; color:var(--text-2); margin: 4px 0 12px;">Scramjet ServiceWorker & BareMux transport status</p>
+                        <p style="font-size:12px; color:var(--text-2); margin: 4px 0 12px;">Scramjet controller & transport status</p>
                         <div class="watch-controls-bar">
                             <div style="font-size:13px; color:var(--bright-text);">
-                                <strong>Active Engine:</strong> Scramjet ServiceWorker + BareMux
+                                <strong>Active Engine:</strong> Scramjet 2.x controller + Epoxy/libcurl
                             </div>
                             <span class="proxy-status-pill"><span class="dot"></span> Online</span>
                         </div>

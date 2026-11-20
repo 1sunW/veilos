@@ -21,7 +21,7 @@ export default [
 			files: ["**/*.ts"],
 		})),
 	{
-		ignores: ["dist", "rewriter"],
+		ignores: ["dist", "public"],
 	},
 	{
 		files: ["**/*.ts"],

@@ -9,8 +9,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="/safe-postmessage.js"></script>
     <script src="/tailwindcss.js"></script>
-    <script src="/baremux/index.js"></script>
-    <script src="/scram/scramjet.all.js"></script>
+    <script src="/scramjet/scramjet.js"></script>
+		<script src="/controller/controller.api.js"></script>
+		<script src="/host/host.js"></script>
+		<script src="/scram-host.js"></script>
 
     <script type="module" src="/data.js"></script>
 
@@ -360,6 +362,27 @@
             };
         }
 
+        // Proxied URLs now carry a per-controller prefix, so they must be produced by a live
+        // controller: prefer the shell's (same-origin parent), else this page's own.
+        function encodeForProxy(targetUrl) {
+            try {
+                if (window.parent && window.parent !== window && typeof window.parent.encodeProxyUrl === 'function') {
+                    return window.parent.encodeProxyUrl(targetUrl);
+                }
+            } catch (e) {}
+            try {
+                if (window.ScramjetHost && window.ScramjetHost.current) {
+                    return window.ScramjetHost.current.encodeUrl(targetUrl);
+                }
+            } catch (e) {
+                console.warn('[Vault] Proxy encode failed:', e);
+            }
+            return targetUrl;
+        }
+        if (window.ScramjetHost) {
+            window.ScramjetHost.boot().catch((err) => console.warn('[Vault] Scramjet unavailable:', err));
+        }
+
         function getDriveEmbedUrl(url, mode) {
             if (!url) return '';
             let targetUrl = url;
@@ -377,7 +400,7 @@
             }
 
             if (mode === 'scramjet') {
-                return '/scramjet/' + encodeURIComponent(targetUrl);
+                return encodeForProxy(targetUrl);
             }
 
             return targetUrl;
@@ -671,7 +694,7 @@
         };
         document.getElementById('launchProxyBtn').onclick = () => {
             if (currentActiveUrl) {
-                window.open('/scramjet/' + encodeURIComponent(currentActiveUrl), '_blank');
+                window.open(encodeForProxy(currentActiveUrl), '_blank');
             }
         };
 

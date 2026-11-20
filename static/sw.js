@@ -7,13 +7,9 @@ if (navigator.userAgent.includes("Firefox")) {
 }
 
 importScripts("/safe-postmessage.js");
-importScripts("/scram/scramjet.all.js");
-const loadWorker = self.$scramjetLoadWorker || globalThis.$scramjetLoadWorker || (typeof $scramjetLoadWorker !== "undefined" ? $scramjetLoadWorker : null);
-if (!loadWorker) {
-	throw new Error("Scramjet worker loader ($scramjetLoadWorker) is not defined.");
-}
-const { ScramjetServiceWorker } = loadWorker();
-const scramjet = new ScramjetServiceWorker();
+// Scramjet 2.x: the controller's service worker script registers the RPC
+// plumbing and exposes $scramjetController.shouldRoute() / route().
+importScripts("/controller/controller.sw.js");
 
 self.addEventListener("install", () => {
 	self.skipWaiting();
@@ -287,11 +283,10 @@ async function handleRequest(event) {
 		const cleanPath = pathname.replace(/^\//, "");
 
 		const isInternalPath =
-			pathname.startsWith("/scram/") ||
-			pathname.startsWith("/baremux/") ||
-			pathname.startsWith("/epoxy/") ||
-			pathname.startsWith("/libcurl/") ||
-			pathname.startsWith("/baremod/") ||
+			pathname.startsWith("/scramjet/") ||
+			pathname.startsWith("/controller/") ||
+			pathname.startsWith("/host/") ||
+			pathname.startsWith("/~/sj/") ||
 			pathname.startsWith("/assets/") ||
 			pathname.startsWith("/bare/") ||
 			pathname.startsWith("/wisp/") ||
@@ -314,9 +309,8 @@ async function handleRequest(event) {
 			}
 		}
 
-		await scramjet.loadConfig();
-		if (scramjet.route(event)) {
-			return await scramjet.fetch(event);
+		if ($scramjetController.shouldRoute(event)) {
+			return await $scramjetController.route(event);
 		}
 	} catch (e) {
 		console.error("SW handleRequest error:", e);
@@ -327,101 +321,4 @@ async function handleRequest(event) {
 
 self.addEventListener("fetch", (event) => {
 	event.respondWith(handleRequest(event));
-});
-
-let playgroundData;
-self.addEventListener("message", ({ data }) => {
-	if (data.type === "playgroundData") {
-		playgroundData = data;
-	}
-});
-
-scramjet.addEventListener("request", (e) => {
-	if (e.url && (e.url.protocol === "chrome-extension:" || (e.url.pathname && e.url.pathname.startsWith(SAPPHIRE_PREFIX)))) {
-		e.response = (async () => {
-			let extId = "";
-			let filePath = "";
-			if (e.url.protocol === "chrome-extension:") {
-				extId = e.url.hostname;
-				filePath = decodeURIComponent(e.url.pathname.replace(/^\//, ""));
-			} else {
-				const rest = e.url.pathname.slice(SAPPHIRE_PREFIX.length);
-				const slash = rest.indexOf("/");
-				if (slash !== -1) {
-					extId = rest.slice(0, slash);
-					filePath = decodeURIComponent(rest.slice(slash + 1));
-				}
-			}
-			if (extId && filePath) {
-				const bytes = await getExtensionFile(extId, filePath);
-				if (bytes) {
-					const mime = guessMime(filePath);
-					const headers = { "content-type": mime };
-					const resp = new Response(bytes, { status: 200, headers });
-					resp.rawHeaders = headers;
-					resp.rawResponse = {
-						body: bytes,
-						headers: headers,
-						status: 200,
-						statusText: "OK",
-					};
-					resp.finalURL = e.url.toString();
-					return resp;
-				}
-			}
-			const resp = await handleSapphireRequest(e.url);
-			if (resp) {
-				const headers = {};
-				resp.headers.forEach((val, key) => {
-					headers[key] = val;
-				});
-				resp.rawHeaders = headers;
-				resp.rawResponse = {
-					body: resp.body,
-					headers: headers,
-					status: resp.status,
-					statusText: resp.statusText,
-				};
-				resp.finalURL = e.url.toString();
-				return resp;
-			}
-			return new Response("Extension resource not found", { status: 404 });
-		})();
-		return;
-	}
-
-	if (playgroundData && e.url.href.startsWith(playgroundData.origin)) {
-		const headers = {};
-		const origin = playgroundData.origin;
-		if (e.url.href === origin + "/") {
-			headers["content-type"] = "text/html";
-			e.response = new Response(playgroundData.html, {
-				headers,
-			});
-		} else if (e.url.href === origin + "/style.css") {
-			headers["content-type"] = "text/css";
-			e.response = new Response(playgroundData.css, {
-				headers,
-			});
-		} else if (e.url.href === origin + "/script.js") {
-			headers["content-type"] = "application/javascript";
-			e.response = new Response(playgroundData.js, {
-				headers,
-			});
-		} else {
-			e.response = new Response("empty response", {
-				headers,
-			});
-		}
-		e.response.rawHeaders = headers;
-		e.response.rawResponse = {
-			body: e.response.body,
-			headers: headers,
-			status: e.response.status,
-			statusText: e.response.statusText,
-		};
-		e.response.finalURL = e.url.toString();
-	} else {
-		return;
-	}
 });

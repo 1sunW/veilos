@@ -4,12 +4,7 @@ import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import ts from "typescript";
 
-import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
-import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
-import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
-import { bareModulePath } from "@mercuryworkshop/bare-as-module3";
 
-import { patchAll } from "./patch-baremux.mjs";
 import { patchSapphire } from "./patch-sapphire.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -18,14 +13,17 @@ const outDir = join(root, process.env.OUTPUT_DIR || "public");
 
 patchSapphire();
 
-const distBundle = join(root, "dist", "scramjet.all.js");
-if (!existsSync(distBundle)) {
-	console.log("Compiling Scramjet bundle via Rspack...");
-	try {
-		execSync("npx rspack build", { cwd: root, stdio: "inherit" });
-	} catch (e) {
-		console.error("Failed to compile Scramjet bundle:", e);
-	}
+// Bundle the host glue (transports, Sapphire, CRX helpers) into <out>/host/host.js.
+console.log("Building host bundle via Rspack...");
+try {
+	execSync("npx rspack build", {
+		cwd: root,
+		stdio: "inherit",
+		env: { ...process.env, OUTPUT_DIR: process.env.OUTPUT_DIR || "public" },
+	});
+} catch (e) {
+	console.error("Failed to build host bundle:", e);
+	process.exitCode = 1;
 }
 
 console.log(`Copying static client runtime assets to ${outDir}...`);
@@ -66,41 +64,15 @@ if (existsSync(join(root, "onyx-chat"))) {
 	}
 }
 
-copyDir(join(root, "dist"), join(outDir, "scram"));
-
-const scramjetWasmSrc = [
-	join(root, "node_modules", "@mercuryworkshop", "scramjet", "dist", "scramjet.wasm"),
-	join(root, "public", "scramjet.wasm.wasm"),
-	join(root, "public", "scram", "scramjet.wasm.wasm"),
-].find((p) => existsSync(p));
-if (scramjetWasmSrc) {
-	try {
-		mkdirSync(join(root, "dist"), { recursive: true });
-		mkdirSync(join(outDir, "scram"), { recursive: true });
-		for (const dest of [
-			join(root, "dist", "scramjet.wasm.wasm"),
-			join(root, "dist", "scramjet.wasm"),
-			join(outDir, "scram", "scramjet.wasm.wasm"),
-			join(outDir, "scram", "scramjet.wasm"),
-			join(outDir, "scramjet.wasm.wasm"),
-			join(outDir, "scramjet.wasm"),
-		]) {
-			if (dest !== scramjetWasmSrc) {
-				cpSync(scramjetWasmSrc, dest);
-			}
-		}
-		console.log("  ✓ Copied scramjet wasm assets");
-	} catch (e) {
-		console.warn("  ! Warning: Failed to copy scramjet wasm:", e);
-	}
-}
+// Scramjet core and controller ship prebuilt IIFE bundles, the wasm rewriter
+// and the controller service worker script. Copy them as-is; the page loads
+// /scramjet/scramjet.js and /controller/controller.api.js as plain scripts and
+// sw.js does importScripts("/controller/controller.sw.js").
+const pkgDist = (name) => join(root, "node_modules", ...name.split("/"), "dist");
+copyDir(pkgDist("@mercuryworkshop/scramjet"), join(outDir, "scramjet"));
+copyDir(pkgDist("@mercuryworkshop/scramjet-controller"), join(outDir, "controller"));
 
 copyDir(join(root, "assets"), join(outDir, "assets"));
-
-copyDir(baremuxPath, join(outDir, "baremux"));
-copyDir(epoxyPath, join(outDir, "epoxy"));
-copyDir(libcurlPath, join(outDir, "libcurl"));
-bareModulePath && copyDir(bareModulePath, join(outDir, "baremod"));
 
 const dataTsPath = existsSync(join(root, "data.tsx"))
 	? join(root, "data.tsx")
@@ -128,6 +100,5 @@ if (dataTsPath) {
 	}
 }
 
-patchAll();
 
 console.log("Static asset copying complete!");

@@ -44,7 +44,7 @@ An easy to deploy version of Scramjet can be found at [Scramjet-App](https://git
 
 - Clone the repository with `git clone --recursive https://github.com/MercuryWorkshop/scramjet`
 - Install the dependencies with `pnpm i`
-- Build the rewriter with `pnpm rewriter:build`
+- Run `bun run build` (copies Scramjet + the controller out of node_modules and bundles `host/`)
 - Build Scramjet with `pnpm build`
 
 ### Running Scramjet Locally

@@ -1,230 +1,44 @@
 import { defineConfig } from "@rspack/cli";
-import { rspack } from "@rspack/core";
-import { RsdoctorRspackPlugin } from "@rsdoctor/rspack-plugin";
-import { TsCheckerRspackPlugin } from "ts-checker-rspack-plugin";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { readFile } from "node:fs/promises";
-import { execSync } from "node:child_process";
-import { join } from "path";
-import { fileURLToPath } from "url";
-import { readFileSync } from "node:fs";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const packagemeta = JSON.parse(await readFile("package.json"));
+const outDir = join(__dirname, process.env.OUTPUT_DIR || "public", "host");
 
-const iifeConfig = defineConfig({
-	mode: "development",
+// Bundles only the SpadeOS host glue (transports, Sapphire, CRX helpers).
+// Scramjet core + controller are NOT bundled here: they are copied verbatim
+// from their npm packages by scripts/copy-assets.mjs and loaded as globals.
+export default defineConfig({
+	mode: process.env.NODE_ENV === "production" ? "production" : "development",
 	devtool: "source-map",
 	entry: {
-		all: join(__dirname, "src/entry.ts"),
-		sync: join(__dirname, "src/sync.ts"),
+		host: join(__dirname, "host/entry.ts"),
 	},
 	resolve: {
 		extensions: [".ts", ".js"],
-		alias: {
-			"@mercuryworkshop/scramjet-controller": join(__dirname, "src/controller/shim.ts"),
-			"@rewriters": join(__dirname, "src/shared/rewriters"),
-			"@client": join(__dirname, "src/client"),
-			"@": join(__dirname, "src"),
-		},
 	},
 	module: {
 		rules: [
 			{
 				test: /\.ts$/,
 				loader: "builtin:swc-loader",
-				exclude: ["/node_modules/"],
+				exclude: [/node_modules\/(?!@x8r\/sapphire)/],
 				options: {
 					jsc: {
-						parser: {
-							syntax: "typescript",
-						},
+						parser: { syntax: "typescript" },
 						target: "es2022",
-					},
-					module: {
-						type: "es6",
-						strict: false,
-						strictMode: false,
 					},
 				},
 				type: "javascript/auto",
 			},
 		],
-		parser: {
-			javascript: {
-				overrideStrict: "non-strict",
-				dynamicImportMode: "eager",
-			},
-		},
 	},
 	output: {
-		filename: "scramjet.[name].js",
-		path: join(__dirname, "dist"),
-		libraryTarget: "global",
+		filename: "[name].js",
+		path: outDir,
 		iife: true,
+		clean: true,
 	},
-	plugins: [
-		new TsCheckerRspackPlugin({
-			issue: {
-				exclude: [{ file: "**/node_modules/**" }],
-			},
-		}),
-		new rspack.ProvidePlugin({
-			dbg: [join(__dirname, "src/log.ts"), "default"],
-		}),
-		new rspack.DefinePlugin({
-			VERSION: JSON.stringify(packagemeta.version),
-		}),
-		new rspack.DefinePlugin({
-			REWRITERWASM: "undefined",
-		}),
-		new rspack.DefinePlugin({
-			COMMITHASH: (() => {
-				try {
-					const hash = JSON.stringify(
-						execSync("git rev-parse --short HEAD", {
-							encoding: "utf-8",
-							stdio: ["ignore", "pipe", "ignore"],
-						}).replace(/\r?\n|\r/g, "")
-					);
-
-					return hash;
-				} catch {
-					return JSON.stringify("unknown");
-				}
-			})(),
-		}),
-		process.env.DEBUG
-			? new RsdoctorRspackPlugin({
-					supports: {
-						parseBundle: true,
-						banner: true,
-					},
-				})
-			: null,
-	],
-	target: "webworker",
-	ignoreWarnings: [
-		{
-			module: /src\/entry\.ts/,
-			message:
-				/Critical dependency: the request of a dependency is an expression/,
-		},
-	],
+	target: "web",
+	performance: { hints: false },
 });
-
-const moduleConfig = defineConfig({
-	mode: "development",
-	devtool: "source-map",
-	entry: {
-		bundle: join(__dirname, "src/index.ts"),
-	},
-	resolve: {
-		extensions: [".ts", ".js"],
-		alias: {
-			"@mercuryworkshop/scramjet-controller": join(__dirname, "src/controller/shim.ts"),
-			"@rewriters": join(__dirname, "src/shared/rewriters"),
-			"@client": join(__dirname, "src/client"),
-			"@": join(__dirname, "src"),
-		},
-	},
-	module: {
-		rules: [
-			{
-				test: /\.ts$/,
-				loader: "builtin:swc-loader",
-				exclude: ["/node_modules/"],
-				options: {
-					jsc: {
-						parser: {
-							syntax: "typescript",
-						},
-						target: "es2022",
-					},
-					module: {
-						type: "es6",
-						strict: false,
-						strictMode: false,
-					},
-				},
-				type: "javascript/auto",
-			},
-		],
-		parser: {
-			javascript: {
-				overrideStrict: "non-strict",
-				dynamicImportMode: "eager",
-			},
-		},
-	},
-	output: {
-		filename: "scramjet.[name].js",
-		path: join(__dirname, "dist"),
-		libraryTarget: "module",
-		iife: false,
-	},
-	performance: {
-		hints: false,
-	},
-	plugins: [
-		new TsCheckerRspackPlugin({
-			issue: {
-				exclude: [{ file: "**/node_modules/**" }],
-			},
-		}),
-		new rspack.ProvidePlugin({
-			dbg: [join(__dirname, "src/log.ts"), "default"],
-		}),
-		new rspack.DefinePlugin({
-			VERSION: JSON.stringify(packagemeta.version),
-		}),
-		new rspack.DefinePlugin({
-			REWRITERWASM: (() => {
-				try {
-					const wasmPath = join(__dirname, "dist/scramjet.wasm.wasm");
-					const wasmBuf = readFileSync(wasmPath);
-					const wasmB64 = wasmBuf.toString("base64");
-					return JSON.stringify(wasmB64);
-				} catch {
-					return "undefined";
-				}
-			})(),
-		}),
-		new rspack.DefinePlugin({
-			COMMITHASH: (() => {
-				try {
-					const hash = JSON.stringify(
-						execSync("git rev-parse --short HEAD", {
-							encoding: "utf-8",
-							stdio: ["ignore", "pipe", "ignore"],
-						}).replace(/\r?\n|\r/g, "")
-					);
-
-					return hash;
-				} catch {
-					return JSON.stringify("unknown");
-				}
-			})(),
-		}),
-		process.env.DEBUG
-			? new RsdoctorRspackPlugin({
-					supports: {
-						parseBundle: true,
-						banner: true,
-					},
-				})
-			: null,
-	],
-	target: "webworker",
-	experiments: {
-		outputModule: true,
-	},
-	ignoreWarnings: [
-		{
-			module: /src\/entry\.ts/,
-			message:
-				/Critical dependency: the request of a dependency is an expression/,
-		},
-	],
-});
-
-export default [iifeConfig, moduleConfig];

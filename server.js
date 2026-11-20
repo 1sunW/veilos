@@ -10,10 +10,6 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 
-import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
-import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
-import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
-import { bareModulePath } from "@mercuryworkshop/bare-as-module3";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { execSync } from "node:child_process";
 import { GoogleGenAI } from "@google/genai";
@@ -79,33 +75,8 @@ fastify.register(fastifyStatic, {
 	decorateReply: false,
 });
 fastify.register(fastifyStatic, {
-	root: join(fileURLToPath(new URL(".", import.meta.url)), "./dist"),
-	prefix: "/scram/",
-	decorateReply: false,
-});
-fastify.register(fastifyStatic, {
 	root: join(fileURLToPath(new URL(".", import.meta.url)), "./assets"),
 	prefix: "/assets/",
-	decorateReply: false,
-});
-fastify.register(fastifyStatic, {
-	root: baremuxPath,
-	prefix: "/baremux/",
-	decorateReply: false,
-});
-fastify.register(fastifyStatic, {
-	root: epoxyPath,
-	prefix: "/epoxy/",
-	decorateReply: false,
-});
-fastify.register(fastifyStatic, {
-	root: libcurlPath,
-	prefix: "/libcurl/",
-	decorateReply: false,
-});
-fastify.register(fastifyStatic, {
-	root: bareModulePath,
-	prefix: "/baremod/",
 	decorateReply: false,
 });
 

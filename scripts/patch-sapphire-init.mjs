@@ -3,7 +3,7 @@ import path from "node:path";
 
 const FIND = /String\(\s*init\.client\.url\s*\)/;
 const REPLACE = 'String(init.client?.url ?? init.window?.location?.href ?? "")';
-const targets = ["node_modules/@x8r/sapphire", "dist", "public/scram"];
+const targets = ["node_modules/@x8r/sapphire", "public/host"];
 
 function* files(dir) {
   if (!fs.existsSync(dir)) return;

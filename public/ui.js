@@ -89,8 +89,6 @@ if (!store) {
 	if (typeof self !== "undefined") self.store = store;
 }
 
-let connection;
-
 window.openSettingsModal = () => {
 	const cfg = document.querySelector("dialog.cfg");
 	if (cfg) {
@@ -224,30 +222,18 @@ const resolveWispUrl = async (preferredWisp, { forceProbe = false } = {}) => {
 	return normalizedRaw;
 };
 
-const getEffectiveBareUrl = () => {
-	if (typeof location !== "undefined" && location.host) {
-		return location.origin + "/bare/";
-	}
-	return "/bare/";
-};
-
-const applyTransport = async (transport, wispurl, bareurl) => {
-	if (!connection) return;
+const applyTransport = async (transport, wispurl) => {
+	const host = window.ScramjetHost && window.ScramjetHost.current;
+	if (!host) return;
 	try {
-		if (transport === "/baremod/index.mjs") {
-			const bUrl = bareurl || (typeof store !== "undefined" && store.bareurl) || getEffectiveBareUrl();
-			await connection.setTransport("/baremod/index.mjs", [bUrl]);
-		} else {
-			const targetWisp = await resolveWispUrl(wispurl);
-			await connection.setTransport(transport || "/epoxy/index.mjs", [{ wisp: targetWisp }]);
-		}
+		const targetWisp = await resolveWispUrl(wispurl);
+		await host.setTransport(transport || "/epoxy/index.mjs", targetWisp);
 	} catch (err) {
-		console.warn("Failed to set transport " + transport + ", falling back to Bare 3:", err);
+		console.warn("Failed to set transport " + transport + ", falling back to libcurl:", err);
 		try {
-			const fallbackBare = bareurl || (typeof store !== "undefined" && store.bareurl) || getEffectiveBareUrl();
-			await connection.setTransport("/baremod/index.mjs", [fallbackBare]);
+			await host.setTransport("/libcurl/index.mjs", await resolveWispUrl(wispurl));
 			if (typeof store !== "undefined") {
-				store.transport = "/baremod/index.mjs";
+				store.transport = "/libcurl/index.mjs";
 			}
 		} catch (fallbackErr) {
 			console.error("Fallback transport also failed:", fallbackErr);
@@ -256,24 +242,24 @@ const applyTransport = async (transport, wispurl, bareurl) => {
 };
 
 const reconnectWispTransport = async (overrideWisp) => {
-	if (!connection) return false;
+	const host = window.ScramjetHost && window.ScramjetHost.current;
+	if (!host) return false;
 	const targetWisp = overrideWisp
 		? ensureTrailingSlash(overrideWisp)
 		: await resolveWispUrl(typeof store !== "undefined" ? store.wispurl : null, { forceProbe: true });
 	try {
 		console.log("[Wisp] Reconnecting transport with target:", targetWisp);
-		await connection.setTransport("/epoxy/index.mjs", [{ wisp: targetWisp }]);
+		await host.setTransport("/epoxy/index.mjs", targetWisp);
 		if (typeof store !== "undefined") {
 			store.transport = "/epoxy/index.mjs";
 		}
 		return true;
 	} catch (err) {
-		console.warn("[Wisp] Reconnection failed, falling back to Bare:", err);
+		console.warn("[Wisp] Reconnection failed, falling back to libcurl:", err);
 		try {
-			const fallbackBare = (typeof store !== "undefined" && store.bareurl) || getEffectiveBareUrl();
-			await connection.setTransport("/baremod/index.mjs", [fallbackBare]);
+			await host.setTransport("/libcurl/index.mjs", targetWisp);
 			if (typeof store !== "undefined") {
-				store.transport = "/baremod/index.mjs";
+				store.transport = "/libcurl/index.mjs";
 			}
 			return true;
 		} catch (fallbackErr) {
@@ -700,85 +686,29 @@ function Config() {
 }
 
 window.addEventListener("load", async () => {
-	let loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
-	let ScramjetController = loadController ? (loadController().ScramjetController || loadController().Controller) : (window.$scramjetController?.Controller || window.$scramjetController?.ScramjetController);
-	if (!ScramjetController) {
-		for (let i = 0; i < 50; i++) {
-			await new Promise((r) => setTimeout(r, 100));
-			loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
-			ScramjetController = loadController ? (loadController().ScramjetController || loadController().Controller) : (window.$scramjetController?.Controller || window.$scramjetController?.ScramjetController);
-			if (ScramjetController) break;
-		}
-	}
-	if (!ScramjetController) {
-		console.error("Scramjet controller loader ($scramjetLoadController) is not defined.");
+	if (!window.ScramjetHost) {
+		console.error("ScramjetHost is not defined. Include /scram-host.js after /host/host.js.");
 		return;
 	}
 
-	const scramjet = new ScramjetController({
-		files: {
-			wasm: "/scram/scramjet.wasm.wasm",
-			all: "/scram/scramjet.all.js",
-			sync: "/scram/scramjet.sync.js",
-		},
-		flags: {
-			rewriterLogs: false,
-			scramitize: false,
-			cleanErrors: true,
-			sourcemaps: true,
-		},
-	});
+	let scramjet;
+	try {
+		scramjet = await window.ScramjetHost.boot({
+			transport: store.transport,
+			wisp: await resolveWispUrl(store.wispurl),
+		});
+	} catch (err) {
+		console.error("[Scramjet] Failed to start:", err);
+		return;
+	}
 
-	window.__scramjetController = scramjet;
-	if (window.sapphire) window.sapphire.attachController(scramjet);
-
-	await scramjet.init();
-	window.$scramjet = scramjet;
-	window.scramjet = scramjet;
-	window.encodeProxyUrl = (url) => {
-		try {
-			return scramjet.encodeUrl(url);
-		} catch (e) {
-			return "/scramjet/" + encodeURIComponent(url);
-		}
-	};
-	if ("serviceWorker" in navigator) {
-		try {
-			const reg = await navigator.serviceWorker.register("./sw.js", { scope: "/" });
-			const sw = reg.active || reg.installing || reg.waiting;
-			if (sw) {
-				sw.postMessage({
-					scramjet$type: "loadConfig",
-					config: scramjet.config,
-				});
-			}
-			navigator.serviceWorker.addEventListener("controllerchange", () => {
-				if (navigator.serviceWorker.controller) {
-					navigator.serviceWorker.controller.postMessage({
-						scramjet$type: "loadConfig",
-						config: scramjet.config,
-					});
-				}
-			});
-			navigator.serviceWorker.ready.then((readyReg) => {
-				if (readyReg.active) {
-					readyReg.active.postMessage({
-						scramjet$type: "loadConfig",
-						config: scramjet.config,
-					});
-				}
-			});
-		} catch (swErr) {
-			console.warn("[Scramjet] SW registration issue:", swErr);
-		}
+	if (window.sapphire && typeof window.sapphire.attachController === "function") {
+		window.sapphire.attachController(scramjet.controller);
 	}
 
 	window.ensureSapphire = async function () {
 		return null;
 	};
-
-	connection = new BareMux.BareMuxConnection("/baremux/worker.js");
-	await applyTransport(store.transport || "/baremod/index.mjs", store.wispurl, store.bareurl);
 
 	const LOCKSCREEN_QUOTES = [
 		{
@@ -4291,7 +4221,7 @@ window.addEventListener("load", async () => {
 						</button>
 						<button class="retry-bare-btn py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-neutral-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
 							<i class="fa-solid fa-shield"></i>
-							<span>Bare Fallback</span>
+							<span>Try libcurl</span>
 						</button>
 					</div>
 				</div>
@@ -4317,7 +4247,7 @@ window.addEventListener("load", async () => {
 					bareBtn.disabled = true;
 					bareBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>Switching...</span>`;
 					if (window.applyTransport) {
-						await window.applyTransport("/baremod/index.mjs");
+						await window.applyTransport("/libcurl/index.mjs");
 					}
 					tabObj.errorEl.style.display = "none";
 					if (tabObj.frameObj && tabObj.frameObj.frame) {

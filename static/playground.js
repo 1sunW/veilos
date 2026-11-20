@@ -8,33 +8,6 @@ function gtag(){window.dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', 'G-0LH2MR13BF');
 
-const loadController = window.$scramjetLoadController || globalThis.$scramjetLoadController || (typeof $scramjetLoadController !== "undefined" ? $scramjetLoadController : null);
-if (!loadController) {
-	throw new Error("Scramjet controller loader ($scramjetLoadController) is not defined.");
-}
-const { ScramjetController } = loadController();
-const scramjet = new ScramjetController({
-	files: {
-		wasm: "/scram/scramjet.wasm.wasm",
-		all: "/scram/scramjet.all.js",
-		sync: "/scram/scramjet.sync.js",
-	},
-});
-
-(async () => {
-	await scramjet.init();
-	if ("serviceWorker" in navigator) {
-		await navigator.serviceWorker.register("./sw.js");
-		if (navigator.serviceWorker.controller) {
-			navigator.serviceWorker.controller.postMessage({
-				scramjet$type: "loadConfig",
-				config: scramjet.config,
-			});
-		}
-	}
-})();
-
-const connection = new BareMux.BareMuxConnection("/baremux/worker.js");
 var store = (typeof window !== "undefined" && window.store) ||
 	(typeof self !== "undefined" && self.store) ||
 	(typeof store !== "undefined" ? store : { transport: "/epoxy/index.mjs", wispurl: (typeof WISP_URL !== "undefined" ? WISP_URL : ((typeof window !== "undefined" && window.WISP_URL) || "wss://fern.best/wisp/")), bareurl: "https://fern.best/bare/" });
@@ -45,7 +18,45 @@ const col = css`
 	flex-direction: column;
 `;
 
-connection.setTransport(store.transport, [{ wisp: store.wispurl || (typeof WISP_URL !== "undefined" ? WISP_URL : ((typeof window !== "undefined" && window.WISP_URL) || "wss://fern.best/wisp/")) }]);
+const scramjetReady = window.ScramjetHost
+	? window.ScramjetHost.boot({ transport: store.transport, wisp: store.wispurl })
+	: Promise.reject(new Error("ScramjetHost is not defined. Include /scram-host.js."));
+
+// Serves the editor's HTML/CSS/JS for the fake origin. In Scramjet 2.x requests are handled
+// page-side, so this is a controller plugin rather than a service worker "request" event.
+class PlaygroundPlugin extends $scramjetController.ManagedPlugin {
+	constructor(getData) {
+		super("playground", []);
+		this.getData = getData;
+	}
+	install(frame) {
+		super.install(frame);
+		this.tap(frame.hooks.fetch.intercept, (context, props) => {
+			const data = this.getData();
+			if (!data) return;
+			const href = context.parsed.url.href;
+			if (!href.startsWith(data.origin)) return;
+			let body = "empty response";
+			let type = null;
+			if (href === data.origin + "/") {
+				body = data.html;
+				type = "text/html";
+			} else if (href === data.origin + "/style.css") {
+				body = data.css;
+				type = "text/css";
+			} else if (href === data.origin + "/script.js") {
+				body = data.js;
+				type = "application/javascript";
+			}
+			props.response = {
+				body,
+				status: 200,
+				statusText: "OK",
+				headers: $scramjet.ScramjetHeaders.fromRawHeaders(type ? [["content-type", type]] : []),
+			};
+		});
+	}
+}
 
 function PlaygroundApp() {
 	this.css = `
@@ -186,15 +197,19 @@ function PlaygroundApp() {
 		});
 
 		const recompile = async () => {
-			(await navigator.serviceWorker.ready).active.postMessage({
-				type: "playgroundData",
+			const host = await scramjetReady;
+			this.playgroundData = {
 				html: html.getValue(),
 				css: css.getValue(),
 				js: js.getValue(),
 				origin: this.fakeorigin,
-			});
-
-			this.frame.src = scramjet.encodeUrl(this.fakeorigin);
+			};
+			if (!this.sjFrame) {
+				this.sjFrame = host.createFrame(this.frame, {
+					plugins: [new PlaygroundPlugin(() => this.playgroundData)],
+				});
+			}
+			this.sjFrame.go(this.fakeorigin);
 		};
 
 		recompile();
