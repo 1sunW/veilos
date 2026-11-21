@@ -45,11 +45,22 @@ copyDir(join(root, "static"), outDir);
 if (existsSync(join(root, "onyx-chat"))) {
 	const onyxDistHtml = join(root, "onyx-chat", "dist", "index.html");
 	if (!existsSync(onyxDistHtml)) {
-		console.log("Compiling Onyx Chat single-file application bundle via Vite...");
-		try {
-			execSync("npx vite build onyx-chat", { cwd: root, stdio: "inherit" });
-		} catch (e) {
-			console.error("Failed to compile Onyx Chat:", e);
+		const prebuilt = existsSync(join(root, "static", "chat.html"))
+			? join(root, "static", "chat.html")
+			: (existsSync(join(root, "static", "onyx-chat", "index.html"))
+				? join(root, "static", "onyx-chat", "index.html")
+				: null);
+		if (prebuilt) {
+			mkdirSync(join(root, "onyx-chat", "dist"), { recursive: true });
+			cpSync(prebuilt, onyxDistHtml);
+			console.log("  ✓ Synchronized prebuilt Onyx Chat bundle to onyx-chat/dist/index.html");
+		} else if (existsSync(join(root, "node_modules", "@tailwindcss", "vite"))) {
+			console.log("Compiling Onyx Chat single-file application bundle via Vite...");
+			try {
+				execSync("npx vite build onyx-chat", { cwd: root, stdio: "inherit" });
+			} catch (e) {
+				console.error("Failed to compile Onyx Chat:", e);
+			}
 		}
 	}
 	copyDir(join(root, "onyx-chat"), join(outDir, "onyx-chat"));

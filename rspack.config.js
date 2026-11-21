@@ -20,6 +20,10 @@ export default defineConfig({
 	module: {
 		rules: [
 			{
+				test: /epoxy-transport/,
+				parser: { url: false },
+			},
+			{
 				test: /\.ts$/,
 				loader: "builtin:swc-loader",
 				exclude: [/node_modules\/(?!@x8r\/sapphire)/],
